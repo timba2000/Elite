@@ -81,7 +81,100 @@ new way to earn.
 - [ ] **2–3 factions** with territory in the system(s); mission choices shift standing;
       hostile factions send hunters after the player
 
-## 7. Quality of life / meta
+## 7. Character progression — levels & skills
+
+The ship gets better with credits; the *pilot* should get better with experience. This
+gives a second progression axis that persists across ship swaps and deaths.
+
+- [ ] **Experience & levels** — earn XP from profitable trades (scaled by margin, not
+      just volume), pirate kills, missions completed, new stations/systems visited, and
+      near-miss escapes. Level curve ~1.4× per level, soft cap around level 30
+- [ ] **Level-up rewards** — each level grants 1 skill point plus a small flat perk
+      (e.g. +1% shield recharge) so even unspent levels feel good
+- [ ] **Skill trees (spend points, pick a build)**:
+      - *Piloting* — tighter turn rate, faster supercruise charge, boost efficiency,
+        interdiction evasion bonus, reduced docking tractor time
+      - *Gunnery* — laser heat management, +damage, faster missile lock, point-defense
+        accuracy, critical hit chance on pirate power plants
+      - *Trade* — better buy/sell spreads (haggling), see price trends without visiting,
+        bulk contract premium bonus, cheaper station services
+      - *Engineering* — cheaper upgrades, field repairs without docking, +cargo scoop
+        range, fuel efficiency, salvage yield bonus
+      - *Leadership* — unlocks and buffs the crew/company systems below: +crew morale,
+        cheaper wages, extra crew slot, company ship AI bonuses
+- [ ] **Skill synergies / capstones** — deep investment in one tree unlocks a signature
+      ability (Piloting: short emergency FSD hop; Trade: one guaranteed premium contract
+      per station; Gunnery: overcharge volley on a cooldown)
+- [ ] **Respec** — buyable at high-tech stations for a credit fee that scales with level,
+      so experimenting is possible but not free
+- [ ] **Skill checks in the world** — locked content that reads the sheet: restricted
+      markets need Trade 5, salvage-guard fields need Gunnery 4, plotting a jump through
+      an unscouted system needs Piloting 6 — makes the numbers visible in play
+- [ ] **XP on the stats screen** — current level, XP bar, and per-source XP breakdown
+
+## 8. Friends, crew & the player's company
+
+NPCs the player meets should be persistent people, not vending machines. Befriend them,
+recruit the best ones, and grow from a lone pilot into a small trading company.
+
+### Meeting people & friendship
+
+- [ ] **Named NPCs at station bars** — each station has a rotating cast of 3–5 named
+      characters (pilots, traders, engineers, drifters) with portraits, personalities,
+      and a specialty stat; talk to them to build rapport
+- [ ] **Friendship via play, not menus** — rapport rises from doing things together or
+      for them: completing their personal missions, trading goods they ask for, rescuing
+      them from a distress beacon, buying a round at the bar (small credit sink)
+- [ ] **Affinity tiers** — Stranger → Acquaintance → Friend → Trusted; each tier unlocks
+      something concrete (rumors about price spikes, discounted repairs, a personal
+      mission chain, finally: the option to recruit them)
+- [ ] **Personal mission chains** — 2–3 step storylines per character (smuggle their
+      brother off Ferrox, recover a stolen ship, clear their bounty) that establish who
+      they are before they ever join you
+- [ ] **Rivals & bad blood** — helping one NPC can sour another (competing smugglers,
+      an ex-partner); not everyone can be your friend on one playthrough
+
+### Crew aboard the player's ship
+
+- [ ] **Crew slots by hull** — light courier 0, mid trader 1, heavy freighter 2, combat
+      interceptor 1; ties crew directly into the buyable-ships feature (§2)
+- [ ] **Crew roles with passive + active effects**:
+      - *Gunner* — mans a turret the player doesn't have to aim
+      - *Navigator* — faster supercruise, shows interdiction warnings earlier
+      - *Quartermaster* — +cargo capacity via smart packing, faster pod scooping
+      - *Engineer* — slow hull/module repair in flight, boost recharge bonus
+      - *Negotiator* — better market spreads while aboard, unlocks haggle dialog
+- [ ] **Wages & morale** — crew take a weekly credit wage or a small profit cut; morale
+      drops from deaths, crimes they disapprove of, and unpaid wages; low morale means
+      worse performance, then quitting (and gossiping — station rep hit)
+- [ ] **Crew XP & loyalty** — crew level up alongside the player; at max loyalty they
+      gain a unique trait (a gunner who never overheats, a navigator who breaks one
+      interdiction per trip for free)
+- [ ] **Crew permadeath choice** — on ship destruction, crew survive if an escape-pod
+      module is fitted, otherwise they're gone; makes the module a real decision
+
+### The player's company
+
+- [ ] **Found a company** — at ~100k credits and Leadership 3, register a named company
+      at any station; company name shows on hull decals and in station comms
+- [ ] **Hire friend NPCs as captains** — Trusted friends can be given a ship the player
+      owns and run as AI pilots: assign them a trade route ("buy machinery at Ferrox,
+      sell at Veridia, repeat") and they generate passive income with per-run reports
+- [ ] **Captain risk model** — AI-run ships can be interdicted too; captain skill (their
+      specialty + loyalty) sets success odds; losses cost the ship, the cargo, and
+      possibly the friend — protect key routes yourself or hire escorts
+- [ ] **Company upgrades** — office at a home station (cheaper storage, mission
+      priority), warehouse (stockpile goods to ride out price swings), broker desk
+      (see live prices at stations where a company ship is docked)
+- [ ] **Company reputation & contracts** — stations offer bulk contracts to the company
+      (bigger than solo contracts); fulfilling them raises company rep and unlocks
+      exclusive freight deals; ties into per-station reputation (§6)
+- [ ] **Wing missions** — invite a friend captain to fly alongside you for a dangerous
+      mission; they fight/haul with you and take a cut
+- [ ] **Company ledger screen** — income per route, wages paid, net worth over time;
+      the endgame dashboard that makes the empire feel real
+
+## 9. Quality of life / meta
 
 - [ ] **Save/load** (localStorage) — required before long-term progression matters
 - [ ] **Stats screen** — credits earned, profit per commodity, pirates killed, distance flown
@@ -94,10 +187,16 @@ new way to earn.
 
 ## Suggested build order
 
-1. **Save/load** — everything else is pointless if progress evaporates (§7)
+1. **Save/load** — everything else is pointless if progress evaporates (§9)
 2. **Mission board + trade contracts** — cheap content multiplier on existing systems (§1, §3)
-3. **Buyable ships + module slots** — the big retention hook; makes credits aspirational (§2)
-4. **Smuggling + police + reputation** — risk/reward texture on the trade loop (§1, §4, §6)
-5. **Second system + hyperspace** — doubles the map and makes fuel matter (§5)
-6. **Mining & salvage** — alternate careers (§3)
-7. **Procedural systems** — endgame scale (§5)
+3. **XP, levels & skill trees** — a progression spine the rest can hang skill checks
+   and Leadership gates on; cheap to add early, expensive to retrofit (§7)
+4. **Buyable ships + module slots** — the big retention hook; makes credits aspirational (§2)
+5. **Named NPCs + friendship + crew** — needs ships with crew slots first; turns
+   stations into places you return to for people, not just prices (§8)
+6. **Smuggling + police + reputation** — risk/reward texture on the trade loop (§1, §4, §6)
+7. **Player company + AI captains** — the passive-income endgame; needs friends, crew,
+   multiple ships, and save/load all in place (§8)
+8. **Second system + hyperspace** — doubles the map and makes fuel matter (§5)
+9. **Mining & salvage** — alternate careers (§3)
+10. **Procedural systems** — endgame scale (§5)
