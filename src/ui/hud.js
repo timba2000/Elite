@@ -410,7 +410,7 @@ export class Hud {
       ch.classList.toggle('locked', lockState === 'locked');
       if (label) {
         if (lockState === 'locked') {
-          label.textContent = 'LOCKED';
+          label.textContent = 'LOCKED — FIRE [E]';
         } else if (lockState === 'locking') {
           label.textContent = 'LOCKING';
         } else {

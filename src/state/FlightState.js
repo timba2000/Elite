@@ -38,6 +38,7 @@ export class FlightState {
     this.lockTarget = null;
     this.lockTimer = 0;
     this.locked = false;
+    this.lockGrace = 0;
     this.warpJumpT = 0;
     this.hyperdrivePhase = 'idle';
     this.hyperdriveTimer = 0;
@@ -421,30 +422,38 @@ export class FlightState {
           }
         }
 
-        if (bestHostile) {
-          if (this.lockTarget === bestHostile) {
-            this.lockTimer += dt;
-            
-            // play locking ticks (4 times per second)
-            const prevSec = Math.floor((this.lockTimer - dt) * 4);
-            const curSec = Math.floor(this.lockTimer * 4);
-            if (curSec > prevSec && !this.locked) {
-              g.sfx.play('lockTick');
-            }
+        if (bestHostile && this.lockTarget === bestHostile) {
+          this.lockTimer += dt;
 
-            if (this.lockTimer >= ship.stats.lockTime) {
-              this.lockTimer = ship.stats.lockTime;
-              if (!this.locked) {
-                this.locked = true;
-                g.ui.hud.toast('MISSILE LOCK ACQUIRED', 'gold');
-                g.sfx.play('lockBeep');
-              }
+          // play locking ticks (4 times per second)
+          const prevSec = Math.floor((this.lockTimer - dt) * 4);
+          const curSec = Math.floor(this.lockTimer * 4);
+          if (curSec > prevSec && !this.locked) {
+            g.sfx.play('lockTick');
+          }
+
+          if (this.lockTimer >= ship.stats.lockTime) {
+            this.lockTimer = ship.stats.lockTime;
+            if (!this.locked) {
+              this.locked = true;
+              g.ui.hud.toast('MISSILE LOCK — PRESS E TO FIRE', 'gold');
+              g.sfx.play('lockBeep');
             }
-          } else {
+          }
+          if (this.locked) this.lockGrace = 1.2;
+        } else if (this.locked && this.lockTarget?.alive) {
+          // locked target slipped out of the reticle: hold the lock briefly
+          // so E still fires while they jink
+          this.lockGrace -= dt;
+          if (this.lockGrace <= 0) {
             this.lockTarget = bestHostile;
             this.lockTimer = 0;
             this.locked = false;
           }
+        } else if (bestHostile) {
+          this.lockTarget = bestHostile;
+          this.lockTimer = 0;
+          this.locked = false;
         } else {
           this.lockTarget = null;
           this.lockTimer = 0;
