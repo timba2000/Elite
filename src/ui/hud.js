@@ -18,12 +18,13 @@ export class Hud {
       <div class="hud-speed">
         <canvas id="speedo" width="180" height="104"></canvas>
         <div class="big">0</div>
-        <div>M/S · THR <span class="thr">0</span>%</div>
+        <div><span class="speed-unit">M/S</span> · THR <span class="thr">0</span>%</div>
         <div class="mode"></div>
       </div>
       <div class="hud-status">
         <div class="credits">0 CR</div>
         <div class="cargo">CARGO 0/20</div>
+        <div class="notoriety" style="display:none">NOTORIETY 0</div>
         <div class="loc"></div>
       </div>
       <canvas id="radar" width="128" height="128"></canvas>
@@ -50,10 +51,12 @@ export class Hud {
     this.speedo = this.$('#speedo');
     this.sctx = this.speedo.getContext('2d');
     this.speedEl = this.$('.hud-speed .big');
+    this.speedUnitEl = this.$('.hud-speed .speed-unit');
     this.thrEl = this.$('.hud-speed .thr');
     this.modeEl = this.$('.hud-speed .mode');
     this.creditsEl = this.$('.hud-status .credits');
     this.cargoEl = this.$('.hud-status .cargo');
+    this.notorietyEl = this.$('.hud-status .notoriety');
     this.locEl = this.$('.hud-status .loc');
     this.radar = this.$('#radar');
     this.rctx = this.radar.getContext('2d');
@@ -75,6 +78,7 @@ export class Hud {
   }
 
   toast(msg, kind = '') {
+    this.sfx?.play(kind === 'gold' ? 'cash' : kind === 'warn' ? 'alarm' : 'toastInfo');
     const el = document.createElement('div');
     el.className = 'toast' + (kind ? ' ' + kind : '');
     el.textContent = msg;
@@ -86,35 +90,53 @@ export class Hud {
 
   fade(on) { this.fadeEl.classList.toggle('on', on); }
 
-  update(dt, { ship, playerData, stats, target, mode, camera, pirates, pods }) {
+  update(dt, { ship, playerData, stats, target, mode, camera, pirates, police = [], pods }) {
     // bars
     this.bars.hull.style.transform = `scaleX(${Math.max(0, playerData.hull / stats.hullMax)})`;
     this.bars.shield.style.transform = `scaleX(${stats.shieldMax > 0 ? ship.shield / stats.shieldMax : 0})`;
     this.bars.energy.style.transform = `scaleX(${ship.energy / 100})`;
 
     // speed / mode
+    // speed / mode
     const speed = ship.velocity.length();
-    this.speedEl.textContent = Math.round(speed);
+    const isSuper = mode === 'super';
+    this.speedEl.textContent = isSuper ? (speed / 100).toFixed(1) : Math.round(speed * 10).toLocaleString();
     this.thrEl.textContent = Math.round(ship.throttle * 100);
     this.modeEl.textContent =
-      mode === 'super' ? 'SUPERCRUISE' : ship.boosting ? 'BOOST' : '';
+      isSuper ? 'SUPERCRUISE' : ship.boosting ? 'BOOST' : '';
+    this.speedUnitEl.textContent = isSuper ? 'C' : 'M/S';
     this.drawSpeedo(speed, stats, ship.boosting, mode);
 
     // status
     this.creditsEl.textContent = `${playerData.credits.toLocaleString()} CR`;
     this.cargoEl.textContent = `CARGO ${playerData.cargoUsed()}/${stats.cargoMax}`;
 
+    const notoriety = playerData.notoriety || 0;
+    if (notoriety > 0) {
+      this.notorietyEl.style.display = 'block';
+      this.notorietyEl.textContent = `NOTORIETY ${Math.round(notoriety)}`;
+      this.notorietyEl.className = 'notoriety ' + (notoriety > 50 ? 'warn' : 'gold');
+    } else {
+      this.notorietyEl.style.display = 'none';
+    }
+
     // target
     if (target) {
       this.tname.textContent = target.name;
       const d = target.object.position.distanceTo(ship.position);
-      this.tdist.textContent = d > 1000 ? `${(d / 1000).toFixed(1)} KM` : `${Math.round(d)} M`;
+      const isPlanetOrFar = target.type === 'planet' || d >= 200;
+      if (isPlanetOrFar) {
+        this.tdist.textContent = `${(d / 100).toFixed(1)} LS`;
+      } else {
+        const meters = d * 10;
+        this.tdist.textContent = meters >= 1000 ? `${(meters / 1000).toFixed(1)} KM` : `${Math.round(meters)} M`;
+      }
     } else {
       this.tname.textContent = 'NO TARGET';
       this.tdist.textContent = '';
     }
 
-    this.drawRadar(ship, target, pirates, pods);
+    this.drawRadar(ship, target, pirates, police, pods);
     this.updateArrow(ship, target, camera);
 
     // damage flash decay
@@ -176,7 +198,7 @@ export class Hud {
     ctx.textAlign = 'left';
     ctx.fillText('0', cx - R - 2, cy + 2 - 12);
     ctx.textAlign = 'right';
-    ctx.fillText(superMode ? '2.5K' : String(maxScale), cx + R + 3, cy + 2 - 12);
+    ctx.fillText(superMode ? '25 C' : String(Math.round(maxScale * 10)), cx + R + 3, cy + 2 - 12);
 
     // needle
     const na = a0 + t * Math.PI;
@@ -191,7 +213,7 @@ export class Hud {
     ctx.shadowBlur = 0;
   }
 
-  drawRadar(ship, target, pirates = [], pods = []) {
+  drawRadar(ship, target, pirates = [], police = [], pods = []) {
     const ctx = this.rctx;
     const S = 128, cx = S / 2, cy = S / 2, R = 58;
     ctx.clearRect(0, 0, S, S);
@@ -232,6 +254,7 @@ export class Hud {
       }
     }
     for (const p of pirates) blip(p.position, '#ff5040', 3);
+    for (const p of police) blip(p.position, '#00aaff', 3);
     for (const pod of pods) blip(pod.mesh.position, '#ffd27a', 2);
 
     // player marker

@@ -54,8 +54,11 @@ export class StationUI {
 
   renderStatus() {
     const stats = this.player.getDerivedStats();
-    this.statusEl.textContent =
-      `${this.player.credits.toLocaleString()} CR   ·   CARGO ${this.player.cargoUsed()}/${stats.cargoMax}   ·   HULL ${Math.round(this.player.hull)}/${stats.hullMax}`;
+    let txt = `${this.player.credits.toLocaleString()} CR   ·   CARGO ${this.player.cargoUsed()}/${stats.cargoMax}   ·   HULL ${Math.round(this.player.hull)}/${stats.hullMax}`;
+    if (this.player.notoriety > 0) {
+      txt += `   ·   NOTORIETY ${Math.round(this.player.notoriety)}`;
+    }
+    this.statusEl.textContent = txt;
     this.root.querySelectorAll('.st-tabs button').forEach((b) => {
       b.classList.toggle('active', b.dataset.tab === this.tab);
     });
@@ -143,6 +146,9 @@ export class StationUI {
       p.addCargo(goodId, qty, buy);
       this.market.recordTrade(this.planetDef.id, goodId, qty, true);
       this.lastTrade = { msg: `BOUGHT ${qty}x ${name} FOR ${(qty * buy).toLocaleString()} CR`, cls: '' };
+      if (goodId === 'narcotics') {
+        p.notoriety = Math.min(100, (p.notoriety || 0) + qty * 2.5);
+      }
     } else {
       const held = p.cargo[goodId] || 0;
       qty = qtyStr === 'max' ? held : Math.min(+qtyStr, held);
@@ -159,6 +165,9 @@ export class StationUI {
         msg: `SOLD ${qty}x ${name} FOR ${(qty * sell).toLocaleString()} CR — ${plText}`,
         cls: profit >= 0 ? 'profit' : 'loss',
       };
+      if (goodId === 'narcotics') {
+        p.notoriety = Math.min(100, (p.notoriety || 0) + qty * 1.5);
+      }
     }
     this.renderTab();
   }

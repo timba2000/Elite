@@ -45,6 +45,16 @@ export class Station {
     this.apertureLocalZ = aperture.position.z;
     this.group.add(aperture);
 
+    // Two rectangular metal doors blocking the aperture
+    const doorMat = new THREE.MeshStandardMaterial({ color: 0x3a3d45, metalness: 0.7, roughness: 0.4 });
+    this.leftDoor = new THREE.Mesh(new THREE.BoxGeometry(2.8, 5.6, 0.35), doorMat);
+    this.rightDoor = new THREE.Mesh(new THREE.BoxGeometry(2.8, 5.6, 0.35), doorMat);
+    this.leftDoor.position.set(-1.4, 0, 3.15);
+    this.rightDoor.position.set(1.4, 0, 3.15);
+    this.group.add(this.leftDoor);
+    this.group.add(this.rightDoor);
+    this.doorOpenFactor = 0;
+
     // Antenna
     const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.3, 10, 6), darkMat);
     antenna.position.z = -7;
@@ -103,5 +113,11 @@ export class Station {
       const p = 2.0 + Math.sin(this.time * 6) * 1.3;
       this.apertureMat.color.setRGB(0.3, p, 0.9);
     }
+
+    // Animate sliding doors
+    const targetOpen = this.dockingActive ? 1.0 : 0.0;
+    this.doorOpenFactor = THREE.MathUtils.lerp(this.doorOpenFactor, targetOpen, 3.5 * dt);
+    this.leftDoor.position.x = -1.4 - (2.6 * this.doorOpenFactor);
+    this.rightDoor.position.x = 1.4 + (2.6 * this.doorOpenFactor);
   }
 }

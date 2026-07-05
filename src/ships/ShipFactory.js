@@ -149,6 +149,74 @@ export function buildPirate(seed = 1) {
   return { group, nozzles: [nozzle], glowSprites: [glow], hardpoints: [hardpoint], boundingRadius: 3.5 };
 }
 
+// Sleek police interceptor: white, blue, with alternating flashing strobes on wingtips
+export function buildPolice(seed = 1) {
+  const group = new THREE.Group();
+
+  const { map, roughnessMap } = grungeHullTexture('#d0d3d4', '#1f3a60', 0.15, 80 + seed); // cleaner white/navy hull
+  const hullMat = new THREE.MeshStandardMaterial({ map, roughnessMap, metalness: 0.65, roughness: 0.4 });
+  const darkMat = new THREE.MeshStandardMaterial({ color: 0x111116, metalness: 0.8, roughness: 0.3 });
+  const glassMat = new THREE.MeshStandardMaterial({
+    color: 0x0a1a2a, metalness: 0.2, roughness: 0.15,
+    emissive: new THREE.Color(0x00aaff), emissiveIntensity: 0.9,
+  });
+
+  // Sleek interceptor wedge shape
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.8, 4.2), hullMat);
+  group.add(body);
+
+  const nose = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.75, 1.8, 5), hullMat);
+  nose.rotation.x = Math.PI / 2;
+  nose.position.z = 2.8;
+  group.add(nose);
+
+  const canopy = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.35, 1.2), glassMat);
+  canopy.position.set(0, 0.5, 0.8);
+  group.add(canopy);
+
+  // Wings
+  for (let side = -1; side <= 1; side += 2) {
+    const wing = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.1, 1.4), darkMat);
+    wing.position.set(side * 1.7, -0.1, -0.6);
+    wing.rotation.y = side * 0.25;
+    wing.rotation.z = side * 0.1;
+    group.add(wing);
+
+    // Red/Blue police light sprites on wingtips!
+    const strobeMat = new THREE.SpriteMaterial({
+      map: engineGlowTex, blending: THREE.AdditiveBlending, depthWrite: false,
+      transparent: true, color: new THREE.Color(side === -1 ? 0xff0000 : 0x0000ff)
+    });
+    const strobe = new THREE.Sprite(strobeMat);
+    strobe.position.set(side * 2.8, -0.1, -0.8);
+    strobe.scale.setScalar(2.0);
+    group.add(strobe);
+    group.userData = group.userData || {};
+    group.userData.strobes = group.userData.strobes || [];
+    group.userData.strobes.push(strobe);
+  }
+
+  // Engine glow
+  const glowMat = new THREE.SpriteMaterial({
+    map: engineGlowTex, blending: THREE.AdditiveBlending, depthWrite: false,
+    transparent: true, color: new THREE.Color(0.2, 0.6, 2.0),
+  });
+  const glow = new THREE.Sprite(glowMat);
+  glow.position.z = -2.3;
+  glow.scale.setScalar(1.2);
+  group.add(glow);
+
+  const nozzle = new THREE.Object3D();
+  nozzle.position.z = -2.3;
+  group.add(nozzle);
+
+  const hardpoint = new THREE.Object3D();
+  hardpoint.position.set(0, -0.3, 2.2);
+  group.add(hardpoint);
+
+  return { group, nozzles: [nozzle], glowSprites: [glow], hardpoints: [hardpoint], boundingRadius: 3.5 };
+}
+
 // Glowing cargo pod dropped by destroyed pirates.
 export function buildCargoPod() {
   const mat = new THREE.MeshStandardMaterial({

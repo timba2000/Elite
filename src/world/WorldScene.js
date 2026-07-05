@@ -59,9 +59,9 @@ export class WorldScene {
     return this.stations.find((s) => s.id === id) || this.stations[0];
   }
 
-  update(dt, cameraPos) {
+  update(dt, cameraPos, warpFactor = 0) {
     this.nebula.update(cameraPos);
-    this.starfield.update(cameraPos);
+    this.starfield.update(cameraPos, warpFactor);
     for (const p of this.planets) p.update(dt, this.sunPos);
     for (const s of this.stations) s.update(dt);
   }

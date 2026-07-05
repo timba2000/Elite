@@ -1,4 +1,4 @@
-// The 8 tradeable goods. volatility drives how far prices random-walk.
+// The 9 tradeable goods. volatility drives how far prices random-walk.
 export const COMMODITIES = [
   { id: 'food', name: 'Food', base: 12, volatility: 0.010 },
   { id: 'water', name: 'Water', base: 8, volatility: 0.010 },
@@ -8,4 +8,6 @@ export const COMMODITIES = [
   { id: 'electronics', name: 'Electronics', base: 140, volatility: 0.028 },
   { id: 'medicine', name: 'Medicine', base: 180, volatility: 0.028 },
   { id: 'luxuries', name: 'Luxuries', base: 250, volatility: 0.032 },
+  { id: 'narcotics', name: 'Narcotics', base: 420, volatility: 0.045 },
 ];
+

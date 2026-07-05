@@ -37,6 +37,7 @@ npm run preview
 | `J` | Supercruise to target / drop out |
 | `D` | Dock (when in range of a station) |
 | `V` | Toggle cockpit / external view |
+| `M` | Mute / unmute sound |
 | `F5` | Quick save |
 | `Esc` | Pause |
 

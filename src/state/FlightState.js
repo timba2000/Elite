@@ -63,6 +63,7 @@ export class FlightState {
   exit() {
     this.setClearance(null);
     this.game.ui.hud.setPrompt('');
+    this.game.sfx.setEngine(0, false, false);
   }
 
   // ---------- events wired from EncounterManager ----------
@@ -111,6 +112,9 @@ export class FlightState {
     const timeScale = this.mode === 'super' ? C.TIME_SCALE_SUPER : 1;
     g.playerData.gameTime += dt * timeScale;
     g.market.update(dt * timeScale);
+    if (g.playerData.notoriety > 0) {
+      g.playerData.notoriety = Math.max(0, g.playerData.notoriety - dt * timeScale * 0.015);
+    }
 
     // ---------- death ----------
     if (this.mode === 'dead') {
@@ -127,6 +131,10 @@ export class FlightState {
     if (input.pressed('KeyV')) {
       this.cameraView = this.cameraView === 'cockpit' ? 'chase' : 'cockpit';
       g.ui.hud.toast(this.cameraView === 'cockpit' ? 'COCKPIT VIEW' : 'EXTERNAL VIEW');
+    }
+    if (input.pressed('KeyM')) {
+      const muted = g.sfx.toggleMute();
+      g.ui.hud.toast(muted ? 'SOUND MUTED' : 'SOUND ON');
     }
     if (input.pressed('F5')) {
       SaveSystem.save(g.playerData, g.market);
@@ -173,6 +181,9 @@ export class FlightState {
       ...g.encounters.pirates.map((p) => ({
         entity: p, position: p.position, radius: p.boundingRadius, side: 'pirate',
       })),
+      ...g.encounters.police.map((p) => ({
+        entity: p, position: p.position, radius: p.boundingRadius, side: 'police',
+      })),
     ];
     g.laserPool.update(dt, targets, (t, bolt, hitPos) => this.handleHit(t, bolt, hitPos));
 
@@ -182,13 +193,21 @@ export class FlightState {
     g.ui.hud.update(dt, {
       ship, playerData: g.playerData, stats: ship.stats,
       target: this.target, mode: this.mode, camera: g.camera,
-      pirates: g.encounters.pirates, pods: g.encounters.pods,
+      pirates: g.encounters.pirates, police: g.encounters.police, pods: g.encounters.pods,
     });
   }
 
   updateWorldAndFx(dt) {
     const g = this.game;
-    g.world.update(dt, g.camera.position);
+    let warp = 0;
+    if (this.mode === 'super') {
+      const ratio = this.superSpeed / C.SUPER_SPEED;
+      warp = Math.min(1.5, ratio * 1.6);
+      if (warp > 1.0) {
+        warp = 1.0 + (warp - 1.0) * 0.25;
+      }
+    }
+    g.world.update(dt, g.camera.position, warp);
     g.particles.update(dt);
     g.explosions.update(dt);
     if (this.mode !== 'dead') {
@@ -197,17 +216,30 @@ export class FlightState {
         g.ship.boosting || this.mode === 'super',
         g.ship.velocity);
     }
+    g.sfx.setEngine(
+      this.mode === 'dead' ? 0 : g.ship.throttle,
+      this.mode !== 'dead' && g.ship.boosting,
+      this.mode === 'super'
+    );
   }
 
   handleHit(t, bolt, hitPos) {
     const g = this.game;
-    if (t.side === 'pirate') {
+    if (t.side === 'pirate' || t.side === 'police') {
       const killed = t.entity.takeDamage(bolt.damage);
       // small spark
       g.explosions.spawn(hitPos, 0.15);
-      if (killed) g.encounters.onPirateKilled(t.entity, g.explosions);
+      g.sfx.play('hitSpark');
+      if (killed) {
+        if (t.side === 'police') {
+          g.encounters.onPoliceKilled(t.entity, g.explosions);
+        } else {
+          g.encounters.onPirateKilled(t.entity, g.explosions);
+        }
+      }
     } else {
       const { destroyed, hullHit } = g.ship.takeDamage(bolt.damage);
+      g.sfx.play(hullHit ? 'hitHull' : 'hitShield');
       g.ui.hud.damageFlash();
       this.shakeT = Math.max(this.shakeT, 0.3);
       if (hullHit) {
@@ -256,6 +288,32 @@ export class FlightState {
   cycleTarget() {
     const g = this.game;
     const targets = g.world.getNavTargets();
+    if (targets.length === 0) return;
+
+    // Check if there is a planet in front of the ship (within a ~28 degree cone)
+    const ship = g.ship;
+    const fwd = ship.forward;
+    let bestPlanet = null;
+    let minAngle = 0.5;
+
+    targets.forEach((t, index) => {
+      if (t.type === 'planet') {
+        const toTarget = t.object.position.clone().sub(ship.position).normalize();
+        const angle = fwd.angleTo(toTarget);
+        if (angle < minAngle) {
+          minAngle = angle;
+          bestPlanet = { target: t, index };
+        }
+      }
+    });
+
+    // Target the front-facing planet if we aren't already targeting it
+    if (bestPlanet && (!this.target || this.target.id !== bestPlanet.target.id)) {
+      this.target = bestPlanet.target;
+      this.targetIndex = bestPlanet.index;
+      return;
+    }
+
     this.targetIndex = (this.targetIndex + 1) % targets.length;
     this.target = targets[this.targetIndex];
   }
@@ -270,6 +328,7 @@ export class FlightState {
       this.mode = 'manual';
       this.superSpeed = 0;
       g.ship.velocity.clampLength(0, g.ship.stats.maxSpeed);
+      g.sfx.play('superDrop');
       return;
     }
     if (!this.target) {
@@ -287,6 +346,7 @@ export class FlightState {
     }
     this.mode = 'super';
     this.superSpeed = g.ship.velocity.length();
+    g.sfx.play('superEngage');
     g.ui.hud.toast(`SUPERCRUISE — ${this.target.name}`);
   }
 
@@ -316,6 +376,7 @@ export class FlightState {
       this.superSpeed = 0;
       ship.velocity.clampLength(0, ship.stats.maxSpeed);
       ship.throttle = 0.5;
+      g.sfx.play('superDrop');
       g.ui.hud.toast(`ARRIVED — ${this.target.name}`);
     }
   }
@@ -354,8 +415,8 @@ export class FlightState {
       if (this.dockBounceT <= 0 && this.tryDockCapture(st, speed)) return true;
 
       const dist = _dockPos.distanceTo(g.ship.position);
-      let msg = `DOCK — APERTURE ${Math.round(dist)}M · SPEED ${Math.round(speed)}`;
-      if (speed > C.DOCK_MAX_SPEED) msg += ` — SLOW BELOW ${C.DOCK_MAX_SPEED}`;
+      let msg = `DOCK — APERTURE ${Math.round(dist * 10)}M · SPEED ${Math.round(speed * 10)}M/S`;
+      if (speed > C.DOCK_MAX_SPEED) msg += ` — SLOW BELOW ${Math.round(C.DOCK_MAX_SPEED * 10)}M/S`;
       return msg;
     }
 
@@ -367,7 +428,7 @@ export class FlightState {
         return true;
       }
       this.setClearance(dockStation);
-      g.ui.hud.toast(`CLEARANCE GRANTED — ENTER THE HUB APERTURE UNDER ${C.DOCK_MAX_SPEED} M/S`, 'gold');
+      g.ui.hud.toast(`CLEARANCE GRANTED — ENTER THE HUB APERTURE UNDER ${Math.round(C.DOCK_MAX_SPEED * 10)} M/S`, 'gold');
       return 'PROCEED TO THE GREEN APERTURE';
     }
     return 'D — REQUEST DOCKING';
@@ -389,11 +450,18 @@ export class FlightState {
     const inward = speed > 0.01 ? -ship.velocity.dot(_dockN) / speed : 0;
     const nose = -_fwd.dot(_dockN);
 
+    // Calculate roll alignment between ship and rotating station doors
+    const shipUp = new THREE.Vector3(0, 1, 0).applyQuaternion(ship.group.quaternion);
+    const stationUp = new THREE.Vector3(0, 1, 0).applyQuaternion(st.group.quaternion);
+    const rollDot = Math.abs(shipUp.dot(stationUp));
+
+    const doorsClosed = st.doorOpenFactor < 0.9;
     const tooFast = speed > C.DOCK_MAX_SPEED;
     const offCentre = lateral > C.DOCK_LATERAL_TOL;
     const misaligned = nose < C.DOCK_ALIGN_DOT || inward < C.DOCK_INWARD_DOT;
+    const rollMisaligned = rollDot < 0.92;
 
-    if (!tooFast && !offCentre && !misaligned) {
+    if (!doorsClosed && !tooFast && !offCentre && !misaligned && !rollMisaligned) {
       this.setClearance(null);
       g.sm.change(g.states.docking, { station: st, manual: true });
       return true;
@@ -408,7 +476,12 @@ export class FlightState {
     this.dockBounceT = 1.2;
     this.shakeT = Math.max(this.shakeT, 0.5);
 
-    const reason = tooFast ? 'APPROACH TOO FAST' : offCentre ? 'OFF CENTRE' : 'MISALIGNED';
+    let reason = 'MISALIGNED';
+    if (doorsClosed) reason = 'DOORS LOCKED/CLOSED';
+    else if (tooFast) reason = 'APPROACH TOO FAST';
+    else if (offCentre) reason = 'OFF CENTRE';
+    else if (rollMisaligned) reason = 'ALIGN SHIP ROLL WITH DOORS (LEVEL)';
+
     g.ui.hud.toast(`DOCKING ABORTED — ${reason}`, 'warn');
 
     const dmg = Math.max(0, speed - C.DOCK_SAFE_SPEED) * C.DOCK_BOUNCE_DAMAGE;
@@ -481,9 +554,15 @@ export class FlightState {
       g.camera.lookAt(_lookAt);
     }
 
-    // FOV kick
-    const targetFov = ship.boosting ? C.CAMERA_FOV_BOOST : this.mode === 'super' ? 74 : C.CAMERA_FOV;
-    g.camera.fov += (targetFov - g.camera.fov) * Math.min(1, 4 * dt);
+    // FOV kick: Star Wars jump warp FOV stretch
+    let targetFov = C.CAMERA_FOV;
+    if (ship.boosting) {
+      targetFov = C.CAMERA_FOV_BOOST;
+    } else if (this.mode === 'super') {
+      const ratio = this.superSpeed / C.SUPER_SPEED;
+      targetFov = C.CAMERA_FOV + ratio * 45; // 60 -> 105 degrees!
+    }
+    g.camera.fov += (targetFov - g.camera.fov) * Math.min(1, 6 * dt);
     g.camera.updateProjectionMatrix();
   }
 }

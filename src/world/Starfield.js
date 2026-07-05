@@ -1,13 +1,14 @@
 import * as THREE from 'three';
 import { mulberry32 } from '../fx/textures.js';
 
-// Shell of ~9000 point stars that follows the camera (infinite-distance feel).
+// Shell of ~9000 line-based stars that follows the camera.
+// When uWarp increases, stars stretch out radially into long streaks (hyperspace warp).
 export class Starfield {
   constructor(count = 9000, radius = 40000) {
     const rnd = mulberry32(42);
-    const positions = new Float32Array(count * 3);
-    const colors = new Float32Array(count * 3);
-    const sizes = new Float32Array(count);
+    const positions = new Float32Array(count * 2 * 3);
+    const colors = new Float32Array(count * 2 * 3);
+    const warpDir = new Float32Array(count * 2);
 
     const palette = [
       [1.0, 1.0, 1.0],
@@ -21,57 +22,82 @@ export class Starfield {
       const u = rnd() * 2 - 1;
       const phi = rnd() * Math.PI * 2;
       const s = Math.sqrt(1 - u * u);
-      positions[i * 3] = s * Math.cos(phi) * radius;
-      positions[i * 3 + 1] = u * radius;
-      positions[i * 3 + 2] = s * Math.sin(phi) * radius;
+      const px = s * Math.cos(phi) * radius;
+      const py = u * radius;
+      const pz = s * Math.sin(phi) * radius;
 
       const col = palette[Math.floor(rnd() * palette.length)];
-      const bright = 0.35 + rnd() * 0.65;
-      colors[i * 3] = col[0] * bright;
-      colors[i * 3 + 1] = col[1] * bright;
-      colors[i * 3 + 2] = col[2] * bright;
-      sizes[i] = 1.0 + Math.pow(rnd(), 3) * 3.5;
+      const bright = 0.45 + rnd() * 0.55;
+      const r = col[0] * bright;
+      const g = col[1] * bright;
+      const b = col[2] * bright;
+
+      // Leading vertex (closer to outer boundary)
+      positions[i * 6] = px;
+      positions[i * 6 + 1] = py;
+      positions[i * 6 + 2] = pz;
+      colors[i * 6] = r;
+      colors[i * 6 + 1] = g;
+      colors[i * 6 + 2] = b;
+      warpDir[i * 2] = 0.0;
+
+      // Trailing vertex
+      positions[i * 6 + 3] = px;
+      positions[i * 6 + 4] = py;
+      positions[i * 6 + 5] = pz;
+      colors[i * 6 + 3] = r;
+      colors[i * 6 + 4] = g;
+      colors[i * 6 + 5] = b;
+      warpDir[i * 2 + 1] = 1.0;
     }
 
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    geo.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
+    geo.setAttribute('aWarpDir', new THREE.BufferAttribute(warpDir, 1));
 
     const mat = new THREE.ShaderMaterial({
-      uniforms: {},
+      uniforms: {
+        uWarp: { value: 0 },
+      },
       vertexShader: /* glsl */`
-        attribute float aSize;
+        attribute float aWarpDir;
+        uniform float uWarp;
         varying vec3 vColor;
         void main() {
           vColor = color;
-          vec4 mv = modelViewMatrix * vec4(position, 1.0);
-          gl_PointSize = aSize;
+          vec3 radDir = normalize(position);
+          vec3 pos = position;
+          
+          // Trailing vertex pulls backward to form a radial streak.
+          // Tiny base offset of 30.0 ensures lines are always drawn on all GPUs.
+          if (aWarpDir > 0.5) {
+            pos -= radDir * (30.0 + uWarp * 16000.0);
+          }
+          
+          vec4 mv = modelViewMatrix * vec4(pos, 1.0);
           gl_Position = projectionMatrix * mv;
         }
       `,
       fragmentShader: /* glsl */`
         varying vec3 vColor;
         void main() {
-          vec2 uv = gl_PointCoord - 0.5;
-          float d = length(uv);
-          if (d > 0.5) discard;
-          float a = smoothstep(0.5, 0.0, d);
-          gl_FragColor = vec4(vColor * a, 1.0);
+          gl_FragColor = vec4(vColor, 1.0);
         }
       `,
       vertexColors: true,
-      transparent: false,
+      transparent: true,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     });
 
-    this.points = new THREE.Points(geo, mat);
+    this.points = new THREE.LineSegments(geo, mat);
     this.points.frustumCulled = false;
     this.points.renderOrder = -9;
   }
 
-  update(cameraPos) {
+  update(cameraPos, warpFactor = 0) {
     this.points.position.copy(cameraPos);
+    this.points.material.uniforms.uWarp.value = warpFactor;
   }
 }

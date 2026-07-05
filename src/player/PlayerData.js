@@ -11,6 +11,7 @@ export class PlayerData {
     this.hull = C.UPGRADES.hull.tiers[1].max;
     this.lastStationId = 'veridia-station';
     this.gameTime = 0;
+    this.notoriety = 0;
   }
 
   getDerivedStats() {
@@ -98,6 +99,7 @@ export class PlayerData {
       hull: this.hull,
       lastStationId: this.lastStationId,
       gameTime: this.gameTime,
+      notoriety: this.notoriety,
     };
   }
 
@@ -110,6 +112,7 @@ export class PlayerData {
     p.hull = data.hull ?? p.hull;
     p.lastStationId = data.lastStationId ?? p.lastStationId;
     p.gameTime = data.gameTime ?? 0;
+    p.notoriety = data.notoriety ?? 0;
     return p;
   }
 }

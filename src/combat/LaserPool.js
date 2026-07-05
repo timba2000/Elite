@@ -13,12 +13,13 @@ export class LaserPool {
     const geo = new THREE.BoxGeometry(0.14, 0.14, 6);
     const matPlayer = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.3, 3.0, 0.8) });
     const matPirate = new THREE.MeshBasicMaterial({ color: new THREE.Color(3.0, 0.35, 0.25) });
+    const matPolice = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.2, 0.8, 3.0) });
     for (let i = 0; i < max; i++) {
       const mesh = new THREE.Mesh(geo, matPlayer);
       mesh.visible = false;
       scene.add(mesh);
       this.pool.push({
-        mesh, matPlayer, matPirate,
+        mesh, matPlayer, matPirate, matPolice,
         vel: new THREE.Vector3(),
         prev: new THREE.Vector3(),
         life: 0, owner: null, damage: 0,
@@ -29,10 +30,11 @@ export class LaserPool {
   fire(origin, dir, owner, damage, inheritVel) {
     const b = this.pool.find((x) => x.life <= 0);
     if (!b) return;
+    this.sfx?.play(owner === 'player' ? 'laser' : 'laserEnemy');
     b.owner = owner;
     b.damage = damage;
     b.life = C.LASER_LIFE;
-    b.mesh.material = owner === 'player' ? b.matPlayer : b.matPirate;
+    b.mesh.material = owner === 'player' ? b.matPlayer : (owner === 'police' ? b.matPolice : b.matPirate);
     b.mesh.position.copy(origin);
     b.prev.copy(origin);
     b.vel.copy(dir).normalize().multiplyScalar(C.LASER_SPEED);

@@ -17,7 +17,7 @@ export const SYSTEM = {
       radius: 130, position: pos(2600, 15), seed: 3,
       palette: ['#1a4d8f', '#3d8f3d', '#c8b96a'], atmosphere: '#6fb7ff',
       inhabited: true, gas: false,
-      exports: ['food', 'water'], imports: ['machinery', 'electronics'],
+      exports: ['food', 'water'], imports: ['machinery', 'electronics', 'medicine'],
     },
     {
       id: 'ferrox', name: 'FERROX', type: 'Mining Colony',
@@ -25,7 +25,7 @@ export const SYSTEM = {
       radius: 95, position: pos(4200, 105), seed: 7,
       palette: ['#4a2f22', '#8a5a3a', '#c9987a'], atmosphere: '#d98a5a',
       inhabited: true, gas: false,
-      exports: ['ore'], imports: ['food', 'medicine'],
+      exports: ['ore'], imports: ['food', 'medicine', 'fuel', 'machinery', 'water', 'narcotics'],
     },
     {
       id: 'crucible', name: 'CRUCIBLE', type: 'Refinery World',
@@ -33,7 +33,7 @@ export const SYSTEM = {
       radius: 110, position: pos(6100, 200), seed: 11,
       palette: ['#3a3a42', '#6a5a4a', '#b87a3a'], atmosphere: '#ffaa55',
       inhabited: true, gas: false,
-      exports: ['fuel', 'machinery'], imports: ['ore'],
+      exports: ['fuel', 'machinery'], imports: ['ore', 'electronics', 'water'],
     },
     {
       id: 'lumen', name: 'LUMEN PRIME', type: 'Hi-Tech World',
@@ -41,7 +41,7 @@ export const SYSTEM = {
       radius: 140, position: pos(8300, 300), seed: 17,
       palette: ['#1a3a6f', '#4a6a8a', '#e8e8f0'], atmosphere: '#8fd0ff',
       inhabited: true, gas: false,
-      exports: ['electronics', 'medicine'], imports: ['food', 'luxuries'],
+      exports: ['electronics', 'medicine', 'luxuries'], imports: ['food', 'narcotics'],
     },
     {
       id: 'thalassa', name: 'THALASSA', type: 'Tourist Orbital (Gas Giant)',
@@ -49,7 +49,7 @@ export const SYSTEM = {
       radius: 260, position: pos(10800, 40, 300), seed: 23,
       palette: ['#7a4a8f', '#c98ab0', '#f0d8b0'], atmosphere: '#d0a0ff',
       inhabited: false, gas: true,
-      exports: [], imports: ['luxuries', 'food'],
+      exports: [], imports: ['luxuries', 'food', 'fuel', 'narcotics'],
     },
     {
       id: 'drift', name: "KELLER'S DRIFT", type: 'Frontier Outpost',
@@ -57,7 +57,7 @@ export const SYSTEM = {
       radius: 70, position: pos(12600, 250, -400), seed: 29,
       palette: ['#3a3a3a', '#5a5a6a', '#8a8a9a'], atmosphere: '#667788',
       inhabited: true, gas: false,
-      exports: ['fuel'], imports: ['food', 'water', 'medicine', 'electronics', 'luxuries', 'machinery'],
+      exports: ['fuel', 'narcotics'], imports: ['food', 'water', 'medicine', 'electronics', 'luxuries', 'machinery'],
     },
   ],
 };

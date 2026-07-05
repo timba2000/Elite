@@ -19,10 +19,13 @@ export class DockingState {
   enter({ station, manual }) {
     const g = this.game;
     this.station = station;
+    this.station.setDockingActive(true); // Open the doors!
     this.t = 0;
     this.manual = !!manual;
     this.duration = this.manual ? C.DOCK_TRACTOR_DURATION : C.DOCK_DURATION;
     g.ship.ship.group.visible = true; // exterior shot — show the hull even from cockpit view
+    g.sfx.play('dockGranted');
+    g.sfx.setEngine(0, false, false);
     g.input.exitPointerLock();
     g.ui.hud.setPrompt('');
     g.ui.hud.toast(this.manual
@@ -50,7 +53,11 @@ export class DockingState {
     // hub; the autopilot glides to the marker in front of it
     if (this.manual) _end.copy(this.station.group.position);
     else this.station.dockingPoint.getWorldPosition(_end);
-    _m.lookAt(_end, _start, _up);
+
+    // Calculate heading pointing into the port, aligned with the station's rotating Y-axis (doors)
+    const stationQ = this.station.group.quaternion;
+    const stationUp = new THREE.Vector3(0, 1, 0).applyQuaternion(stationQ);
+    _m.lookAt(_end, _start, stationUp);
     _endQ.setFromRotationMatrix(_m);
 
     g.ship.group.position.lerpVectors(_start, _end, ease);
@@ -72,6 +79,7 @@ export class DockingState {
   }
 
   exit() {
+    this.station?.setDockingActive(false); // Close the doors!
     this.game.ui.hud.fade(false);
   }
 }

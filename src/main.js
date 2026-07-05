@@ -19,6 +19,7 @@ import { MenuState } from './state/MenuState.js';
 import { FlightState } from './state/FlightState.js';
 import { DockingState } from './state/DockingState.js';
 import { StationState } from './state/StationState.js';
+import { Sfx } from './audio/Sfx.js';
 
 class Game {
   constructor() {
@@ -39,11 +40,19 @@ class Game {
     this.postfx = new PostFX(this.renderer, this.scene, this.camera);
     this.input = new Input(this.renderer.domElement);
 
+    // sound (procedural Web Audio; unlocks on first gesture)
+    this.sfx = new Sfx();
+    const unlock = () => this.sfx.unlock();
+    window.addEventListener('pointerdown', unlock);
+    window.addEventListener('keydown', unlock);
+
     // world + shared FX
     this.world = new WorldScene(this.scene);
     this.particles = new ParticleSystem(this.scene, 900);
     this.laserPool = new LaserPool(this.scene);
+    this.laserPool.sfx = this.sfx;
     this.explosions = new Explosions(this.scene, this.particles);
+    this.explosions.sfx = this.sfx;
 
     // UI
     const uiRoot = document.getElementById('ui-root');
@@ -52,6 +61,11 @@ class Game {
       stationUI: new StationUI(uiRoot),
       menuUI: new MenuUI(uiRoot),
     };
+    this.ui.hud.sfx = this.sfx;
+    // every UI button gets a click blip
+    uiRoot.addEventListener('click', (e) => {
+      if (e.target.closest('button')) this.sfx.play('click');
+    }, true);
 
     // states
     this.sm = new StateMachine();

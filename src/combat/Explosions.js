@@ -55,6 +55,7 @@ export class Explosions {
     // small scale = laser-hit spark: just a few particles, no ring/flash/debris
     const isSpark = scale < 0.5;
     const count = isSpark ? 10 : 80;
+    if (!isSpark) this.sfx?.play('explosion');
     // particle burst
     for (let i = 0; i < count; i++) {
       _vel.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5)

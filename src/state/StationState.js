@@ -12,6 +12,7 @@ export class StationState {
     this.station = station;
     g.ship.group.visible = false;
     g.ship.velocity.set(0, 0, 0);
+    g.sfx.play('clamp');
     g.input.exitPointerLock();
     g.ui.hud.hide();
     g.encounters.clearAll();
