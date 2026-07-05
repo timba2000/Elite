@@ -36,6 +36,7 @@ npm run preview
 | `T` | Cycle nav target |
 | `J` | Supercruise to target / drop out |
 | `D` | Dock (when in range of a station) |
+| `V` | Toggle cockpit / external view |
 | `F5` | Quick save |
 | `Esc` | Pause |
 

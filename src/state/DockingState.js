@@ -19,6 +19,7 @@ export class DockingState {
     const g = this.game;
     this.station = station;
     this.t = 0;
+    g.ship.ship.group.visible = true; // exterior shot — show the hull even from cockpit view
     g.input.exitPointerLock();
     g.ui.hud.setPrompt('');
     g.ui.hud.toast(`DOCKING CLEARANCE GRANTED — ${station.name}`);

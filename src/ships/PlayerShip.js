@@ -54,11 +54,12 @@ export class PlayerShip {
     if (input.throttleUp) this.throttle = Math.min(1, this.throttle + 0.7 * dt);
     if (input.throttleDown) this.throttle = Math.max(0, this.throttle - 0.9 * dt);
 
-    // rotation
+    // rotation (screen-right is -X when looking along ship forward +Z,
+    // so mouse-right must yaw toward -X and Q must roll the horizon right)
     const turn = C.TURN_RATE * this.stats.turnMult;
     this.group.rotateX(-input.pitch * turn * dt);
-    this.group.rotateY(-input.yaw * turn * dt);
-    this.group.rotateZ(input.roll * C.ROLL_RATE * dt);
+    this.group.rotateY(input.yaw * turn * dt);
+    this.group.rotateZ(-input.roll * C.ROLL_RATE * dt);
 
     // boost
     this.boosting = input.boost && this.energy > 1 && this.throttle > 0.1;

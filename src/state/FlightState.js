@@ -11,6 +11,8 @@ const _q = new THREE.Quaternion();
 const _m = new THREE.Matrix4();
 const _up = new THREE.Vector3(0, 1, 0);
 const _shake = new THREE.Vector3();
+// camera looks down -Z but ship forward is +Z; rotate 180° about Y to face forward
+const _FLIP_Y = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
 
 // The core sim: manual flight, supercruise, combat, docking approach.
 export class FlightState {
@@ -23,6 +25,7 @@ export class FlightState {
     this.shakeT = 0;
     this.targetIndex = -1;
     this.target = null;
+    this.cameraView = 'cockpit'; // 'cockpit' | 'chase'
   }
 
   enter(params = {}) {
@@ -113,6 +116,10 @@ export class FlightState {
     // ---------- edge-triggered actions ----------
     if (input.pressed('KeyT') || input.pressed('Tab')) this.cycleTarget();
     if (input.pressed('KeyJ')) this.toggleSupercruise();
+    if (input.pressed('KeyV')) {
+      this.cameraView = this.cameraView === 'cockpit' ? 'chase' : 'cockpit';
+      g.ui.hud.toast(this.cameraView === 'cockpit' ? 'COCKPIT VIEW' : 'EXTERNAL VIEW');
+    }
     if (input.pressed('F5')) {
       SaveSystem.save(g.playerData, g.market);
       g.ui.hud.toast('GAME SAVED', 'gold');
@@ -334,28 +341,45 @@ export class FlightState {
     const ship = g.ship;
     const speedFactor = this.mode === 'super' ? Math.min(1, this.superSpeed / C.SUPER_SPEED) : 0;
 
-    _camOffset.set(C.CAM_OFFSET.x, C.CAM_OFFSET.y, -(C.CAM_OFFSET.z + speedFactor * 9 + (ship.boosting ? 3 : 0)));
-    _camOffset.applyQuaternion(ship.group.quaternion);
-    _camTarget.copy(ship.group.position).add(_camOffset);
+    const cockpit = this.cameraView === 'cockpit';
+    // hide own hull in cockpit view (outer group visibility is owned by death logic)
+    ship.ship.group.visible = !cockpit && this.mode !== 'dead';
 
-    if (snap) g.camera.position.copy(_camTarget);
-    else {
-      const a = 1 - Math.exp(-C.CAM_EASE * dt);
-      g.camera.position.lerp(_camTarget, a);
+    if (cockpit) {
+      // eye at the canopy, locked rigidly to the ship
+      _camOffset.set(0, 0.95, 2.0).applyQuaternion(ship.group.quaternion);
+      g.camera.position.copy(ship.group.position).add(_camOffset);
+      g.camera.quaternion.copy(ship.group.quaternion).multiply(_FLIP_Y);
+      if (this.shakeT > 0) {
+        this.shakeT -= dt;
+        const s = this.shakeT * 0.9;
+        _shake.set((Math.random() - 0.5) * s, (Math.random() - 0.5) * s, (Math.random() - 0.5) * s);
+        g.camera.position.add(_shake);
+      }
+    } else {
+      _camOffset.set(C.CAM_OFFSET.x, C.CAM_OFFSET.y, -(C.CAM_OFFSET.z + speedFactor * 9 + (ship.boosting ? 3 : 0)));
+      _camOffset.applyQuaternion(ship.group.quaternion);
+      _camTarget.copy(ship.group.position).add(_camOffset);
+
+      if (snap) g.camera.position.copy(_camTarget);
+      else {
+        const a = 1 - Math.exp(-C.CAM_EASE * dt);
+        g.camera.position.lerp(_camTarget, a);
+      }
+
+      // shake
+      if (this.shakeT > 0) {
+        this.shakeT -= dt;
+        const s = this.shakeT * 1.6;
+        _shake.set((Math.random() - 0.5) * s, (Math.random() - 0.5) * s, (Math.random() - 0.5) * s);
+        g.camera.position.add(_shake);
+      }
+
+      _fwd.set(0, 0, 1).applyQuaternion(ship.group.quaternion);
+      _lookAt.copy(ship.group.position).addScaledVector(_fwd, 30);
+      g.camera.up.set(0, 1, 0).applyQuaternion(ship.group.quaternion);
+      g.camera.lookAt(_lookAt);
     }
-
-    // shake
-    if (this.shakeT > 0) {
-      this.shakeT -= dt;
-      const s = this.shakeT * 1.6;
-      _shake.set((Math.random() - 0.5) * s, (Math.random() - 0.5) * s, (Math.random() - 0.5) * s);
-      g.camera.position.add(_shake);
-    }
-
-    _fwd.set(0, 0, 1).applyQuaternion(ship.group.quaternion);
-    _lookAt.copy(ship.group.position).addScaledVector(_fwd, 30);
-    g.camera.up.set(0, 1, 0).applyQuaternion(ship.group.quaternion);
-    g.camera.lookAt(_lookAt);
 
     // FOV kick
     const targetFov = ship.boosting ? C.CAMERA_FOV_BOOST : this.mode === 'super' ? 74 : C.CAMERA_FOV;
