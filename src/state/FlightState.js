@@ -472,6 +472,9 @@ export class FlightState {
       this.lockTarget = null;
       this.lockTimer = 0;
       this.locked = false;
+      if (this.mode === 'manual' && input.pressed('KeyE') && !(g.playerData.upgrades.missiles > 0)) {
+        g.ui.hud.toast('NO MISSILE LAUNCHER FITTED — BUY ONE AT A SHIPYARD', 'warn');
+      }
     }
 
     if (g.missilePool) {

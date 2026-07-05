@@ -51,9 +51,9 @@ export class Input {
   get boost() { return this.keys.has('ShiftLeft') || this.keys.has('ShiftRight'); }
   get firing() { return this.keys.has('Space') || this.mouseDown; }
   get roll() {
-    const hasMissiles = window.game?.playerData?.upgrades?.missiles > 0;
-    const rollLeft = (this.keys.has('KeyQ') || this.keys.has('KeyA'));
-    const rollRight = (hasMissiles ? this.keys.has('KeyD') : (this.keys.has('KeyE') || this.keys.has('KeyD')));
+    // E is reserved for missiles; roll is Q/A left, D right
+    const rollLeft = this.keys.has('KeyQ') || this.keys.has('KeyA');
+    const rollRight = this.keys.has('KeyD');
     return (rollLeft ? 1 : 0) - (rollRight ? 1 : 0);
   }
   get pitch() {
