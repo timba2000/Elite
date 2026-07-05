@@ -1,0 +1,125 @@
+// Every tuning number in the game lives here.
+export const C = {
+  // Rendering
+  CAMERA_FOV: 60,
+  CAMERA_FOV_BOOST: 70,
+  CAMERA_FAR: 120000,
+  BLOOM_STRENGTH: 0.9,
+  BLOOM_RADIUS: 0.5,
+  BLOOM_THRESHOLD: 0.85,
+
+  // Flight
+  BASE_SPEED: 40,
+  BOOST_SPEED: 120,
+  VELOCITY_EASE: 2.0,        // k in lerp(1 - exp(-k*dt))
+  TURN_RATE: 1.5,            // rad/s at full stick
+  ROLL_RATE: 2.0,
+  CAM_OFFSET: { x: 0, y: 3.5, z: 12 },
+  CAM_EASE: 5,
+
+  // Supercruise
+  SUPER_SPEED: 2500,
+  SUPER_ACCEL: 900,          // u/s^2 ramp
+  SUPER_DROP_MARGIN: 400,    // drop out this far from target surface
+  SUPER_MIN_PIRATE_DIST: 400,
+  SUPER_REENGAGE_DELAY: 5,   // s with no pirate nearby before re-engage allowed
+  TIME_SCALE_SUPER: 20,      // economy time multiplier during supercruise
+
+  // Energy / weapons
+  ENERGY_MAX: 100,
+  ENERGY_REGEN: 18,          // per second
+  BOOST_DRAIN: 25,           // per second
+  LASER_SPEED: 600,
+  LASER_LIFE: 1.6,
+  LASER_RANGE_HINT: 260,     // AI fire range
+
+  // Combat
+  SHIELD_REGEN_DELAY: 4,
+  INTERDICTION_CHANCE: 0.02, // per supercruise second, base
+  ENCOUNTER_COOLDOWN: 60,
+  PIRATE_BOUNTY_MIN: 300,
+  PIRATE_BOUNTY_MAX: 800,
+  POD_DROP_CHANCE: 0.3,
+  POD_SCOOP_DIST: 15,
+  CARGO_EJECT_CHANCE: 0.25,  // per hull hit below 50%
+  DEATH_CREDIT_TAX: 0.10,
+
+  // Docking
+  DOCK_RANGE: 130,
+  DOCK_DURATION: 4.0,
+
+  // Economy
+  START_CREDITS: 500,
+  START_CARGO: { food: 4 },
+  REPAIR_COST_PER_POINT: 2,
+  EXPORT_BIAS: 0.6,
+  IMPORT_BIAS: 1.5,
+  DRIFT_REVERT: 0.02,
+  DRIFT_MIN: 0.5,
+  DRIFT_MAX: 2.0,
+  TRADE_PRICE_IMPACT: 0.002, // drift nudge per unit traded
+
+  // Upgrades: index by tier (tier 0 unused where noted)
+  UPGRADES: {
+    engine: {
+      name: 'Engine',
+      tiers: [null,
+        { price: 0, maxSpeed: 40, boost: 120, turnMult: 1.0 },
+        { price: 1200, maxSpeed: 50, boost: 145, turnMult: 1.15 },
+        { price: 3000, maxSpeed: 60, boost: 170, turnMult: 1.3 },
+        { price: 7500, maxSpeed: 70, boost: 200, turnMult: 1.45 },
+      ],
+    },
+    weapons: {
+      name: 'Laser Cannon',
+      tiers: [null,
+        { price: 0, damage: 8, energy: 4, interval: 0.22, twin: false },
+        { price: 1500, damage: 12, energy: 4.5, interval: 0.2, twin: false },
+        { price: 3800, damage: 16, energy: 5, interval: 0.18, twin: true },
+        { price: 9500, damage: 22, energy: 5.5, interval: 0.16, twin: true },
+      ],
+    },
+    shield: {
+      name: 'Shield Generator',
+      tiers: [
+        { price: 0, max: 0, regen: 0 },
+        { price: 1000, max: 60, regen: 6 },
+        { price: 2600, max: 100, regen: 9 },
+        { price: 6500, max: 150, regen: 13 },
+      ],
+    },
+    hull: {
+      name: 'Hull Plating',
+      tiers: [null,
+        { price: 0, max: 100 },
+        { price: 1400, max: 160 },
+        { price: 3600, max: 250 },
+      ],
+    },
+    cargo: {
+      name: 'Cargo Hold',
+      tiers: [null,
+        { price: 0, max: 20 },
+        { price: 900, max: 32 },
+        { price: 2400, max: 45 },
+        { price: 6000, max: 60 },
+      ],
+    },
+  },
+
+  // Pirates
+  PIRATE: {
+    SPEED: 46,
+    TURN: 1.2,
+    HULL: 60,
+    SHIELD: 20,
+    DAMAGE: 6,
+    FIRE_INTERVAL: 0.5,
+    AIM_CONE: 0.14,       // rad
+    AIM_JITTER: 0.026,    // rad
+    ATTACK_DIST: 250,
+    BREAK_DIST: 60,
+    FLEE_HULL: 0.25,
+    DESPAWN_DIST: 2200,
+  },
+};

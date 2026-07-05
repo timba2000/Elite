@@ -1,0 +1,17 @@
+{
+  "name": "elite",
+  "version": "0.1.0",
+  "description": "Interstellar trading game - haul cargo, dodge pirates, upgrade your beat-up trader",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "vite": "^8.1.3"
+  }
+}

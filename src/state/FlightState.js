@@ -1,0 +1,365 @@
+import * as THREE from 'three';
+import { C } from '../constants.js';
+import { SaveSystem } from '../save/SaveSystem.js';
+
+const _camTarget = new THREE.Vector3();
+const _camOffset = new THREE.Vector3();
+const _lookAt = new THREE.Vector3();
+const _fwd = new THREE.Vector3();
+const _toTarget = new THREE.Vector3();
+const _q = new THREE.Quaternion();
+const _m = new THREE.Matrix4();
+const _up = new THREE.Vector3(0, 1, 0);
+const _shake = new THREE.Vector3();
+
+// The core sim: manual flight, supercruise, combat, docking approach.
+export class FlightState {
+  constructor(game) {
+    this.game = game;
+    this.mode = 'manual'; // 'manual' | 'super' | 'dead'
+    this.paused = false;
+    this.superSpeed = 0;
+    this.deathTimer = 0;
+    this.shakeT = 0;
+    this.targetIndex = -1;
+    this.target = null;
+  }
+
+  enter(params = {}) {
+    const g = this.game;
+    this.paused = false;
+    this.mode = 'manual';
+    this.superSpeed = 0;
+    this.shakeT = 0;
+    g.ui.hud.show();
+    g.ui.hud.navTargets = g.world.getNavTargets();
+    g.ui.stationUI.hide();
+    g.ship.group.visible = true;
+
+    if (params.spawnAtStation) {
+      const st = g.world.getStation(params.spawnAtStation);
+      const out = st.group.position.clone().sub(st.planetDef.position).normalize();
+      g.ship.group.position.copy(st.group.position).addScaledVector(out, 160);
+      _m.lookAt(g.ship.group.position.clone().addScaledVector(out, 100), g.ship.group.position, _up);
+      g.ship.group.quaternion.setFromRotationMatrix(_m);
+      g.ship.velocity.set(0, 0, 0);
+      g.ship.throttle = 0.3;
+      // snap camera behind ship
+      this.updateCamera(1, true);
+    }
+    if (params.pointerLock) g.input.requestPointerLock();
+  }
+
+  exit() {
+    this.game.ui.hud.setPrompt('');
+  }
+
+  // ---------- events wired from EncounterManager ----------
+  onInterdiction() {
+    const g = this.game;
+    if (this.mode === 'super') {
+      this.mode = 'manual';
+      this.superSpeed = 0;
+      g.ship.velocity.clampLength(0, g.ship.stats.maxSpeed);
+    }
+    this.shakeT = 0.8;
+    g.ui.hud.toast('WARNING — INTERDICTION! PIRATES ON SCANNER', 'warn');
+  }
+
+  // ---------- pause ----------
+  setPaused(on) {
+    const g = this.game;
+    this.paused = on;
+    if (on) {
+      g.input.exitPointerLock();
+      g.ui.menuUI.showPause({
+        onResume: () => { this.setPaused(false); g.input.requestPointerLock(); },
+        onSave: () => {
+          SaveSystem.save(g.playerData, g.market);
+          g.ui.hud.toast('GAME SAVED', 'gold');
+          this.setPaused(false);
+        },
+        onQuit: () => {
+          this.setPaused(false);
+          g.sm.change(g.states.menu);
+        },
+      });
+    } else {
+      g.ui.menuUI.hidePause();
+    }
+  }
+
+  update(dt) {
+    const g = this.game;
+    const input = g.input;
+
+    if (input.pressed('Escape')) this.setPaused(!this.paused);
+    if (this.paused) return;
+
+    const ship = g.ship;
+    const timeScale = this.mode === 'super' ? C.TIME_SCALE_SUPER : 1;
+    g.playerData.gameTime += dt * timeScale;
+    g.market.update(dt * timeScale);
+
+    // ---------- death ----------
+    if (this.mode === 'dead') {
+      this.deathTimer -= dt;
+      if (this.deathTimer < 1.2) g.ui.hud.fade(true);
+      if (this.deathTimer <= 0) this.respawn();
+      this.updateWorldAndFx(dt);
+      return;
+    }
+
+    // ---------- edge-triggered actions ----------
+    if (input.pressed('KeyT') || input.pressed('Tab')) this.cycleTarget();
+    if (input.pressed('KeyJ')) this.toggleSupercruise();
+    if (input.pressed('F5')) {
+      SaveSystem.save(g.playerData, g.market);
+      g.ui.hud.toast('GAME SAVED', 'gold');
+    }
+
+    // ---------- flight ----------
+    if (this.mode === 'manual') {
+      ship.updateManual(dt, input);
+      if (input.firing) ship.tryFire(g.laserPool);
+    } else if (this.mode === 'super') {
+      this.updateSupercruise(dt);
+      ship.updateSystems(dt);
+    }
+
+    this.keepOutOfBodies();
+
+    // ---------- docking prompt ----------
+    const dockStation = this.nearestDockableStation();
+    if (this.mode === 'manual' && dockStation) {
+      g.ui.hud.setPrompt('D — REQUEST DOCKING');
+      if (input.pressed('KeyD')) {
+        g.sm.change(g.states.docking, { station: dockStation });
+        return;
+      }
+    } else if (this.mode === 'manual' && this.target && !g.encounters.inCombat) {
+      const d = this.target.object.position.distanceTo(ship.position);
+      if (d > this.dropDistance(this.target)) {
+        g.ui.hud.setPrompt(`J — SUPERCRUISE TO ${this.target.name}`);
+      } else g.ui.hud.setPrompt('');
+    } else if (g.encounters.inCombat) {
+      g.ui.hud.setPrompt('');
+    } else if (!input.pointerLocked && this.mode === 'manual') {
+      g.ui.hud.setPrompt('CLICK TO ENGAGE MOUSE FLIGHT');
+    } else {
+      g.ui.hud.setPrompt('');
+    }
+
+    // ---------- combat ----------
+    g.encounters.update(dt, ship, g.laserPool, this.mode === 'super');
+
+    const targets = [
+      { entity: ship, position: ship.position, radius: ship.boundingRadius, side: 'player' },
+      ...g.encounters.pirates.map((p) => ({
+        entity: p, position: p.position, radius: p.boundingRadius, side: 'pirate',
+      })),
+    ];
+    g.laserPool.update(dt, targets, (t, bolt, hitPos) => this.handleHit(t, bolt, hitPos));
+
+    this.updateWorldAndFx(dt);
+    this.updateCamera(dt);
+
+    g.ui.hud.update(dt, {
+      ship, playerData: g.playerData, stats: ship.stats,
+      target: this.target, mode: this.mode, camera: g.camera,
+      pirates: g.encounters.pirates, pods: g.encounters.pods,
+    });
+  }
+
+  updateWorldAndFx(dt) {
+    const g = this.game;
+    g.world.update(dt, g.camera.position);
+    g.particles.update(dt);
+    g.explosions.update(dt);
+    if (this.mode !== 'dead') {
+      g.engineTrail?.update(dt,
+        this.mode === 'super' ? 1 : g.ship.throttle,
+        g.ship.boosting || this.mode === 'super',
+        g.ship.velocity);
+    }
+  }
+
+  handleHit(t, bolt, hitPos) {
+    const g = this.game;
+    if (t.side === 'pirate') {
+      const killed = t.entity.takeDamage(bolt.damage);
+      // small spark
+      g.explosions.spawn(hitPos, 0.15);
+      if (killed) g.encounters.onPirateKilled(t.entity, g.explosions);
+    } else {
+      const { destroyed, hullHit } = g.ship.takeDamage(bolt.damage);
+      g.ui.hud.damageFlash();
+      this.shakeT = Math.max(this.shakeT, 0.3);
+      if (hullHit) {
+        const stats = g.ship.stats;
+        if (g.playerData.hull < stats.hullMax * 0.3) {
+          g.ui.hud.toast('WARNING — HULL CRITICAL', 'warn');
+        }
+        if (g.playerData.hull < stats.hullMax * 0.5 && Math.random() < C.CARGO_EJECT_CHANCE) {
+          const lost = g.playerData.ejectRandomCargo();
+          if (lost) g.ui.hud.toast(`CARGO HATCH BREACH — LOST 1x ${lost.toUpperCase()}`, 'warn');
+        }
+      }
+      if (destroyed) this.die();
+    }
+  }
+
+  die() {
+    const g = this.game;
+    g.explosions.spawn(g.ship.position, 2.2);
+    g.ship.group.visible = false;
+    this.mode = 'dead';
+    this.deathTimer = 2.4;
+    g.ui.hud.toast('SHIP DESTROYED', 'warn');
+  }
+
+  respawn() {
+    const g = this.game;
+    const stats = g.playerData.getDerivedStats();
+    g.playerData.hull = stats.hullMax;
+    g.playerData.cargo = {};
+    g.playerData.credits = Math.floor(g.playerData.credits * (1 - C.DEATH_CREDIT_TAX));
+    g.ship.alive = true;
+    g.ship.shield = stats.shieldMax;
+    g.ship.energy = C.ENERGY_MAX;
+    g.ship.velocity.set(0, 0, 0);
+    g.ship.group.visible = true;
+    g.encounters.clearAll();
+    g.laserPool.clear();
+    g.ui.hud.fade(false);
+    this.mode = 'manual';
+    const station = g.world.getStation(g.playerData.lastStationId);
+    g.sm.change(g.states.station, { station, respawned: true });
+  }
+
+  // ---------- targets / supercruise ----------
+  cycleTarget() {
+    const g = this.game;
+    const targets = g.world.getNavTargets();
+    this.targetIndex = (this.targetIndex + 1) % targets.length;
+    this.target = targets[this.targetIndex];
+  }
+
+  dropDistance(target) {
+    return target.radius * 3 + C.SUPER_DROP_MARGIN;
+  }
+
+  toggleSupercruise() {
+    const g = this.game;
+    if (this.mode === 'super') {
+      this.mode = 'manual';
+      this.superSpeed = 0;
+      g.ship.velocity.clampLength(0, g.ship.stats.maxSpeed);
+      return;
+    }
+    if (!this.target) {
+      g.ui.hud.toast('NO NAV TARGET — PRESS T', 'warn');
+      return;
+    }
+    const d = this.target.object.position.distanceTo(g.ship.position);
+    if (d <= this.dropDistance(this.target)) {
+      g.ui.hud.toast('TOO CLOSE TO TARGET', 'warn');
+      return;
+    }
+    if (g.encounters.nearestPirateDist(g.ship.position) < C.SUPER_MIN_PIRATE_DIST) {
+      g.ui.hud.toast('CANNOT ENGAGE — HOSTILES NEARBY', 'warn');
+      return;
+    }
+    this.mode = 'super';
+    this.superSpeed = g.ship.velocity.length();
+    g.ui.hud.toast(`SUPERCRUISE — ${this.target.name}`);
+  }
+
+  updateSupercruise(dt) {
+    const g = this.game;
+    const ship = g.ship;
+    if (!this.target) { this.mode = 'manual'; return; }
+
+    // align toward target
+    _m.lookAt(this.target.object.position, ship.position, _up);
+    _q.setFromRotationMatrix(_m);
+    ship.group.quaternion.rotateTowards(_q, 1.4 * dt);
+
+    // ramp speed
+    this.superSpeed = Math.min(C.SUPER_SPEED, this.superSpeed + C.SUPER_ACCEL * dt);
+    _fwd.set(0, 0, 1).applyQuaternion(ship.group.quaternion);
+    ship.velocity.copy(_fwd).multiplyScalar(this.superSpeed);
+    ship.group.position.addScaledVector(ship.velocity, dt);
+    ship.throttle = 1;
+
+    // auto-drop at destination
+    _toTarget.copy(this.target.object.position).sub(ship.position);
+    const dist = _toTarget.length();
+    // don't overshoot: also drop if we'd pass it next frame
+    if (dist < this.dropDistance(this.target) || this.superSpeed * dt * 2 > dist) {
+      this.mode = 'manual';
+      this.superSpeed = 0;
+      ship.velocity.clampLength(0, ship.stats.maxSpeed);
+      ship.throttle = 0.5;
+      g.ui.hud.toast(`ARRIVED — ${this.target.name}`);
+    }
+  }
+
+  nearestDockableStation() {
+    const g = this.game;
+    for (const st of g.world.stations) {
+      if (st.group.position.distanceTo(g.ship.position) < C.DOCK_RANGE) return st;
+    }
+    return null;
+  }
+
+  // soft push-out so you can't fly inside the sun or planets
+  keepOutOfBodies() {
+    const g = this.game;
+    const pos = g.ship.group.position;
+    const sunMin = 420;
+    if (pos.length() < sunMin) pos.setLength(sunMin);
+    for (const p of g.world.planets) {
+      const min = p.radius + 25;
+      const d = pos.distanceTo(p.group.position);
+      if (d < min) {
+        pos.sub(p.group.position).setLength(min).add(p.group.position);
+      }
+    }
+  }
+
+  // ---------- camera ----------
+  updateCamera(dt, snap = false) {
+    const g = this.game;
+    const ship = g.ship;
+    const speedFactor = this.mode === 'super' ? Math.min(1, this.superSpeed / C.SUPER_SPEED) : 0;
+
+    _camOffset.set(C.CAM_OFFSET.x, C.CAM_OFFSET.y, -(C.CAM_OFFSET.z + speedFactor * 9 + (ship.boosting ? 3 : 0)));
+    _camOffset.applyQuaternion(ship.group.quaternion);
+    _camTarget.copy(ship.group.position).add(_camOffset);
+
+    if (snap) g.camera.position.copy(_camTarget);
+    else {
+      const a = 1 - Math.exp(-C.CAM_EASE * dt);
+      g.camera.position.lerp(_camTarget, a);
+    }
+
+    // shake
+    if (this.shakeT > 0) {
+      this.shakeT -= dt;
+      const s = this.shakeT * 1.6;
+      _shake.set((Math.random() - 0.5) * s, (Math.random() - 0.5) * s, (Math.random() - 0.5) * s);
+      g.camera.position.add(_shake);
+    }
+
+    _fwd.set(0, 0, 1).applyQuaternion(ship.group.quaternion);
+    _lookAt.copy(ship.group.position).addScaledVector(_fwd, 30);
+    g.camera.up.set(0, 1, 0).applyQuaternion(ship.group.quaternion);
+    g.camera.lookAt(_lookAt);
+
+    // FOV kick
+    const targetFov = ship.boosting ? C.CAMERA_FOV_BOOST : this.mode === 'super' ? 74 : C.CAMERA_FOV;
+    g.camera.fov += (targetFov - g.camera.fov) * Math.min(1, 4 * dt);
+    g.camera.updateProjectionMatrix();
+  }
+}
