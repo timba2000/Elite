@@ -63,6 +63,11 @@ new way to earn.
       a base chance); rich traders attract deadlier pirates
 - [ ] **Missile lock + countermeasures** — chaff/ECM for a new defensive layer
 - [ ] **Boss encounter** — a pirate dreadnought event once combat rank is high enough
+- [ ] **High-stakes docking** — raise the docking skill ceiling: the station projects a
+      lit runway/approach corridor showing the correct glide path and orientation;
+      hitting the station above a safe approach speed is instantly fatal, though
+      shields (§2) soak slower or glancing impacts at heavy charge cost — makes the
+      docking computer a genuine safety upgrade, not just a convenience
 
 ## 5. World & exploration
 
