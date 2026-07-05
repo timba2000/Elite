@@ -275,7 +275,7 @@ export class StationUI {
         } else if (atTarget) {
           status = `Need ${m.qty - held} more ${m.goodName} — deliver here`;
         } else {
-          status = `${held}/${m.qty} ${m.goodName} in hold → ${m.targetName}`;
+          status = `<span style="color: #ffd27a; font-weight: bold;">DELIVER TO ${m.targetName.toUpperCase()}</span> (${held}/${m.qty} in hold)`;
         }
         status += ` · ${Missions.fmtTime(m.timeLeft)} left (timer runs in flight)`;
       }
@@ -291,11 +291,11 @@ export class StationUI {
     const offerRows = this.offers.map((o) => {
       let detail;
       if (o.type === 'deliver') {
-        detail = `Cargo supplied on accept (${o.qty} units of hold space) · ${Missions.fmtTime(o.timeLeft)} limit · ${o.penalty.toLocaleString()} CR penalty on failure`;
+        detail = `Cargo supplied on accept (${o.qty} units) · <span style="color: #7dff9a; font-weight: bold;">TAKE TO: ${o.targetName.toUpperCase()}</span> · ${Missions.fmtTime(o.timeLeft)} limit · ${o.penalty.toLocaleString()} CR penalty`;
       } else if (o.type === 'smuggle') {
-        detail = `Unmarked narcotics supplied · dodge station scans · ${Missions.fmtTime(o.timeLeft)} limit · ${o.penalty.toLocaleString()} CR penalty on failure`;
+        detail = `Unmarked narcotics supplied · <span style="color: #ff8a7a; font-weight: bold;">SMUGGLE TO: ${o.targetName.toUpperCase()}</span> · dodge scans · ${Missions.fmtTime(o.timeLeft)} limit`;
       } else if (o.type === 'supply') {
-        detail = `Source anywhere, deliver here · ${Missions.fmtTime(o.timeLeft)} limit · no penalty`;
+        detail = `Source anywhere · <span style="color: #ffd27a; font-weight: bold;">DELIVER HERE: ${o.targetName.toUpperCase()}</span> · ${Missions.fmtTime(o.timeLeft)} limit · no penalty`;
       } else if (o.named) {
         detail = `A ${o.shipType} that will come hunting YOU · fights to the death · no time limit`;
       } else {
@@ -380,9 +380,27 @@ export class StationUI {
       const isSelected = this.selectedGoodId === g.id;
       const arrow = isSelected ? '▼' : '▶';
 
+      // Find active contracts for this good to show as badges in the market list
+      const activeContracts = this.player.missions.filter((m) => m.good === g.id);
+      let contractBadge = '';
+      if (activeContracts.length > 0) {
+        contractBadge = activeContracts.map((m) => {
+          if (m.type === 'supply') {
+            return `<div class="contract-badge" style="font-size: 10px; color: #ffd27a; margin-top: 3px; letter-spacing: 0.5px; font-weight: bold;">⚑ SUPPLY TO: ${m.targetName.toUpperCase()} (${m.qty} units)</div>`;
+          } else if (m.type === 'smuggle') {
+            return `<div class="contract-badge" style="font-size: 10px; color: #ff8a7a; margin-top: 3px; letter-spacing: 0.5px; font-weight: bold;">⚑ SMUGGLE TO: ${m.targetName.toUpperCase()} (${m.qty} units)</div>`;
+          } else {
+            return `<div class="contract-badge" style="font-size: 10px; color: #7dff9a; margin-top: 3px; letter-spacing: 0.5px; font-weight: bold;">⚑ COURIER TO: ${m.targetName.toUpperCase()} (${m.qty} units)</div>`;
+          }
+        }).join('');
+      }
+
       const mainRow = `
         <tr data-good="${g.id}" style="cursor: pointer;" class="${isSelected ? 'selected-row' : ''}">
-          <td><span class="expand-arrow" style="font-size: 10px; margin-right: 6px; color: rgba(80, 220, 255, 0.7);">${arrow}</span>${g.name}</td>
+          <td>
+            <span class="expand-arrow" style="font-size: 10px; margin-right: 6px; color: rgba(80, 220, 255, 0.7);">${arrow}</span><b>${g.name}</b>
+            ${contractBadge}
+          </td>
           <td class="num ${buyCls}">${buy}</td>
           <td class="num ${sellCls}">${sell}</td>
           <td class="num">${held}</td>
@@ -414,6 +432,24 @@ export class StationUI {
         statusClass = 'dear';
       }
 
+      let contractSection = '';
+      if (activeContracts.length > 0) {
+        const items = activeContracts.map((m) => {
+          const held = this.player.cargo[m.good] || 0;
+          let statusStr = '';
+          if (m.type === 'supply') {
+            statusStr = `Deliver here · ${held}/${m.qty} acquired`;
+          } else {
+            statusStr = `Deliver to ${m.targetName} · ${held}/${m.qty} in cargo hold`;
+          }
+          return `<div style="font-size: 11px; margin-top: 2px; color: #ffd27a;">• ${m.type.toUpperCase()}: ${statusStr} (Time left: ${Missions.fmtTime(m.timeLeft)})</div>`;
+        }).join('');
+        contractSection = `<div style="margin-top: 8px; border-top: 1px dashed rgba(80, 220, 255, 0.2); padding-top: 6px;">
+          <div style="font-size: 11px; color: #ffd27a; font-weight: bold; letter-spacing: 1px;">ACTIVE CONTRACTS FOR THIS GOOD:</div>
+          ${items}
+        </div>`;
+      }
+
       const detailRow = `
         <tr class="market-detail-row" style="background: rgba(0, 15, 25, 0.45);">
           <td colspan="7" style="padding: 0;">
@@ -427,6 +463,7 @@ export class StationUI {
                 </div>
                 <div class="info-desc" style="font-size: 11px; line-height: 1.4; color: rgba(159, 232, 255, 0.85); min-height: 32px;">
                   ${this.getMarketPerspective(g.id)}
+                  ${contractSection}
                 </div>
                 <div class="info-stats" style="display: flex; gap: 16px; font-size: 10px; margin-top: 4px; border-top: 1px solid rgba(80, 220, 255, 0.15); padding-top: 6px;">
                   <div>VOLATILITY: <span style="color: ${g.volatility > 0.025 ? '#ff8a7a' : '#7dff9a'}; font-weight: bold;">${g.volatility > 0.03 ? 'HIGH' : g.volatility > 0.015 ? 'MED' : 'LOW'}</span></div>
