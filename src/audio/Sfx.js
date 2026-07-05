@@ -84,8 +84,13 @@ export class Sfx {
     if (!this.ctx || this.muted) return;
     switch (name) {
       case 'laser':
-        this.tone({ type: 'sawtooth', f0: 900, f1: 220, dur: 0.12, vol: 0.16 });
-        this.tone({ type: 'square', f0: 1800, f1: 500, dur: 0.07, vol: 0.06 });
+        this.tone({ type: 'sawtooth', f0: 1600, f1: 180, dur: 0.15, vol: 0.15 });
+        this.tone({ type: 'square', f0: 1200, f1: 140, dur: 0.1, vol: 0.08 });
+        break;
+      case 'missileLaunch':
+        this.tone({ type: 'sawtooth', f0: 1800, f1: 150, dur: 0.25, vol: 0.2 });
+        this.tone({ type: 'square', f0: 900, f1: 80, dur: 0.18, vol: 0.15 });
+        this.noise({ filter: 'bandpass', f0: 800, f1: 200, q: 1.5, dur: 0.4, vol: 0.25, attack: 0.02 });
         break;
       case 'laserEnemy':
         this.tone({ type: 'square', f0: 420, f1: 110, dur: 0.16, vol: 0.09 });

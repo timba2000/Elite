@@ -306,10 +306,12 @@ export class FlightState {
         for (const h of hostiles) {
           const ndc = h.position.clone().project(g.camera);
           if (ndc.z < 1) {
-            const ndcDist = Math.hypot(ndc.x, ndc.y);
-            if (ndcDist < 0.12 && ndcDist < minNdcDist) {
-              minNdcDist = ndcDist;
-              bestHostile = h;
+            if (Math.abs(ndc.x) <= 1.05 && Math.abs(ndc.y) <= 1.05) {
+              const ndcDist = Math.hypot(ndc.x, ndc.y);
+              if (ndcDist < minNdcDist) {
+                minNdcDist = ndcDist;
+                bestHostile = h;
+              }
             }
           }
         }
@@ -481,6 +483,7 @@ export class FlightState {
     const dir = ship.forward;
 
     g.missilePool.fire(origin, dir, this.lockTarget, ship.stats.missilesDamage, ship.velocity);
+    g.sfx.play('missileLaunch');
     g.ui.hud.toast('MISSILE LAUNCHED', 'gold');
 
     // Reset lock
