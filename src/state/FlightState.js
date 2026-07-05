@@ -422,7 +422,7 @@ export class FlightState {
 
     const dockStation = this.nearestDockableStation();
     if (!dockStation) return null;
-    if (g.input.pressed('KeyD')) {
+    if (g.input.pressed('KeyF')) {
       if (g.ship.stats.dockingComputer) {
         g.sm.change(g.states.docking, { station: dockStation });
         return true;
@@ -431,7 +431,7 @@ export class FlightState {
       g.ui.hud.toast(`CLEARANCE GRANTED — ENTER THE HUB APERTURE UNDER ${Math.round(C.DOCK_MAX_SPEED * 10)} M/S`, 'gold');
       return 'PROCEED TO THE GREEN APERTURE';
     }
-    return 'D — REQUEST DOCKING';
+    return 'F — REQUEST DOCKING';
   }
 
   // Contact with the hub face: a clean, slow, centred, nose-in approach docks;
@@ -452,12 +452,23 @@ export class FlightState {
 
     // Calculate roll alignment between ship and rotating station doors
     const shipUp = new THREE.Vector3(0, 1, 0).applyQuaternion(ship.group.quaternion);
-    const stationUp = new THREE.Vector3(0, 1, 0).applyQuaternion(st.group.quaternion);
+    const stationQ = st.group.quaternion;
+    const stationUp = new THREE.Vector3(0, 1, 0).applyQuaternion(stationQ);
     const rollDot = Math.abs(shipUp.dot(stationUp));
+
+    // Calculate rectangular off-center offsets
+    const stationX = new THREE.Vector3(1, 0, 0).applyQuaternion(stationQ).normalize();
+    const stationY = new THREE.Vector3(0, 1, 0).applyQuaternion(stationQ).normalize();
+    const localX = Math.abs(_dockRel.dot(stationX));
+    const localY = Math.abs(_dockRel.dot(stationY));
+
+    const scale = st.group.scale.x; // 2.2
+    const limitX = 2.15 * scale;
+    const limitY = 1.35 * scale;
 
     const doorsClosed = st.doorOpenFactor < 0.9;
     const tooFast = speed > C.DOCK_MAX_SPEED;
-    const offCentre = lateral > C.DOCK_LATERAL_TOL;
+    const offCentre = localX > limitX || localY > limitY;
     const misaligned = nose < C.DOCK_ALIGN_DOT || inward < C.DOCK_INWARD_DOT;
     const rollMisaligned = rollDot < 0.92;
 

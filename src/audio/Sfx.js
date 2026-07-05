@@ -145,61 +145,73 @@ export class Sfx {
     }
   }
 
-  // ---------- continuous engine hum ----------
+  // ---------- continuous engine wind ----------
   startEngineLoop() {
     const ctx = this.ctx;
     const g = ctx.createGain();
     g.gain.value = 0;
     g.connect(this.master);
 
+    // Subtle sub-bass hum (very quiet, just for body)
     const flt = ctx.createBiquadFilter();
     flt.type = 'lowpass';
-    flt.frequency.value = 240;
+    flt.frequency.value = 120;
+    flt.Q.value = 0.5;
     flt.connect(g);
 
     const o1 = ctx.createOscillator();
-    o1.type = 'sawtooth';
-    o1.frequency.value = 42;
+    o1.type = 'sine';
+    o1.frequency.value = 32;
     o1.connect(flt);
     o1.start();
 
     const o2 = ctx.createOscillator();
-    o2.type = 'sawtooth';
-    o2.frequency.value = 44.5; // slight detune for a beating rumble
+    o2.type = 'sine';
+    o2.frequency.value = 34; // slight detune for a gentle beating
     o2.connect(flt);
     o2.start();
 
+    // Wind noise: bandpass-filtered white noise for a smooth rushing sound
     const nz = ctx.createBufferSource();
     nz.buffer = this.noiseBuf;
     nz.loop = true;
     const nzFlt = ctx.createBiquadFilter();
-    nzFlt.type = 'lowpass';
-    nzFlt.frequency.value = 380;
+    nzFlt.type = 'bandpass';
+    nzFlt.frequency.value = 600;
+    nzFlt.Q.value = 0.4;
+    const nzHi = ctx.createBiquadFilter();
+    nzHi.type = 'lowpass';
+    nzHi.frequency.value = 1800;
+    nzHi.Q.value = 0.3;
     const nzGain = ctx.createGain();
-    nzGain.gain.value = 0.35;
+    nzGain.gain.value = 0.5;
     nz.connect(nzFlt);
-    nzFlt.connect(nzGain);
+    nzFlt.connect(nzHi);
+    nzHi.connect(nzGain);
     nzGain.connect(g);
     nz.start();
 
-    this.engine = { gain: g, o1, o2, flt };
+    this.engine = { gain: g, o1, o2, flt, nzFlt, nzHi, nzGain };
   }
 
   // called every flight frame; throttle 0..1
   setEngine(throttle, boosting, superMode) {
     if (!this.engine || this.muted) return;
     const t = this.ctx.currentTime;
-    let vol, freq, cutoff;
+    let vol, freq, windCenter, windHi;
     if (superMode) {
-      vol = 0.16; freq = 30; cutoff = 160; // deep frame-shaking rumble
+      vol = 0.06; freq = 24; windCenter = 900; windHi = 2800; // gentle deep rush
     } else {
-      vol = throttle * 0.11 + (boosting ? 0.09 : 0);
-      freq = 40 + throttle * 45 + (boosting ? 35 : 0);
-      cutoff = 220 + throttle * 300 + (boosting ? 500 : 0);
+      vol = throttle * 0.04 + (boosting ? 0.03 : 0);
+      freq = 28 + throttle * 15 + (boosting ? 10 : 0);
+      windCenter = 400 + throttle * 600 + (boosting ? 500 : 0);
+      windHi = 1200 + throttle * 1200 + (boosting ? 800 : 0);
     }
-    this.engine.gain.gain.setTargetAtTime(vol, t, 0.1);
-    this.engine.o1.frequency.setTargetAtTime(freq, t, 0.1);
-    this.engine.o2.frequency.setTargetAtTime(freq * 1.06, t, 0.1);
-    this.engine.flt.frequency.setTargetAtTime(cutoff, t, 0.1);
+    this.engine.gain.gain.setTargetAtTime(vol, t, 0.15);
+    this.engine.o1.frequency.setTargetAtTime(freq, t, 0.15);
+    this.engine.o2.frequency.setTargetAtTime(freq * 1.06, t, 0.15);
+    this.engine.flt.frequency.setTargetAtTime(80 + throttle * 60, t, 0.15);
+    this.engine.nzFlt.frequency.setTargetAtTime(windCenter, t, 0.12);
+    this.engine.nzHi.frequency.setTargetAtTime(windHi, t, 0.12);
   }
 }

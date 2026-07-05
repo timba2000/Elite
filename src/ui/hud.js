@@ -37,6 +37,7 @@ export class Hud {
       <div class="hud-prompt"></div>
       <div id="toasts"></div>
       <div class="offscreen-arrow" style="display:none"></div>
+      <div id="combat-indicators"></div>
       <div id="damage-flash"></div>
       <div id="fade-overlay"></div>
     `;
@@ -67,6 +68,7 @@ export class Hud {
     this.arrow = this.$('.offscreen-arrow');
     this.flashEl = this.$('#damage-flash');
     this.fadeEl = this.$('#fade-overlay');
+    this.combatEl = this.$('#combat-indicators');
     this.flashT = 0;
   }
 
@@ -138,6 +140,7 @@ export class Hud {
 
     this.drawRadar(ship, target, pirates, police, pods);
     this.updateArrow(ship, target, camera);
+    this.updateCombatIndicators(ship, camera, pirates, police);
 
     // damage flash decay
     if (this.flashT > 0) {
@@ -280,5 +283,68 @@ export class Hud {
     const ang = (Math.atan2(dy, dx) * 180) / Math.PI + 90;
     this.arrow.style.display = 'block';
     this.arrow.style.transform = `translate(${sx}px, ${sy}px) rotate(${ang}deg)`;
+  }
+
+  updateCombatIndicators(ship, camera, pirates = [], police = []) {
+    const hostiles = [...pirates, ...police];
+    // Build or reuse indicator DOM elements
+    while (this.combatEl.children.length < hostiles.length) {
+      const el = document.createElement('div');
+      el.className = 'combat-marker';
+      el.innerHTML = '<div class="cm-bracket"></div><div class="cm-label"></div>';
+      this.combatEl.appendChild(el);
+    }
+    // Hide excess
+    for (let i = 0; i < this.combatEl.children.length; i++) {
+      this.combatEl.children[i].style.display = i < hostiles.length ? 'block' : 'none';
+    }
+    if (!camera || hostiles.length === 0) return;
+
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+
+    for (let i = 0; i < hostiles.length; i++) {
+      const h = hostiles[i];
+      const el = this.combatEl.children[i];
+      const bracket = el.querySelector('.cm-bracket');
+      const label = el.querySelector('.cm-label');
+      const isPolice = i >= pirates.length;
+      const color = isPolice ? '#00aaff' : '#44ff66';
+
+      const dist = h.position.distanceTo(ship.position);
+      const meters = dist * 10;
+      const distText = meters >= 1000 ? `${(meters / 1000).toFixed(1)}KM` : `${Math.round(meters)}M`;
+
+      _ndc.copy(h.position).project(camera);
+      const onScreen = _ndc.z < 1 && Math.abs(_ndc.x) < 0.92 && Math.abs(_ndc.y) < 0.88;
+
+      if (onScreen) {
+        // On-screen: show targeting bracket at projected position
+        const sx = (_ndc.x * 0.5 + 0.5) * W;
+        const sy = (-_ndc.y * 0.5 + 0.5) * H;
+        el.style.transform = `translate(${sx}px, ${sy}px)`;
+        el.className = 'combat-marker on-screen';
+        bracket.style.borderColor = color;
+        bracket.style.display = 'block';
+        label.textContent = distText;
+        label.style.color = color;
+      } else {
+        // Off-screen: show directional arrow at screen edge
+        let dx = _ndc.x, dy = -_ndc.y;
+        if (_ndc.z > 1) { dx = -dx; dy = -dy; }
+        const len = Math.hypot(dx, dy) || 1;
+        dx /= len; dy /= len;
+        const margin = 0.82;
+        const sx = (dx * margin * 0.5 + 0.5) * W;
+        const sy = (dy * margin * 0.5 + 0.5) * H;
+        const ang = (Math.atan2(dy, dx) * 180) / Math.PI + 90;
+        el.style.transform = `translate(${sx}px, ${sy}px)`;
+        el.className = 'combat-marker off-screen';
+        bracket.style.display = 'none';
+        label.textContent = `▲ ${distText}`;
+        label.style.color = color;
+        label.style.transform = `rotate(${ang}deg)`;
+      }
+    }
   }
 }

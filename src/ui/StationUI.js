@@ -1,5 +1,6 @@
 import { C } from '../constants.js';
 import { COMMODITIES } from '../economy/commodities.js';
+import { SaveSystem } from '../save/SaveSystem.js';
 
 // Docked panel: Market / Shipyard / Repair tabs + undock.
 export class StationUI {
@@ -36,6 +37,7 @@ export class StationUI {
         <button data-tab="market">Market</button>
         <button data-tab="shipyard">Shipyard</button>
         <button data-tab="repair">Repair</button>
+        <button class="save-btn" data-tab="save">💾 Save Game</button>
         <button class="amber" data-tab="undock">Undock</button>
       </div>
       <div class="st-body"></div>
@@ -45,11 +47,19 @@ export class StationUI {
     this.root.querySelectorAll('.st-tabs button').forEach((b) => {
       b.addEventListener('click', () => {
         if (b.dataset.tab === 'undock') { this.cb.undock(); return; }
+        if (b.dataset.tab === 'save') { this.saveGame(b); return; }
         this.tab = b.dataset.tab;
         this.renderTab();
       });
     });
     this.renderTab();
+  }
+
+  saveGame(btn) {
+    const ok = SaveSystem.save(this.player, this.market);
+    btn.textContent = ok ? '✔ Saved!' : '✘ Save Failed';
+    btn.disabled = true;
+    setTimeout(() => { btn.textContent = '💾 Save Game'; btn.disabled = false; }, 2000);
   }
 
   renderStatus() {

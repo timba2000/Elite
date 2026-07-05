@@ -33,24 +33,48 @@ export class Station {
       this.group.add(spoke);
     }
 
-    // Hub
-    const hub = new THREE.Mesh(new THREE.CylinderGeometry(4.5, 4.5, 6, 16), hullMat);
-    hub.rotation.x = Math.PI / 2;
-    this.group.add(hub);
+    // Hollow Rectangular Hub: composed of 4 thick walls and a rear wall to make a docking tunnel
+    const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.8, 4.5, 6.0), hullMat);
+    leftWall.position.set(-2.65, 0, 0);
+    const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.8, 4.5, 6.0), hullMat);
+    rightWall.position.set(2.65, 0, 0);
+    const topWall = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.8, 6.0), hullMat);
+    topWall.position.set(0, 1.85, 0);
+    const bottomWall = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.8, 6.0), hullMat);
+    bottomWall.position.set(0, -1.85, 0);
+    const rearWall = new THREE.Mesh(new THREE.BoxGeometry(4.5, 2.9, 0.4), hullMat);
+    rearWall.position.set(0, 0, -2.8);
 
-    // Docking aperture glow on hub face
+    this.group.add(leftWall);
+    this.group.add(rightWall);
+    this.group.add(topWall);
+    this.group.add(bottomWall);
+    this.group.add(rearWall);
+
+    // Glowing rectangular border outlining the docking bay opening
     this.apertureMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.2, 2.2, 2.8) });
-    const aperture = new THREE.Mesh(new THREE.RingGeometry(1.8, 2.6, 24), this.apertureMat);
-    aperture.position.z = 3.05;
-    this.apertureLocalZ = aperture.position.z;
-    this.group.add(aperture);
+    this.apertureLocalZ = 3.05;
 
-    // Two rectangular metal doors blocking the aperture
+    const rimL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.9, 0.1), this.apertureMat);
+    rimL.position.set(-2.25, 0, 3.01);
+    const rimR = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.9, 0.1), this.apertureMat);
+    rimR.position.set(2.25, 0, 3.01);
+    const rimT = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.12, 0.1), this.apertureMat);
+    rimT.position.set(0, 1.45, 3.01);
+    const rimB = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.12, 0.1), this.apertureMat);
+    rimB.position.set(0, -1.45, 3.01);
+
+    this.group.add(rimL);
+    this.group.add(rimR);
+    this.group.add(rimT);
+    this.group.add(rimB);
+
+    // Two rectangular metal doors blocking the aperture (slide behind left/right walls)
     const doorMat = new THREE.MeshStandardMaterial({ color: 0x3a3d45, metalness: 0.7, roughness: 0.4 });
-    this.leftDoor = new THREE.Mesh(new THREE.BoxGeometry(2.8, 5.6, 0.35), doorMat);
-    this.rightDoor = new THREE.Mesh(new THREE.BoxGeometry(2.8, 5.6, 0.35), doorMat);
-    this.leftDoor.position.set(-1.4, 0, 3.15);
-    this.rightDoor.position.set(1.4, 0, 3.15);
+    this.leftDoor = new THREE.Mesh(new THREE.BoxGeometry(2.35, 2.9, 0.25), doorMat);
+    this.rightDoor = new THREE.Mesh(new THREE.BoxGeometry(2.35, 2.9, 0.25), doorMat);
+    this.leftDoor.position.set(-1.175, 0, 3.1);
+    this.rightDoor.position.set(1.175, 0, 3.1);
     this.group.add(this.leftDoor);
     this.group.add(this.rightDoor);
     this.doorOpenFactor = 0;
@@ -117,7 +141,7 @@ export class Station {
     // Animate sliding doors
     const targetOpen = this.dockingActive ? 1.0 : 0.0;
     this.doorOpenFactor = THREE.MathUtils.lerp(this.doorOpenFactor, targetOpen, 3.5 * dt);
-    this.leftDoor.position.x = -1.4 - (2.6 * this.doorOpenFactor);
-    this.rightDoor.position.x = 1.4 + (2.6 * this.doorOpenFactor);
+    this.leftDoor.position.x = -1.175 - (2.25 * this.doorOpenFactor);
+    this.rightDoor.position.x = 1.175 + (2.25 * this.doorOpenFactor);
   }
 }

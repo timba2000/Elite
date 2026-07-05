@@ -51,7 +51,7 @@ export class Input {
   get boost() { return this.keys.has('ShiftLeft') || this.keys.has('ShiftRight'); }
   get firing() { return this.keys.has('Space') || this.mouseDown; }
   get roll() {
-    return (this.keys.has('KeyQ') ? 1 : 0) - (this.keys.has('KeyE') ? 1 : 0);
+    return (this.keys.has('KeyQ') || this.keys.has('KeyA') ? 1 : 0) - (this.keys.has('KeyE') || this.keys.has('KeyD') ? 1 : 0);
   }
   get pitch() {
     let v = -this.mouseY;
