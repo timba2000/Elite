@@ -11,7 +11,7 @@ export class MenuUI {
       <button id="btn-continue" class="clickable" style="display:none">Continue</button>
       <button id="btn-continue-cheat" class="clickable amber" style="display:none">Continue (Cheat)</button>
       <div class="controls">
-        <b>MOUSE</b> steer &nbsp; <b>W/S</b> throttle &nbsp; <b>SHIFT</b> boost &nbsp; <b>Q/A</b> roll left &nbsp; <b>E/D</b> roll right &nbsp; <b>Q</b> launch missile (after lock)<br>
+        <b>MOUSE</b> steer &nbsp; <b>W/S</b> throttle &nbsp; <b>SHIFT</b> boost &nbsp; <b>Q/A</b> roll left &nbsp; <b>E/D</b> roll right (D if launcher fitted) &nbsp; <b>E</b> launch missile (after lock)<br>
         <b>SPACE / CLICK</b> fire laser &nbsp; <b>T</b> cycle target &nbsp; <b>J</b> supercruise &nbsp; <b>D</b> request docking &nbsp; <b>V</b> view &nbsp; <b>M</b> mute &nbsp; <b>ESC</b> pause<br>
         Buy low, sell high. Watch for pirates. Fly into the aperture slowly — or save up for a docking computer.
       </div>

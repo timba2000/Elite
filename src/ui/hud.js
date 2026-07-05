@@ -40,6 +40,7 @@ export class Hud {
       <div class="offscreen-arrow" style="display:none"></div>
       <div id="combat-indicators"></div>
       <div id="damage-flash"></div>
+      <div id="warp-flash"></div>
       <div id="fade-overlay"></div>
     `;
     uiRoot.appendChild(this.root);
@@ -71,9 +72,11 @@ export class Hud {
     this.toasts = this.$('#toasts');
     this.arrow = this.$('.offscreen-arrow');
     this.flashEl = this.$('#damage-flash');
+    this.warpFlashEl = this.$('#warp-flash');
     this.fadeEl = this.$('#fade-overlay');
     this.combatEl = this.$('#combat-indicators');
     this.flashT = 0;
+    this.warpFlashT = 0;
   }
 
   show() { this.root.classList.add('visible'); }
@@ -93,6 +96,7 @@ export class Hud {
   }
 
   damageFlash() { this.flashT = 0.25; }
+  warpFlash() { this.warpFlashT = 1.0; }
 
   fade(on) { this.fadeEl.classList.toggle('on', on); }
 
@@ -162,6 +166,16 @@ export class Hud {
     if (this.flashT > 0) {
       this.flashT -= dt;
       this.flashEl.style.opacity = Math.max(0, this.flashT / 0.25);
+    }
+
+    // warp flash decay
+    if (this.warpFlashT > 0) {
+      this.warpFlashT -= dt * 1.5;
+      this.warpFlashEl.style.opacity = Math.max(0, this.warpFlashT);
+      this.warpFlashEl.style.display = 'block';
+    } else {
+      this.warpFlashEl.style.opacity = 0;
+      this.warpFlashEl.style.display = 'none';
     }
   }
 

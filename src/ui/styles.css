@@ -184,6 +184,10 @@ button.amber:hover:not(:disabled) { background: rgba(100, 65, 15, 0.95); box-sha
   background: radial-gradient(circle, transparent 40%, rgba(255, 40, 20, 0.35) 100%);
   opacity: 0; transition: opacity 0.1s;
 }
+#warp-flash {
+  position: absolute; inset: 0; pointer-events: none;
+  background: #ffffff; opacity: 0; display: none; z-index: 100;
+}
 #fade-overlay {
   position: absolute; inset: 0; background: #000; opacity: 0;
   transition: opacity 0.8s; pointer-events: none;

@@ -34,6 +34,7 @@ export class FlightState {
     this.lockTarget = null;
     this.lockTimer = 0;
     this.locked = false;
+    this.warpJumpT = 0;
   }
 
   enter(params = {}) {
@@ -47,6 +48,7 @@ export class FlightState {
     this.lockTarget = null;
     this.lockTimer = 0;
     this.locked = false;
+    this.warpJumpT = 0;
     g.ui.hud.show();
     g.ui.hud.navTargets = g.world.getNavTargets();
     g.ui.stationUI.hide();
@@ -179,6 +181,9 @@ export class FlightState {
     }
 
     // ---------- flight ----------
+    if (this.warpJumpT > 0) {
+      this.warpJumpT = Math.max(0, this.warpJumpT - dt * 1.5);
+    }
     if (this.mode === 'manual') {
       ship.updateManual(dt, input);
       if (input.firing) ship.tryFire(g.laserPool);
@@ -324,7 +329,7 @@ export class FlightState {
         this.locked = false;
       }
 
-      if (input.pressed('KeyQ')) {
+      if (input.pressed('KeyE')) {
         this.tryLaunchMissile();
       }
     } else {
@@ -363,6 +368,9 @@ export class FlightState {
       warp = Math.min(1.5, ratio * 1.6);
       if (warp > 1.0) {
         warp = 1.0 + (warp - 1.0) * 0.25;
+      }
+      if (this.warpJumpT > 0) {
+        warp += this.warpJumpT * 2.2;
       }
     }
     g.world.update(dt, g.camera.position, warp);
@@ -567,6 +575,10 @@ export class FlightState {
     this.superSpeed = g.ship.velocity.length();
     g.sfx.play('superEngage');
     g.ui.hud.toast(`SUPERCRUISE — ${this.target.name}`);
+
+    // Trigger warp flash (white glare) and star jump
+    this.warpJumpT = 0.8;
+    g.ui.hud.warpFlash();
   }
 
   updateSupercruise(dt) {
