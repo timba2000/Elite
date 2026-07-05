@@ -28,6 +28,7 @@ export class PlayerShip {
     this.rebuildMesh();
     this.applyStats();
     this.shield = this.stats.shieldMax;
+    this.missilesAmmo = this.stats.missilesMaxAmmo;
   }
 
   rebuildMesh() {
@@ -42,6 +43,7 @@ export class PlayerShip {
   applyStats() {
     this.stats = this.playerData.getDerivedStats();
     this.shield = Math.min(this.shield, this.stats.shieldMax);
+    this.missilesAmmo = Math.min(this.missilesAmmo ?? this.stats.missilesMaxAmmo, this.stats.missilesMaxAmmo);
   }
 
   get position() { return this.group.position; }
@@ -79,9 +81,8 @@ export class PlayerShip {
   updateSystems(dt) {
     // energy regen
     this.energy = Math.min(C.ENERGY_MAX, this.energy + C.ENERGY_REGEN * dt);
-    // shield regen after delay
-    this.shieldTimer += dt;
-    if (this.shieldTimer > C.SHIELD_REGEN_DELAY && this.stats.shieldMax > 0) {
+    // shield regen ONLY IF energy bar is full
+    if (this.stats.shieldMax > 0 && this.energy >= C.ENERGY_MAX) {
       this.shield = Math.min(this.stats.shieldMax, this.shield + this.stats.shieldRegen * dt);
     }
     this.fireTimer -= dt;

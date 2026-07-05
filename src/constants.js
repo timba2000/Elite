@@ -122,6 +122,15 @@ export const C = {
         { price: 12000, fitted: true },
       ],
     },
+    missiles: {
+      name: 'Missile Launcher',
+      tiers: [
+        { price: 0, maxAmmo: 0, damage: 0 },
+        { price: 1800, maxAmmo: 4, damage: 45 },
+        { price: 4200, maxAmmo: 8, damage: 70 },
+        { price: 9500, maxAmmo: 12, damage: 100 },
+      ],
+    },
   },
 
   // Pirates

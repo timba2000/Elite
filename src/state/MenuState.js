@@ -17,7 +17,9 @@ export class MenuState {
     g.ui.menuUI.show({
       hasSave: SaveSystem.exists(),
       onNew: () => g.newGame(),
+      onNewCheat: () => g.newGame(true),
       onContinue: () => g.loadGame(),
+      onContinueCheat: () => g.loadGame(true),
     });
   }
 

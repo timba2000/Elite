@@ -7,11 +7,18 @@ export class PlayerData {
     this.credits = C.START_CREDITS;
     this.cargo = { ...C.START_CARGO };
     this.costBasis = {}; // goodId -> avg credits paid per unit held
-    this.upgrades = { engine: 1, weapons: 1, shield: 0, hull: 1, cargo: 1, dockingComputer: 0 };
+    this.upgrades = { engine: 1, weapons: 1, shield: 1, hull: 1, cargo: 1, dockingComputer: 0, missiles: 0 };
     this.hull = C.UPGRADES.hull.tiers[1].max;
     this.lastStationId = 'veridia-station';
     this.gameTime = 0;
     this.notoriety = 0;
+    this.inSpace = false;
+    this.spacePos = null;
+    this.spaceRot = null;
+    this.spaceVel = null;
+    this.spaceThrottle = 0;
+    this.spaceMode = 'manual';
+    this.spaceTargetId = null;
   }
 
   getDerivedStats() {
@@ -21,6 +28,7 @@ export class PlayerData {
     const shd = C.UPGRADES.shield.tiers[u.shield];
     const hul = C.UPGRADES.hull.tiers[u.hull];
     const crg = C.UPGRADES.cargo.tiers[u.cargo];
+    const msl = C.UPGRADES.missiles.tiers[u.missiles ?? 0];
     return {
       maxSpeed: eng.maxSpeed,
       boost: eng.boost,
@@ -34,6 +42,8 @@ export class PlayerData {
       hullMax: hul.max,
       cargoMax: crg.max,
       dockingComputer: C.UPGRADES.dockingComputer.tiers[u.dockingComputer].fitted,
+      missilesMaxAmmo: msl.maxAmmo,
+      missilesDamage: msl.damage,
     };
   }
 
@@ -100,6 +110,13 @@ export class PlayerData {
       lastStationId: this.lastStationId,
       gameTime: this.gameTime,
       notoriety: this.notoriety,
+      inSpace: this.inSpace,
+      spacePos: this.spacePos,
+      spaceRot: this.spaceRot,
+      spaceVel: this.spaceVel,
+      spaceThrottle: this.spaceThrottle,
+      spaceMode: this.spaceMode,
+      spaceTargetId: this.spaceTargetId,
     };
   }
 
@@ -113,6 +130,13 @@ export class PlayerData {
     p.lastStationId = data.lastStationId ?? p.lastStationId;
     p.gameTime = data.gameTime ?? 0;
     p.notoriety = data.notoriety ?? 0;
+    p.inSpace = data.inSpace ?? false;
+    p.spacePos = data.spacePos ?? null;
+    p.spaceRot = data.spaceRot ?? null;
+    p.spaceVel = data.spaceVel ?? null;
+    p.spaceThrottle = data.spaceThrottle ?? 0;
+    p.spaceMode = data.spaceMode ?? 'manual';
+    p.spaceTargetId = data.spaceTargetId ?? null;
     return p;
   }
 }

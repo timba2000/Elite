@@ -14,6 +14,7 @@ export class Hud {
         <div class="bar hull"><label>HULL</label><div class="fill"></div></div>
         <div class="bar shield"><label>SHLD</label><div class="fill"></div></div>
         <div class="bar energy"><label>ENRG</label><div class="fill"></div></div>
+        <div class="hud-missiles" style="display:none; font-size:10px; margin-top:2px; letter-spacing:1px; color:rgba(159,232,255,0.85)">MSL: <span class="msl-ammo">0</span> / <span class="msl-max">0</span></div>
       </div>
       <div class="hud-speed">
         <canvas id="speedo" width="180" height="104"></canvas>
@@ -49,6 +50,9 @@ export class Hud {
       shield: this.$('.bar.shield .fill'),
       energy: this.$('.bar.energy .fill'),
     };
+    this.mslEl = this.$('.hud-missiles');
+    this.mslAmmoEl = this.$('.msl-ammo');
+    this.mslMaxEl = this.$('.msl-max');
     this.speedo = this.$('#speedo');
     this.sctx = this.speedo.getContext('2d');
     this.speedEl = this.$('.hud-speed .big');
@@ -92,11 +96,23 @@ export class Hud {
 
   fade(on) { this.fadeEl.classList.toggle('on', on); }
 
-  update(dt, { ship, playerData, stats, target, mode, camera, pirates, police = [], pods }) {
+  update(dt, { ship, playerData, stats, target, mode, camera, pirates, police = [], pods, lockState = 'none' }) {
     // bars
     this.bars.hull.style.transform = `scaleX(${Math.max(0, playerData.hull / stats.hullMax)})`;
     this.bars.shield.style.transform = `scaleX(${stats.shieldMax > 0 ? ship.shield / stats.shieldMax : 0})`;
     this.bars.energy.style.transform = `scaleX(${ship.energy / 100})`;
+
+    // missiles display
+    if (stats.missilesMaxAmmo > 0) {
+      this.mslEl.style.display = 'block';
+      this.mslAmmoEl.textContent = ship.missilesAmmo;
+      this.mslMaxEl.textContent = stats.missilesMaxAmmo;
+    } else {
+      this.mslEl.style.display = 'none';
+    }
+
+    // crosshair lock state
+    this.updateCrosshair(lockState);
 
     // speed / mode
     // speed / mode
@@ -345,6 +361,14 @@ export class Hud {
         label.style.color = color;
         label.style.transform = `rotate(${ang}deg)`;
       }
+    }
+  }
+
+  updateCrosshair(lockState) {
+    const ch = this.$('.crosshair');
+    if (ch) {
+      ch.classList.toggle('locking', lockState === 'locking');
+      ch.classList.toggle('locked', lockState === 'locked');
     }
   }
 }

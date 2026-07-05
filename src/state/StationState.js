@@ -17,6 +17,8 @@ export class StationState {
     g.ui.hud.hide();
     g.encounters.clearAll();
     g.laserPool.clear();
+    if (g.missilePool) g.missilePool.clear();
+    g.ship.missilesAmmo = g.ship.stats.missilesMaxAmmo;
 
     g.playerData.lastStationId = station.id;
     SaveSystem.save(g.playerData, g.market);
@@ -36,6 +38,7 @@ export class StationState {
         g.ship.applyStats();
         g.rebuildEngineTrail();
         if (key === 'shield') g.ship.shield = g.ship.stats.shieldMax;
+        if (key === 'missiles') g.ship.missilesAmmo = g.ship.stats.missilesMaxAmmo;
       },
     });
   }

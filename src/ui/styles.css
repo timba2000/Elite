@@ -125,6 +125,19 @@ button.amber:hover:not(:disabled) { background: rgba(100, 65, 15, 0.95); box-sha
   background: #fff; transform: translate(-50%,-50%); border-radius: 50%;
   box-shadow: 0 0 6px #7fdfff;
 }
+.crosshair.locking::before, .crosshair.locking::after {
+  background: rgba(0, 190, 255, 0.95);
+}
+.crosshair.locking .dot {
+  box-shadow: 0 0 8px #00aaff;
+}
+.crosshair.locked::before, .crosshair.locked::after {
+  background: rgba(0, 80, 255, 1);
+}
+.crosshair.locked .dot {
+  background: #0055ff;
+  box-shadow: 0 0 10px #0055ff;
+}
 
 #toasts {
   position: absolute; top: 22%; left: 50%; transform: translateX(-50%);

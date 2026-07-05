@@ -6,6 +6,7 @@ import { ParticleSystem, EngineTrail } from './fx/EngineTrail.js';
 import { WorldScene } from './world/WorldScene.js';
 import { PlayerShip } from './ships/PlayerShip.js';
 import { LaserPool } from './combat/LaserPool.js';
+import { MissilePool } from './combat/MissilePool.js';
 import { Explosions } from './combat/Explosions.js';
 import { EncounterManager } from './combat/EncounterManager.js';
 import { Market } from './economy/Market.js';
@@ -51,6 +52,8 @@ class Game {
     this.particles = new ParticleSystem(this.scene, 900);
     this.laserPool = new LaserPool(this.scene);
     this.laserPool.sfx = this.sfx;
+    this.missilePool = new MissilePool(this.scene);
+    this.missilePool.sfx = this.sfx;
     this.explosions = new Explosions(this.scene, this.particles);
     this.explosions.sfx = this.sfx;
 
@@ -104,6 +107,7 @@ class Game {
     if (this.ship) this.scene.remove(this.ship.group);
     this.ship = new PlayerShip(this.scene, playerData);
     this.rebuildEngineTrail();
+    if (this.missilePool) this.missilePool.clear();
 
     this.encounters = new EncounterManager(this.scene, playerData, {
       toast: (msg, kind) => this.ui.hud.toast(msg, kind),
@@ -117,23 +121,34 @@ class Game {
     this.engineTrail = new EngineTrail(this.particles, this.ship.ship);
   }
 
-  newGame() {
-    this.createSession(new PlayerData(), new Market());
+  newGame(cheat = false) {
+    const pd = new PlayerData();
+    if (cheat) pd.credits = 1000000;
+    this.createSession(pd, new Market());
     this.sm.change(this.states.flight, {
       spawnAtStation: this.playerData.lastStationId,
       pointerLock: true,
     });
   }
 
-  loadGame() {
+  loadGame(cheat = false) {
     const data = SaveSystem.load();
-    if (!data) { this.newGame(); return; }
+    if (!data) { this.newGame(cheat); return; }
+    const pd = PlayerData.deserialize(data.player);
+    if (cheat) pd.credits = 1000000;
     this.createSession(
-      PlayerData.deserialize(data.player),
+      pd,
       Market.deserialize(data.marketDrift)
     );
-    const station = this.world.getStation(this.playerData.lastStationId);
-    this.sm.change(this.states.station, { station });
+    if (this.playerData.inSpace) {
+      this.sm.change(this.states.flight, {
+        loadFromSpace: true,
+        pointerLock: true,
+      });
+    } else {
+      const station = this.world.getStation(this.playerData.lastStationId);
+      this.sm.change(this.states.station, { station });
+    }
   }
 
   onResize() {

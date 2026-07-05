@@ -191,6 +191,7 @@ export class StationUI {
       hull: (t) => `${t.max} hull integrity`,
       cargo: (t) => `${t.max} cargo units`,
       dockingComputer: (t) => t.fitted ? 'Hands-free docking on request' : 'Manual approach only',
+      missiles: (t) => t.maxAmmo > 0 ? `${t.maxAmmo} capacity · ${t.damage} DMG` : 'No launcher fitted',
     };
 
     const rows = Object.entries(C.UPGRADES).map(([key, def]) => {

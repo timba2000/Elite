@@ -31,6 +31,9 @@ export class FlightState {
     this.cameraView = 'cockpit'; // 'cockpit' | 'chase'
     this.clearance = null;   // station we have docking clearance at
     this.dockBounceT = 0;    // cooldown after bouncing off the hub
+    this.lockTarget = null;
+    this.lockTimer = 0;
+    this.locked = false;
   }
 
   enter(params = {}) {
@@ -41,6 +44,9 @@ export class FlightState {
     this.shakeT = 0;
     this.setClearance(null);
     this.dockBounceT = 0;
+    this.lockTarget = null;
+    this.lockTimer = 0;
+    this.locked = false;
     g.ui.hud.show();
     g.ui.hud.navTargets = g.world.getNavTargets();
     g.ui.stationUI.hide();
@@ -54,6 +60,35 @@ export class FlightState {
       g.ship.group.quaternion.setFromRotationMatrix(_m);
       g.ship.velocity.set(0, 0, 0);
       g.ship.throttle = 0.3;
+      // snap camera behind ship
+      this.updateCamera(1, true);
+    } else if (params.loadFromSpace) {
+      const pd = g.playerData;
+      if (pd.spacePos) {
+        g.ship.group.position.set(pd.spacePos.x, pd.spacePos.y, pd.spacePos.z);
+      }
+      if (pd.spaceRot) {
+        g.ship.group.quaternion.set(pd.spaceRot.x, pd.spaceRot.y, pd.spaceRot.z, pd.spaceRot.w);
+      }
+      if (pd.spaceVel) {
+        g.ship.velocity.set(pd.spaceVel.x, pd.spaceVel.y, pd.spaceVel.z);
+      }
+      g.ship.throttle = pd.spaceThrottle ?? 0;
+      this.mode = pd.spaceMode ?? 'manual';
+      if (this.mode === 'super') {
+        this.superSpeed = g.ship.velocity.length();
+      }
+
+      // Restore target
+      if (pd.spaceTargetId) {
+        const targets = g.world.getNavTargets();
+        const found = targets.find((t) => t.id === pd.spaceTargetId);
+        if (found) {
+          this.target = found;
+          this.targetIndex = targets.indexOf(found);
+        }
+      }
+
       // snap camera behind ship
       this.updateCamera(1, true);
     }
@@ -87,6 +122,7 @@ export class FlightState {
       g.ui.menuUI.showPause({
         onResume: () => { this.setPaused(false); g.input.requestPointerLock(); },
         onSave: () => {
+          this.prepareSaveData();
           SaveSystem.save(g.playerData, g.market);
           g.ui.hud.toast('GAME SAVED', 'gold');
           this.setPaused(false);
@@ -137,6 +173,7 @@ export class FlightState {
       g.ui.hud.toast(muted ? 'SOUND MUTED' : 'SOUND ON');
     }
     if (input.pressed('F5')) {
+      this.prepareSaveData();
       SaveSystem.save(g.playerData, g.market);
       g.ui.hud.toast('GAME SAVED', 'gold');
     }
@@ -187,13 +224,126 @@ export class FlightState {
     ];
     g.laserPool.update(dt, targets, (t, bolt, hitPos) => this.handleHit(t, bolt, hitPos));
 
+    // ---------- ship-to-ship collisions ----------
+    if (this.mode === 'manual') {
+      for (const p of g.encounters.pirates.concat(g.encounters.police)) {
+        if (!p.alive) continue;
+        const minDist = (ship.boundingRadius + p.boundingRadius) * 0.95;
+        const d = ship.position.distanceTo(p.position);
+        if (d < minDist) {
+          const N = ship.position.clone().sub(p.position).normalize();
+          const overlap = minDist - d;
+
+          // Push apart
+          ship.group.position.addScaledVector(N, overlap * 0.5);
+          p.group.position.addScaledVector(N, -overlap * 0.5);
+
+          const relativeVelocity = ship.velocity.clone().sub(p.velocity);
+          const impactSpeed = -relativeVelocity.dot(N);
+          const dmg = Math.max(3, impactSpeed * 1.5);
+
+          g.ui.hud.damageFlash();
+          g.sfx.play(ship.shield > 0 ? 'hitShield' : 'hitHull');
+          this.shakeT = Math.max(this.shakeT, 0.4);
+
+          const { destroyed, hullHit } = ship.takeDamage(dmg);
+          const pKilled = p.takeDamage(dmg);
+
+          // Bounce velocities
+          const bounceSpeed = Math.max(8, impactSpeed * 0.4);
+          ship.velocity.addScaledVector(N, bounceSpeed);
+          p.velocity.addScaledVector(N, -bounceSpeed);
+
+          if (pKilled) {
+            if (p.strobeTimer !== undefined) {
+              g.encounters.onPoliceKilled(p, g.explosions);
+            } else {
+              g.encounters.onPirateKilled(p, g.explosions);
+            }
+          }
+
+          if (destroyed) {
+            this.die();
+            break;
+          }
+        }
+      }
+    }
+
+    // ---------- missiles ----------
+    if (this.mode === 'manual' && g.playerData.upgrades.missiles > 0) {
+      if (ship.missilesAmmo > 0) {
+        // Search for active NPC ships in crosshair sights
+        const hostiles = g.encounters.pirates.concat(g.encounters.police).filter((p) => p.alive);
+        let bestHostile = null;
+        let minNdcDist = Infinity;
+
+        for (const h of hostiles) {
+          const ndc = h.position.clone().project(g.camera);
+          if (ndc.z < 1) {
+            const ndcDist = Math.hypot(ndc.x, ndc.y);
+            if (ndcDist < 0.12 && ndcDist < minNdcDist) {
+              minNdcDist = ndcDist;
+              bestHostile = h;
+            }
+          }
+        }
+
+        if (bestHostile) {
+          if (this.lockTarget === bestHostile) {
+            this.lockTimer += dt;
+            if (this.lockTimer >= 3.0) {
+              this.lockTimer = 3.0;
+              if (!this.locked) {
+                this.locked = true;
+                g.ui.hud.toast('MISSILE LOCK ACQUIRED', 'gold');
+                g.sfx.play('cash');
+              }
+            }
+          } else {
+            this.lockTarget = bestHostile;
+            this.lockTimer = 0;
+            this.locked = false;
+          }
+        } else {
+          this.lockTarget = null;
+          this.lockTimer = 0;
+          this.locked = false;
+        }
+      } else {
+        this.lockTarget = null;
+        this.lockTimer = 0;
+        this.locked = false;
+      }
+
+      if (input.pressed('KeyQ')) {
+        this.tryLaunchMissile();
+      }
+    } else {
+      this.lockTarget = null;
+      this.lockTimer = 0;
+      this.locked = false;
+    }
+
+    if (g.missilePool) {
+      g.missilePool.update(dt, (t, missile) => this.handleMissileHit(t, missile));
+    }
+
     this.updateWorldAndFx(dt);
     this.updateCamera(dt);
+
+    let lockState = 'none';
+    if (this.locked) {
+      lockState = 'locked';
+    } else if (this.lockTimer > 0) {
+      lockState = 'locking';
+    }
 
     g.ui.hud.update(dt, {
       ship, playerData: g.playerData, stats: ship.stats,
       target: this.target, mode: this.mode, camera: g.camera,
       pirates: g.encounters.pirates, police: g.encounters.police, pods: g.encounters.pods,
+      lockState,
     });
   }
 
@@ -256,6 +406,65 @@ export class FlightState {
     }
   }
 
+  prepareSaveData() {
+    const g = this.game;
+    const ship = g.ship;
+    const pd = g.playerData;
+
+    pd.inSpace = true;
+    pd.spacePos = { x: ship.group.position.x, y: ship.group.position.y, z: ship.group.position.z };
+    pd.spaceRot = { x: ship.group.quaternion.x, y: ship.group.quaternion.y, z: ship.group.quaternion.z, w: ship.group.quaternion.w };
+    pd.spaceVel = { x: ship.velocity.x, y: ship.velocity.y, z: ship.velocity.z };
+    pd.spaceThrottle = ship.throttle;
+    pd.spaceMode = this.mode;
+    pd.spaceTargetId = this.target ? this.target.id : null;
+  }
+
+  tryLaunchMissile() {
+    const g = this.game;
+    const ship = g.ship;
+
+    if (ship.missilesAmmo <= 0) {
+      g.ui.hud.toast('NO MISSILES REMAINING', 'warn');
+      return;
+    }
+
+    if (!this.locked || !this.lockTarget || !this.lockTarget.alive) {
+      g.ui.hud.toast('NO TARGET LOCK', 'warn');
+      return;
+    }
+
+    // Launch!
+    ship.missilesAmmo--;
+
+    // Launch position slightly in front of ship
+    const origin = ship.group.position.clone().addScaledVector(ship.forward, 3.5);
+    const dir = ship.forward;
+
+    g.missilePool.fire(origin, dir, this.lockTarget, ship.stats.missilesDamage, ship.velocity);
+    g.ui.hud.toast('MISSILE LAUNCHED', 'gold');
+
+    // Reset lock
+    this.locked = false;
+    this.lockTimer = 0;
+    this.lockTarget = null;
+  }
+
+  handleMissileHit(t, missile) {
+    const g = this.game;
+    g.explosions.spawn(missile.mesh.position, 1.8);
+    g.sfx.play('hitHull');
+
+    const killed = t.takeDamage(missile.damage);
+    if (killed) {
+      if (t.strobeTimer !== undefined) {
+        g.encounters.onPoliceKilled(t, g.explosions);
+      } else {
+        g.encounters.onPirateKilled(t, g.explosions);
+      }
+    }
+  }
+
   die() {
     const g = this.game;
     g.explosions.spawn(g.ship.position, 2.2);
@@ -274,10 +483,12 @@ export class FlightState {
     g.ship.alive = true;
     g.ship.shield = stats.shieldMax;
     g.ship.energy = C.ENERGY_MAX;
+    g.ship.missilesAmmo = stats.missilesMaxAmmo;
     g.ship.velocity.set(0, 0, 0);
     g.ship.group.visible = true;
     g.encounters.clearAll();
     g.laserPool.clear();
+    if (g.missilePool) g.missilePool.clear();
     g.ui.hud.fade(false);
     this.mode = 'manual';
     const station = g.world.getStation(g.playerData.lastStationId);
@@ -498,23 +709,75 @@ export class FlightState {
     const dmg = Math.max(0, speed - C.DOCK_SAFE_SPEED) * C.DOCK_BOUNCE_DAMAGE;
     if (dmg > 0) {
       g.ui.hud.damageFlash();
-      const { destroyed } = ship.takeDamage(dmg);
+      const { destroyed, hullHit } = ship.takeDamage(dmg);
+      g.sfx.play(hullHit ? 'hitHull' : 'hitShield');
       if (destroyed) { this.die(); return true; }
     }
     return false;
   }
 
-  // soft push-out so you can't fly inside the sun or planets
+  // soft push-out so you can't fly inside the sun or planets, with collision damage and supercruise dropout
   keepOutOfBodies() {
     const g = this.game;
-    const pos = g.ship.group.position;
+    const ship = g.ship;
+    const pos = ship.group.position;
     const sunMin = 420;
-    if (pos.length() < sunMin) pos.setLength(sunMin);
+
+    if (this.mode === 'dead') return;
+
+    if (pos.length() < sunMin) {
+      if (this.mode === 'super') {
+        this.mode = 'manual';
+        this.superSpeed = 0;
+        ship.velocity.clampLength(0, ship.stats.maxSpeed);
+        ship.throttle = 0.3;
+        g.sfx.play('superDrop');
+        g.ui.hud.toast('DROPPED OUT — TOO CLOSE TO STAR', 'warn');
+      }
+
+      const N = pos.clone().normalize();
+      pos.setLength(sunMin + 2);
+
+      const impactSpeed = -ship.velocity.dot(N);
+      ship.velocity.addScaledVector(N, -2 * ship.velocity.dot(N)).multiplyScalar(0.4);
+
+      const dmg = Math.max(0, impactSpeed - C.DOCK_SAFE_SPEED) * C.DOCK_BOUNCE_DAMAGE + 5;
+      if (dmg > 0) {
+        g.ui.hud.damageFlash();
+        const { destroyed, hullHit } = ship.takeDamage(dmg);
+        g.sfx.play(hullHit ? 'hitHull' : 'hitShield');
+        this.shakeT = Math.max(this.shakeT, 0.5);
+        if (destroyed) { this.die(); return; }
+      }
+    }
+
     for (const p of g.world.planets) {
       const min = p.radius + 25;
       const d = pos.distanceTo(p.group.position);
       if (d < min) {
-        pos.sub(p.group.position).setLength(min).add(p.group.position);
+        if (this.mode === 'super') {
+          this.mode = 'manual';
+          this.superSpeed = 0;
+          ship.velocity.clampLength(0, ship.stats.maxSpeed);
+          ship.throttle = 0.3;
+          g.sfx.play('superDrop');
+          g.ui.hud.toast(`DROPPED OUT — TOO CLOSE TO ${p.def.name.toUpperCase()}`, 'warn');
+        }
+
+        const N = pos.clone().sub(p.group.position).normalize();
+        pos.copy(p.group.position).addScaledVector(N, min + 2);
+
+        const impactSpeed = -ship.velocity.dot(N);
+        ship.velocity.addScaledVector(N, -2 * ship.velocity.dot(N)).multiplyScalar(0.4);
+
+        const dmg = Math.max(0, impactSpeed - C.DOCK_SAFE_SPEED) * C.DOCK_BOUNCE_DAMAGE + 3;
+        if (dmg > 0) {
+          g.ui.hud.damageFlash();
+          const { destroyed, hullHit } = ship.takeDamage(dmg);
+          g.sfx.play(hullHit ? 'hitHull' : 'hitShield');
+          this.shakeT = Math.max(this.shakeT, 0.45);
+          if (destroyed) { this.die(); return; }
+        }
       }
     }
   }
