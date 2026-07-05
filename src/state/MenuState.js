@@ -39,6 +39,17 @@ export class MenuState {
       .addScaledVector(perp, 240 + Math.sin(this.angle) * 90)
       .add(new THREE.Vector3(0, 90 + Math.sin(this.angle * 0.6) * 30, 0));
     g.camera.lookAt(p.x, p.y, p.z);
+    
+    // Noticeably spin the world and its moons on the loading/title screen
+    const firstPlanet = g.world.planets[0];
+    if (firstPlanet) {
+      firstPlanet.surface.rotation.y += dt * 0.12;
+      for (const m of firstPlanet.moons) {
+        m.group.rotation.y += dt * 0.18;
+        m.mesh.rotation.y += dt * 0.22;
+      }
+    }
+
     g.world.update(dt, g.camera.position);
     g.particles.update(dt);
   }
