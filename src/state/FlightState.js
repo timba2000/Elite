@@ -425,11 +425,11 @@ export class FlightState {
         if (bestHostile && this.lockTarget === bestHostile) {
           this.lockTimer += dt;
 
-          // play locking ticks (4 times per second)
+          // play locking ticks (4 times per second, pitch rising to lock)
           const prevSec = Math.floor((this.lockTimer - dt) * 4);
           const curSec = Math.floor(this.lockTimer * 4);
           if (curSec > prevSec && !this.locked) {
-            g.sfx.play('lockTick');
+            g.sfx.lockTick(this.lockTimer / ship.stats.lockTime);
           }
 
           if (this.lockTimer >= ship.stats.lockTime) {
@@ -495,7 +495,7 @@ export class FlightState {
       ship, playerData: g.playerData, stats: ship.stats,
       target: this.target, mode: this.mode, camera: g.camera,
       pirates: g.encounters.pirates, police: g.encounters.police, pods: g.encounters.pods,
-      lockState,
+      lockState, lockTarget: this.lockTarget,
     });
   }
 

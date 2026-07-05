@@ -108,7 +108,7 @@ export class Hud {
 
   fade(on) { this.fadeEl.classList.toggle('on', on); }
 
-  update(dt, { ship, playerData, stats, target, mode, camera, pirates, police = [], pods, lockState = 'none' }) {
+  update(dt, { ship, playerData, stats, target, mode, camera, pirates, police = [], pods, lockState = 'none', lockTarget = null }) {
     // bars
     this.bars.hull.style.transform = `scaleX(${Math.max(0, playerData.hull / stats.hullMax)})`;
     this.bars.shield.style.transform = `scaleX(${stats.shieldMax > 0 ? ship.shield / stats.shieldMax : 0})`;
@@ -184,7 +184,7 @@ export class Hud {
 
     this.drawRadar(ship, target, pirates, police, pods);
     this.updateArrow(ship, target, camera);
-    this.updateCombatIndicators(ship, camera, pirates, police);
+    this.updateCombatIndicators(ship, camera, pirates, police, lockState, lockTarget);
 
     // damage flash decay
     if (this.flashT > 0) {
@@ -339,7 +339,7 @@ export class Hud {
     this.arrow.style.transform = `translate(${sx}px, ${sy}px) rotate(${ang}deg)`;
   }
 
-  updateCombatIndicators(ship, camera, pirates = [], police = []) {
+  updateCombatIndicators(ship, camera, pirates = [], police = [], lockState = 'none', lockTarget = null) {
     const hostiles = [...pirates, ...police];
     // Build or reuse indicator DOM elements
     while (this.combatEl.children.length < hostiles.length) {
@@ -363,7 +363,12 @@ export class Hud {
       const bracket = el.querySelector('.cm-bracket');
       const label = el.querySelector('.cm-label');
       const isPolice = i >= pirates.length;
-      const color = isPolice ? '#00aaff' : '#44ff66';
+      // missile lock paints the target: amber while locking, red when locked
+      const isLockTarget = lockTarget && h === lockTarget;
+      const hardLock = isLockTarget && lockState === 'locked';
+      let color = isPolice ? '#00aaff' : '#44ff66';
+      if (hardLock) color = '#ff3030';
+      else if (isLockTarget && lockState === 'locking') color = '#ffd27a';
 
       const dist = h.position.distanceTo(ship.position);
       const meters = dist * 10;
@@ -377,10 +382,11 @@ export class Hud {
         const sx = (_ndc.x * 0.5 + 0.5) * W;
         const sy = (-_ndc.y * 0.5 + 0.5) * H;
         el.style.transform = `translate(${sx}px, ${sy}px)`;
-        el.className = 'combat-marker on-screen';
+        el.className = `combat-marker on-screen${hardLock ? ' lock-hard' : ''}`;
         bracket.style.borderColor = color;
+        bracket.style.boxShadow = `0 0 8px ${hardLock ? 'rgba(255,48,48,0.7)' : 'rgba(68,255,102,0.5)'}`;
         bracket.style.display = 'block';
-        label.textContent = distText;
+        label.textContent = hardLock ? `LOCKED ${distText}` : distText;
         label.style.color = color;
       } else {
         // Off-screen: show directional arrow at screen edge

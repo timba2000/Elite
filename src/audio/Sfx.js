@@ -79,6 +79,14 @@ export class Sfx {
     src.stop(t + dur + 0.05);
   }
 
+  // Escalating missile-lock tick: pitch climbs with lock progress (0..1)
+  // so the player hears the lock closing in before the final beep.
+  lockTick(progress = 0) {
+    if (!this.ctx || this.muted) return;
+    const p = Math.max(0, Math.min(1, progress));
+    this.tone({ type: 'sine', f0: 620 + p * 720, dur: 0.045, vol: 0.08 + p * 0.05 });
+  }
+
   // ---------- one-shots ----------
   play(name) {
     if (!this.ctx || this.muted) return;
