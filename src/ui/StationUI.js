@@ -2,6 +2,7 @@ import { C } from '../constants.js';
 import { COMMODITIES } from '../economy/commodities.js';
 import { SaveSystem } from '../save/SaveSystem.js';
 import { Missions } from '../missions/Missions.js';
+import { Progression } from '../player/Progression.js';
 
 // Docked panel: Market / Shipyard / Repair tabs + undock.
 export class StationUI {
@@ -40,6 +41,7 @@ export class StationUI {
       <div class="st-tabs">
         <button data-tab="market">Market</button>
         <button data-tab="missions">Missions</button>
+        <button data-tab="pilot">Pilot</button>
         <button data-tab="shipyard">Shipyard</button>
         <button data-tab="repair">Repair</button>
         <button class="save-btn" data-tab="save">💾 Save Game</button>
@@ -69,7 +71,10 @@ export class StationUI {
 
   renderStatus() {
     const stats = this.player.getDerivedStats();
-    let txt = `GALAXY ${this.player.galaxy}   ·   ${this.player.credits.toLocaleString()} CR   ·   CARGO ${this.player.cargoUsed()}/${stats.cargoMax}   ·   HULL ${Math.round(this.player.hull)}/${stats.hullMax}`;
+    let txt = `GALAXY ${this.player.galaxy}   ·   LVL ${this.player.level}   ·   ${this.player.credits.toLocaleString()} CR   ·   CARGO ${this.player.cargoUsed()}/${stats.cargoMax}   ·   HULL ${Math.round(this.player.hull)}/${stats.hullMax}`;
+    if (this.player.skillPoints > 0) {
+      txt += `   ·   ${this.player.skillPoints} SKILL PT${this.player.skillPoints > 1 ? 'S' : ''}`;
+    }
     if (this.player.notoriety > 0) {
       txt += `   ·   NOTORIETY ${Math.round(this.player.notoriety)}`;
     }
@@ -83,8 +88,81 @@ export class StationUI {
     this.renderStatus();
     if (this.tab === 'market') this.renderMarket();
     else if (this.tab === 'missions') this.renderMissions();
+    else if (this.tab === 'pilot') this.renderPilot();
     else if (this.tab === 'shipyard') this.renderShipyard();
     else if (this.tab === 'repair') this.renderRepair();
+  }
+
+  // market price with Haggler/Negotiator perks applied
+  priceFor(goodId) {
+    const { buy, sell } = this.market.price(this.planetDef.id, goodId);
+    const stats = this.player.getDerivedStats();
+    return {
+      buy: Math.max(1, Math.round(buy * stats.buyMult)),
+      sell: Math.max(1, Math.round(sell * stats.sellMult)),
+    };
+  }
+
+  // ---------- PILOT ----------
+  renderPilot() {
+    const p = this.player;
+    const need = Progression.xpToNext(p.level);
+    const pct = Math.min(1, p.xp / need);
+
+    const trees = Object.entries(Progression.SKILLS).map(([key, tree]) => {
+      const cur = p.skills[key];
+      const maxed = cur >= tree.tiers.length;
+      const pips = tree.tiers.map((_, i) =>
+        `<div class="pip ${i < cur ? 'on' : ''}"></div>`).join('');
+      const tiers = tree.tiers.map((t, i) => `
+        <div class="skill-tier ${i < cur ? 'on' : ''}">
+          ${i + 1}. <b>${t.name}</b> — ${t.desc}
+        </div>`).join('');
+      return `
+        <div class="skill-tree">
+          <div class="skill-head">
+            <div class="u-name">${tree.name.toUpperCase()}</div>
+            <div class="u-pips">${pips}</div>
+            <button data-train="${key}" ${!maxed && p.skillPoints > 0 ? '' : 'disabled'}>
+              ${maxed ? 'Mastered' : 'Train — 1 SP'}
+            </button>
+          </div>
+          ${tiers}
+        </div>`;
+    }).join('');
+
+    const c = p.career;
+    const hours = Math.floor(p.gameTime / 3600);
+    const mins = Math.floor((p.gameTime % 3600) / 60);
+
+    this.body.innerHTML = `
+      <div class="pilot-head">
+        <div class="u-name">LEVEL ${p.level} · ${p.skillPoints} SKILL POINT${p.skillPoints === 1 ? '' : 'S'}</div>
+        <div class="bar xp"><label>XP ${Math.floor(p.xp)} / ${need}</label><div class="fill" style="transform:scaleX(${pct})"></div></div>
+      </div>
+      ${trees}
+      <div class="m-section" style="margin-top:16px">SERVICE RECORD</div>
+      <div class="pilot-stats">
+        <div>CREDITS EARNED</div><div>${Math.round(c.creditsEarned).toLocaleString()} CR</div>
+        <div>PIRATES DESTROYED</div><div>${c.piratesKilled}</div>
+        <div>CONTRACTS COMPLETED</div><div>${c.contractsCompleted}</div>
+        <div>STATIONS VISITED</div><div>${p.visitedStations.length}</div>
+        <div>DISTANCE FLOWN</div><div>${(c.distanceFlown / 100).toFixed(1)} LS</div>
+        <div>TIME IN SERVICE</div><div>${hours}H ${mins}M</div>
+      </div>
+    `;
+
+    this.body.querySelectorAll('button[data-train]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.train;
+        const tree = Progression.SKILLS[key];
+        if (this.player.skillPoints <= 0 || this.player.skills[key] >= tree.tiers.length) return;
+        this.player.skillPoints--;
+        this.player.skills[key]++;
+        this.cb.onSkill?.();
+        this.renderTab();
+      });
+    });
   }
 
   // ---------- MISSIONS ----------
@@ -187,7 +265,7 @@ export class StationUI {
   // ---------- MARKET ----------
   renderMarket() {
     const rows = COMMODITIES.map((g) => {
-      const { buy, sell } = this.market.price(this.planetDef.id, g.id);
+      const { buy, sell } = this.priceFor(g.id);
       const avg = this.market.galacticAverage(g.id);
       const held = this.player.cargo[g.id] || 0;
       const buyCls = buy < avg * 0.85 ? 'cheap' : buy > avg * 1.2 ? 'dear' : '';
@@ -246,7 +324,7 @@ export class StationUI {
   }
 
   trade(goodId, act, qtyStr) {
-    const { buy, sell } = this.market.price(this.planetDef.id, goodId);
+    const { buy, sell } = this.priceFor(goodId);
     const p = this.player;
     const name = COMMODITIES.find((c) => c.id === goodId).name.toUpperCase();
     let qty;
@@ -269,13 +347,21 @@ export class StationUI {
       const basis = p.getCostBasis(goodId);
       const profit = Math.round((sell - basis) * qty);
       p.credits += qty * sell;
+      p.career.creditsEarned += qty * sell;
       p.removeCargo(goodId, qty);
       this.market.recordTrade(this.planetDef.id, goodId, qty, false);
       const plText = profit >= 0
         ? `PROFIT +${profit.toLocaleString()} CR`
         : `LOSS −${Math.abs(profit).toLocaleString()} CR`;
+      // XP scales with margin, not volume — smart trades level you up
+      let xpText = '';
+      if (profit > 0) {
+        const xpGain = Progression.XP.tradeProfit(profit);
+        const levels = Progression.award(p, xpGain);
+        xpText = ` · +${xpGain} XP${levels > 0 ? ' · LEVEL UP!' : ''}`;
+      }
       this.lastTrade = {
-        msg: `SOLD ${qty}x ${name} FOR ${(qty * sell).toLocaleString()} CR — ${plText}`,
+        msg: `SOLD ${qty}x ${name} FOR ${(qty * sell).toLocaleString()} CR — ${plText}${xpText}`,
         cls: profit >= 0 ? 'profit' : 'loss',
       };
       if (goodId === 'narcotics') {
@@ -337,7 +423,7 @@ export class StationUI {
   renderRepair() {
     const stats = this.player.getDerivedStats();
     const missing = Math.max(0, Math.round(stats.hullMax - this.player.hull));
-    const cost = missing * C.REPAIR_COST_PER_POINT;
+    const cost = Math.round(missing * C.REPAIR_COST_PER_POINT * stats.repairMult);
     this.body.innerHTML = `
       <div class="repair-box">
         <div>HULL INTEGRITY</div>

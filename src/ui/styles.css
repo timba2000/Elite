@@ -84,6 +84,7 @@ button.amber:hover:not(:disabled) { background: rgba(100, 65, 15, 0.95); box-sha
   text-shadow: 0 0 8px rgba(80, 220, 255, 0.5);
 }
 .hud-status .credits { color: #ffd27a; font-size: 16px; }
+.hud-status .level { color: #b06bff; font-size: 12px; text-shadow: 0 0 6px rgba(176, 107, 255, 0.5); }
 .hud-status .missions {
   font-size: 11px; color: #7dff9a; letter-spacing: 1px; line-height: 1.6;
   margin-top: 2px; white-space: pre-line;
@@ -333,6 +334,25 @@ table.market .qty-btns button { padding: 2px 8px; font-size: 10px; }
 .mission-row .m-detail, .st-body > .m-detail { flex: 1; font-size: 11px; color: rgba(159,232,255,0.75); }
 .mission-row .m-reward { color: #ffd27a; font-size: 12px; width: 90px; text-align: right; }
 .m-section { margin: 8px 0 4px; font-size: 11px; letter-spacing: 2px; color: #ffd27a; }
+
+.pilot-head { padding: 4px 8px 12px 8px; border-bottom: 1px solid rgba(80,220,255,0.2); }
+.pilot-head .bar.xp { margin-top: 8px; height: 16px; }
+.bar.xp .fill { background: #b06bff; }
+.bar.xp label { letter-spacing: 1px; }
+.skill-tree { padding: 10px 8px 6px 8px; border-bottom: 1px solid rgba(80,220,255,0.12); }
+.skill-head { display: flex; align-items: center; gap: 14px; margin-bottom: 6px; }
+.skill-head .u-name { width: 120px; color: #dffaff; letter-spacing: 2px; font-size: 13px; }
+.skill-head button { margin-left: auto; padding: 3px 12px; font-size: 11px; }
+.skill-tier { font-size: 11px; color: rgba(159,232,255,0.4); padding: 2px 0 2px 6px; letter-spacing: 0.5px; }
+.skill-tier b { font-weight: normal; }
+.skill-tier.on { color: #7dff9a; text-shadow: 0 0 6px rgba(80,255,140,0.3); }
+.skill-tier.on b { color: #dffaff; }
+.pilot-stats {
+  display: grid; grid-template-columns: auto auto; gap: 4px 24px;
+  padding: 6px 8px; font-size: 12px; letter-spacing: 1px;
+}
+.pilot-stats div:nth-child(even) { text-align: right; color: #ffd27a; }
+.pilot-stats div:nth-child(odd) { color: rgba(159,232,255,0.7); }
 
 .repair-box { text-align: center; padding: 30px 0; }
 .repair-box .bar { width: 320px; margin: 14px auto; height: 18px; }

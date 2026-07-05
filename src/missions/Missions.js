@@ -1,6 +1,7 @@
 import { C } from '../constants.js';
 import { COMMODITIES } from '../economy/commodities.js';
 import { SYSTEM } from '../world/SystemDef.js';
+import { Progression } from '../player/Progression.js';
 
 // Station contracts: courier deliveries (cargo provided), supply runs
 // (source the goods yourself), and pirate hunts. Active missions are plain
@@ -17,7 +18,7 @@ export const Missions = {
 
   // Fresh offers each time the player docks (3-4 per visit).
   generateOffers(planetDef, pd) {
-    const s = gscale(pd);
+    const s = gscale(pd) * pd.getDerivedStats().rewardMult; // Contract Broker perk
     const legal = COMMODITIES.filter((g) => g.id !== 'narcotics');
     const others = SYSTEM.planets.filter((p) => p.id !== planetDef.id);
     const imports = legal.filter((g) => planetDef.imports.includes(g.id));
@@ -95,8 +96,16 @@ export const Missions = {
 
   completeOne(m, pd) {
     pd.removeCargo(m.good, m.qty);
-    pd.credits += m.reward;
+    this.payout(m, pd);
     pd.missions = pd.missions.filter((x) => x.id !== m.id);
+  },
+
+  payout(m, pd) {
+    pd.credits += m.reward;
+    pd.career.creditsEarned += m.reward;
+    pd.career.contractsCompleted++;
+    m.xp = Progression.XP.contract(m.reward);
+    Progression.award(pd, m.xp);
   },
 
   // Auto-redeem qualifying cargo contracts on dock. Returns completed missions.
@@ -114,7 +123,7 @@ export const Missions = {
       if (m.type !== 'hunt') return true;
       m.killsDone++;
       if (m.killsDone >= m.kills) {
-        pd.credits += m.reward;
+        this.payout(m, pd);
         completed.push(m);
         return false;
       }

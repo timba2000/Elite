@@ -110,12 +110,15 @@ new way to earn.
 The ship gets better with credits; the *pilot* should get better with experience. This
 gives a second progression axis that persists across ship swaps and deaths.
 
-- [ ] **Experience & levels** — earn XP from profitable trades (scaled by margin, not
+- [x] **Experience & levels** — earn XP from profitable trades (scaled by margin, not
       just volume), pirate kills, missions completed, new stations/systems visited, and
-      near-miss escapes. Level curve ~1.4× per level, soft cap around level 30
-- [ ] **Level-up rewards** — each level grants 1 skill point plus a small flat perk
+      near-miss escapes. Level curve ~1.4× per level, soft cap around level 30 —
+      *shipped: all five XP sources live, 1.35× curve*
+- [x] **Level-up rewards** — each level grants 1 skill point plus a small flat perk
       (e.g. +1% shield recharge) so even unspent levels feel good
-- [ ] **Skill trees (spend points, pick a build)**:
+- [x] **Skill trees (spend points, pick a build)** — *Piloting, Gunnery, and Trade
+      shipped with 4 tiers each (see Pilot tab); Engineering and Leadership await the
+      crew/company systems they buff*:
       - *Piloting* — tighter turn rate, faster supercruise charge, boost efficiency,
         interdiction evasion bonus, reduced docking tractor time
       - *Gunnery* — laser heat management, +damage, faster missile lock, point-defense
@@ -134,7 +137,8 @@ gives a second progression axis that persists across ship swaps and deaths.
 - [ ] **Skill checks in the world** — locked content that reads the sheet: restricted
       markets need Trade 5, salvage-guard fields need Gunnery 4, plotting a jump through
       an unscouted system needs Piloting 6 — makes the numbers visible in play
-- [ ] **XP on the stats screen** — current level, XP bar, and per-source XP breakdown
+- [x] **XP on the stats screen** — current level, XP bar, and per-source XP breakdown
+      — *shipped as the station Pilot tab (level, XP bar, service record)*
 
 ## 8. Friends, crew & the player's company
 
@@ -201,7 +205,8 @@ recruit the best ones, and grow from a lone pilot into a small trading company.
 ## 9. Quality of life / meta
 
 - [x] **Save/load** (localStorage) — required before long-term progression matters
-- [ ] **Stats screen** — credits earned, profit per commodity, pirates killed, distance flown
+- [x] **Stats screen** — credits earned, profit per commodity, pirates killed, distance flown
+      — *shipped in the Pilot tab; per-commodity profit breakdown still open*
 - [ ] **Tutorial / first-launch hints** — guided first trade run
 - [ ] **Settings** — volume, graphics quality (bloom toggle), key rebinding
 - [ ] **Gamepad support**

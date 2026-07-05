@@ -5,6 +5,7 @@ import { Police } from '../ships/Police.js';
 import { buildCargoPod } from '../ships/ShipFactory.js';
 import { COMMODITIES } from '../economy/commodities.js';
 import { Missions } from '../missions/Missions.js';
+import { Progression } from '../player/Progression.js';
 
 const _spawnPos = new THREE.Vector3();
 const _rand = new THREE.Vector3();
@@ -54,7 +55,7 @@ export class EncounterManager {
           this.spawnPoliceAmbush(player);
           this.events.onInterdiction();
           break;
-        } else if (Math.random() < C.INTERDICTION_CHANCE * cargoFactor) {
+        } else if (Math.random() < C.INTERDICTION_CHANCE * cargoFactor * this.playerData.getDerivedStats().interdictionMult) {
           this.spawnAmbush(player);
           this.events.onInterdiction();
           break;
@@ -162,11 +163,15 @@ export class EncounterManager {
     explosions.spawn(pirate.position, 1.4);
     const bounty = Math.floor(C.PIRATE_BOUNTY_MIN + Math.random() * (C.PIRATE_BOUNTY_MAX - C.PIRATE_BOUNTY_MIN));
     this.playerData.credits += bounty;
-    this.events.toast(`BOUNTY +${bounty} CR`, 'gold');
+    this.playerData.career.creditsEarned += bounty;
+    this.playerData.career.piratesKilled++;
+    const xp = Progression.XP.kill(pirate.type);
+    Progression.award(this.playerData, xp);
+    this.events.toast(`BOUNTY +${bounty} CR · +${xp} XP`, 'gold');
 
     const hunts = Missions.onPirateKill(this.playerData);
     for (const m of hunts.completed) {
-      this.events.toast(`CONTRACT COMPLETE — +${m.reward.toLocaleString()} CR`, 'gold');
+      this.events.toast(`CONTRACT COMPLETE — +${m.reward.toLocaleString()} CR · +${m.xp} XP`, 'gold');
     }
     for (const m of hunts.progress) {
       this.events.toast(`HUNT CONTRACT — ${m.killsDone}/${m.kills} PIRATES`, '');

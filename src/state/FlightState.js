@@ -4,6 +4,7 @@ import { SaveSystem } from '../save/SaveSystem.js';
 import { SYSTEM, generateGalaxy } from '../world/SystemDef.js';
 import { Market } from '../economy/Market.js';
 import { Missions } from '../missions/Missions.js';
+import { Progression } from '../player/Progression.js';
 
 const _camTarget = new THREE.Vector3();
 const _camOffset = new THREE.Vector3();
@@ -40,6 +41,8 @@ export class FlightState {
     this.warpJumpT = 0;
     this.hyperdrivePhase = 'idle';
     this.hyperdriveTimer = 0;
+    this.chargeDuration = 2.2;
+    this.wasInCombat = false;
   }
 
   enter(params = {}) {
@@ -56,6 +59,7 @@ export class FlightState {
     this.warpJumpT = 0;
     this.hyperdrivePhase = 'idle';
     this.hyperdriveTimer = 0;
+    this.wasInCombat = false;
     g.ui.hud.show();
     g.ui.hud.navTargets = g.world.getNavTargets();
     g.ui.stationUI.hide();
@@ -197,6 +201,9 @@ export class FlightState {
     if (this.warpJumpT > 0) {
       this.warpJumpT = Math.max(0, this.warpJumpT - dt * 0.8);
     }
+    // career distance (world units, all modes)
+    g.playerData.career.distanceFlown += ship.velocity.length() * dt;
+
     if (this.hyperdrivePhase === 'charging') {
       this.hyperdriveTimer -= dt;
       this.shakeT = Math.max(this.shakeT, 0.15);
@@ -287,6 +294,15 @@ export class FlightState {
     // ---------- combat ----------
     g.encounters.update(dt, ship, g.laserPool, this.mode === 'super');
 
+    // close-call XP: surviving combat with the hull nearly gone
+    const inCombat = g.encounters.inCombat;
+    if (this.wasInCombat && !inCombat && this.mode !== 'dead'
+        && g.playerData.hull < ship.stats.hullMax * 0.25) {
+      Progression.award(g.playerData, Progression.XP.closeCall);
+      g.ui.hud.toast(`CLOSE CALL — +${Progression.XP.closeCall} XP`, 'gold');
+    }
+    this.wasInCombat = inCombat;
+
     const targets = [
       { entity: ship, position: ship.position, radius: ship.boundingRadius, side: 'player' },
       ...g.encounters.pirates.map((p) => ({
@@ -376,8 +392,8 @@ export class FlightState {
               g.sfx.play('lockTick');
             }
 
-            if (this.lockTimer >= 1.5) {
-              this.lockTimer = 1.5;
+            if (this.lockTimer >= ship.stats.lockTime) {
+              this.lockTimer = ship.stats.lockTime;
               if (!this.locked) {
                 this.locked = true;
                 g.ui.hud.toast('MISSILE LOCK ACQUIRED', 'gold');
@@ -438,7 +454,7 @@ export class FlightState {
     const g = this.game;
     let warp = 0;
     if (this.hyperdrivePhase === 'charging') {
-      const ratio = (2.2 - this.hyperdriveTimer) / 2.2;
+      const ratio = (this.chargeDuration - this.hyperdriveTimer) / this.chargeDuration;
       warp = ratio * 0.08;
     } else if (this.mode === 'super') {
       const ratio = this.superSpeed / C.SUPER_SPEED;
@@ -469,9 +485,13 @@ export class FlightState {
   handleHit(t, bolt, hitPos) {
     const g = this.game;
     if (t.side === 'pirate' || t.side === 'police') {
-      const killed = t.entity.takeDamage(bolt.damage);
-      // small spark
-      g.explosions.spawn(hitPos, 0.15);
+      let dmg = bolt.damage;
+      const critChance = g.ship.stats.critChance;
+      const crit = critChance > 0 && Math.random() < critChance;
+      if (crit) dmg *= 2.5;
+      const killed = t.entity.takeDamage(dmg);
+      // small spark (bigger on a critical hit)
+      g.explosions.spawn(hitPos, crit ? 0.5 : 0.15);
       g.sfx.play('hitSpark');
       if (killed) {
         if (t.side === 'police') {
@@ -587,7 +607,8 @@ export class FlightState {
     const stats = g.playerData.getDerivedStats();
     g.playerData.hull = stats.hullMax;
     g.playerData.cargo = {};
-    g.playerData.credits = Math.floor(g.playerData.credits * (1 - C.DEATH_CREDIT_TAX));
+    // Underwriter perk halves the death tax
+    g.playerData.credits = Math.floor(g.playerData.credits * (1 - C.DEATH_CREDIT_TAX * stats.deathTaxMult));
     g.ship.alive = true;
     g.ship.shield = stats.shieldMax;
     g.ship.energy = C.ENERGY_MAX;
@@ -668,7 +689,8 @@ export class FlightState {
     }
 
     this.hyperdrivePhase = 'charging';
-    this.hyperdriveTimer = 2.2;
+    this.chargeDuration = g.ship.stats.chargeTime;
+    this.hyperdriveTimer = this.chargeDuration;
     g.sfx.play('hyperCharge');
     g.ui.hud.toast(`ENGAGING HYPERDRIVE — ${this.target.name.toUpperCase()}`);
   }
@@ -693,7 +715,8 @@ export class FlightState {
     }
 
     this.hyperdrivePhase = 'galactic_charging';
-    this.hyperdriveTimer = 2.2;
+    this.chargeDuration = g.ship.stats.chargeTime;
+    this.hyperdriveTimer = this.chargeDuration;
     g.sfx.play('hyperCharge');
     g.ui.hud.toast('ENGAGING GALACTIC HYPERDRIVE — STAND BY...', 'gold');
   }
@@ -968,7 +991,7 @@ export class FlightState {
     // FOV kick: Star Wars jump warp FOV stretch
     let targetFov = C.CAMERA_FOV;
     if (this.hyperdrivePhase === 'charging') {
-      const ratio = (2.2 - this.hyperdriveTimer) / 2.2;
+      const ratio = (this.chargeDuration - this.hyperdriveTimer) / this.chargeDuration;
       targetFov = C.CAMERA_FOV + ratio * 20;
     } else if (ship.boosting) {
       targetFov = C.CAMERA_FOV_BOOST;

@@ -21,6 +21,12 @@ export class PlayerData {
     this.spaceTargetId = null;
     this.galaxy = 1;
     this.missions = [];
+    this.xp = 0;
+    this.level = 1;
+    this.skillPoints = 0;
+    this.skills = { piloting: 0, gunnery: 0, trade: 0 };
+    this.career = { creditsEarned: 0, piratesKilled: 0, contractsCompleted: 0, distanceFlown: 0 };
+    this.visitedStations = [];
   }
 
   getDerivedStats() {
@@ -31,18 +37,30 @@ export class PlayerData {
     const hul = C.UPGRADES.hull.tiers[u.hull];
     const crg = C.UPGRADES.cargo.tiers[u.cargo];
     const msl = C.UPGRADES.missiles.tiers[u.missiles ?? 0];
+    const sk = this.skills;
     return {
-      maxSpeed: eng.maxSpeed,
-      boost: eng.boost,
-      turnMult: eng.turnMult,
-      laserDamage: wep.damage,
-      laserEnergy: wep.energy,
+      maxSpeed: eng.maxSpeed * (sk.piloting >= 1 ? 1.08 : 1),
+      boost: eng.boost * (sk.piloting >= 1 ? 1.08 : 1),
+      turnMult: eng.turnMult * (sk.piloting >= 4 ? 1.1 : 1),
+      laserDamage: wep.damage * (sk.gunnery >= 1 ? 1.15 : 1),
+      laserEnergy: wep.energy * (sk.gunnery >= 2 ? 0.75 : 1),
       fireInterval: wep.interval,
       twin: wep.twin,
       shieldMax: shd.max,
-      shieldRegen: shd.regen,
+      // every pilot level adds +1% shield recharge (the flat level perk)
+      shieldRegen: shd.regen * (1 + 0.01 * (this.level - 1)),
       hullMax: hul.max,
       cargoMax: crg.max,
+      chargeTime: sk.piloting >= 2 ? 1.5 : 2.2,
+      interdictionMult: sk.piloting >= 3 ? 0.65 : 1,
+      boostDrainMult: sk.piloting >= 4 ? 0.6 : 1,
+      lockTime: sk.gunnery >= 3 ? 0.8 : 1.5,
+      critChance: sk.gunnery >= 4 ? 0.12 : 0,
+      buyMult: sk.trade >= 1 ? 0.95 : 1,
+      sellMult: sk.trade >= 2 ? 1.05 : 1,
+      rewardMult: sk.trade >= 3 ? 1.2 : 1,
+      deathTaxMult: sk.trade >= 4 ? 0.5 : 1,
+      repairMult: sk.trade >= 4 ? 0.7 : 1,
       dockingComputer: C.UPGRADES.dockingComputer.tiers[u.dockingComputer].fitted,
       missilesMaxAmmo: msl.maxAmmo,
       missilesDamage: msl.damage,
@@ -122,6 +140,12 @@ export class PlayerData {
       spaceTargetId: this.spaceTargetId,
       galaxy: this.galaxy,
       missions: this.missions,
+      xp: this.xp,
+      level: this.level,
+      skillPoints: this.skillPoints,
+      skills: this.skills,
+      career: this.career,
+      visitedStations: this.visitedStations,
     };
   }
 
@@ -144,6 +168,12 @@ export class PlayerData {
     p.spaceTargetId = data.spaceTargetId ?? null;
     p.galaxy = data.galaxy ?? 1;
     p.missions = Array.isArray(data.missions) ? data.missions : [];
+    p.xp = data.xp ?? 0;
+    p.level = data.level ?? 1;
+    p.skillPoints = data.skillPoints ?? 0;
+    p.skills = { ...p.skills, ...data.skills };
+    p.career = { ...p.career, ...data.career };
+    p.visitedStations = Array.isArray(data.visitedStations) ? data.visitedStations : [];
     return p;
   }
 }

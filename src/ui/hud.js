@@ -26,6 +26,7 @@ export class Hud {
       </div>
       <div class="hud-status">
         <div class="credits">0 CR</div>
+        <div class="level">LVL 1</div>
         <div class="cargo">CARGO 0/20</div>
         <div class="notoriety" style="display:none">NOTORIETY 0</div>
         <div class="loc"></div>
@@ -64,6 +65,8 @@ export class Hud {
     this.thrEl = this.$('.hud-speed .thr');
     this.modeEl = this.$('.hud-speed .mode');
     this.creditsEl = this.$('.hud-status .credits');
+    this.levelEl = this.$('.hud-status .level');
+    this.lastLevel = null;
     this.cargoEl = this.$('.hud-status .cargo');
     this.notorietyEl = this.$('.hud-status .notoriety');
     this.locEl = this.$('.hud-status .loc');
@@ -84,7 +87,7 @@ export class Hud {
     this.warpFlashT = 0;
   }
 
-  show() { this.root.classList.add('visible'); }
+  show() { this.root.classList.add('visible'); this.lastLevel = null; }
   hide() { this.root.classList.remove('visible'); }
 
   setPrompt(text) {
@@ -136,6 +139,12 @@ export class Hud {
 
     // status
     this.creditsEl.textContent = `${playerData.credits.toLocaleString()} CR`;
+    const lvl = playerData.level ?? 1;
+    if (this.lastLevel !== null && lvl > this.lastLevel) {
+      this.toast(`LEVEL UP — LEVEL ${lvl} · +1 SKILL POINT`, 'gold');
+    }
+    this.lastLevel = lvl;
+    this.levelEl.textContent = `LVL ${lvl}${playerData.skillPoints > 0 ? ` · ${playerData.skillPoints} SP` : ''}`;
     this.cargoEl.textContent = `CARGO ${playerData.cargoUsed()}/${stats.cargoMax}`;
     this.locEl.textContent = `${SYSTEM.name} · GALAXY ${playerData.galaxy ?? 1}`;
 

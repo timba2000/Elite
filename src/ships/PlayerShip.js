@@ -65,7 +65,7 @@ export class PlayerShip {
 
     // boost
     this.boosting = input.boost && this.energy > 1 && this.throttle > 0.1;
-    if (this.boosting) this.energy -= C.BOOST_DRAIN * dt;
+    if (this.boosting) this.energy -= C.BOOST_DRAIN * this.stats.boostDrainMult * dt;
 
     // velocity: ease toward target vector (arcade drift)
     const speed = this.boosting ? this.stats.boost : this.throttle * this.stats.maxSpeed;

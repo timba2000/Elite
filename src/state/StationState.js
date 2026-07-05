@@ -1,5 +1,6 @@
 import { SaveSystem } from '../save/SaveSystem.js';
 import { Missions } from '../missions/Missions.js';
+import { Progression } from '../player/Progression.js';
 
 // Docked: station UI over a slow orbit shot of the station. Autosaves on entry.
 export class StationState {
@@ -29,7 +30,14 @@ export class StationState {
       }
     }
     for (const m of Missions.onDock(station.planetDef.id, g.playerData)) {
-      missionNews.push({ msg: `CONTRACT COMPLETE — ${m.qty}x ${m.goodName.toUpperCase()} DELIVERED · +${m.reward.toLocaleString()} CR`, cls: 'profit' });
+      missionNews.push({ msg: `CONTRACT COMPLETE — ${m.qty}x ${m.goodName.toUpperCase()} DELIVERED · +${m.reward.toLocaleString()} CR · +${m.xp} XP`, cls: 'profit' });
+    }
+
+    const pid = station.planetDef.id;
+    if (!g.playerData.visitedStations.includes(pid)) {
+      g.playerData.visitedStations.push(pid);
+      Progression.award(g.playerData, Progression.XP.firstVisit);
+      missionNews.push({ msg: `FIRST VISIT TO ${station.planetDef.name} — +${Progression.XP.firstVisit} XP`, cls: 'profit' });
     }
 
     g.playerData.lastStationId = station.id;
@@ -52,6 +60,7 @@ export class StationState {
         if (key === 'shield') g.ship.shield = g.ship.stats.shieldMax;
         if (key === 'missiles') g.ship.missilesAmmo = g.ship.stats.missilesMaxAmmo;
       },
+      onSkill: () => g.ship.applyStats(),
     }, missionNews);
   }
 
