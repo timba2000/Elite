@@ -231,4 +231,62 @@ export class Sfx {
     this.engine.nzFlt.frequency.setTargetAtTime(windCenter, t, 0.12);
     this.engine.nzHi.frequency.setTargetAtTime(windHi, t, 0.12);
   }
+
+  startBlueDanube() {
+    if (!this.ctx || this.muted) return;
+    this.stopBlueDanube();
+    
+    const bpm = 110;
+    const quarter = 60 / bpm; // ~0.545s per beat
+    
+    // Notes of Blue Danube: [freq, beatOffset, durationInBeats]
+    const melody = [
+      [293.66, 0, 1],   // D4
+      [369.99, 1, 1],   // F#4
+      [440.00, 2, 0.75], // A4
+      [440.00, 3, 0.75], // A4
+      [440.00, 4, 0.75], // A4
+      
+      [293.66, 6, 1],   // D4
+      [369.99, 7, 1],   // F#4
+      [440.00, 8, 0.75], // A4
+      [440.00, 9, 0.75], // A4
+      [440.00, 10, 0.75], // A4
+      
+      [293.66, 12, 1],   // D4
+      [369.99, 13, 1],   // F#4
+      [440.00, 14, 0.75], // A4
+      [440.00, 15, 0.75], // A4
+      
+      [369.99, 18, 1],   // F#4
+      [369.99, 19, 1],   // F#4
+      [293.66, 20, 0.75], // D4
+      [293.66, 21, 0.75], // D4
+      
+      [369.99, 24, 1],   // F#4
+      [369.99, 25, 1],   // F#4
+      [293.66, 26, 0.75], // D4
+      [293.66, 27, 0.75], // D4
+    ];
+    
+    const playSeq = () => {
+      if (this.muted) return;
+      melody.forEach(([freq, beat, durBeats]) => {
+        const delay = beat * quarter;
+        const dur = durBeats * quarter;
+        this.tone({ type: 'sine', f0: freq, dur: dur, vol: 0.08, delay: delay });
+      });
+    };
+    
+    playSeq();
+    // Loop the sequence every 30 beats
+    this.danubeLoop = setInterval(playSeq, 30 * quarter * 1000);
+  }
+  
+  stopBlueDanube() {
+    if (this.danubeLoop) {
+      clearInterval(this.danubeLoop);
+      this.danubeLoop = null;
+    }
+  }
 }

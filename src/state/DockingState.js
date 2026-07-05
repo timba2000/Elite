@@ -23,8 +23,11 @@ export class DockingState {
     this.t = 0;
     this.manual = !!manual;
     this.duration = this.manual ? C.DOCK_TRACTOR_DURATION : C.DOCK_DURATION;
-    g.ship.ship.group.visible = true; // exterior shot — show the hull even from cockpit view
+    g.ship.ship.group.visible = true; // exterior shot
     g.sfx.play('dockGranted');
+    if (!this.manual) {
+      g.sfx.startBlueDanube();
+    }
     g.sfx.setEngine(0, false, false);
     g.input.exitPointerLock();
     g.ui.hud.setPrompt('');
@@ -35,12 +38,6 @@ export class DockingState {
     _start.copy(g.ship.group.position);
     _startQ.copy(g.ship.group.quaternion);
     this.startVel = g.ship.velocity.clone();
-
-    // wide side-on camera to watch the glide
-    const side = new THREE.Vector3(1, 0.35, 0)
-      .applyQuaternion(station.group.quaternion).normalize().multiplyScalar(120);
-    _camPos.copy(station.group.position).add(side);
-    g.camera.position.copy(_camPos);
   }
 
   update(dt) {
@@ -65,7 +62,30 @@ export class DockingState {
     g.ship.velocity.set(0, 0, 0);
     g.ship.throttle = Math.max(0, 0.4 * (1 - k));
 
-    g.camera.lookAt(g.ship.group.position);
+    // Dynamic Cinematic Camera Cuts
+    if (this.manual) {
+      const side = new THREE.Vector3(1, 0.35, 0)
+        .applyQuaternion(this.station.group.quaternion).normalize().multiplyScalar(120);
+      g.camera.position.copy(this.station.group.position).add(side);
+      g.camera.lookAt(g.ship.group.position);
+    } else {
+      if (k < 0.45) {
+        // Act I: Follow chase view trailing the ship
+        const back = new THREE.Vector3(0, 6, -26).applyQuaternion(g.ship.group.quaternion);
+        g.camera.position.copy(g.ship.group.position).add(back);
+        g.camera.lookAt(_end);
+      } else if (k < 0.8) {
+        // Act II: Gate close-up, panning fly-by as ship enters slot
+        const gateOffset = new THREE.Vector3(26, 12, 10).applyQuaternion(stationQ);
+        g.camera.position.copy(_end).add(gateOffset);
+        g.camera.lookAt(g.ship.group.position);
+      } else {
+        // Act III: Interior landing bay hangar view
+        const bayOffset = new THREE.Vector3(-12, 10, -25).applyQuaternion(stationQ);
+        g.camera.position.copy(_end).add(bayOffset);
+        g.camera.lookAt(g.ship.group.position);
+      }
+    }
 
     g.world.update(dt, g.camera.position);
     g.particles.update(dt);
@@ -81,5 +101,6 @@ export class DockingState {
   exit() {
     this.station?.setDockingActive(false); // Close the doors!
     this.game.ui.hud.fade(false);
+    this.game.sfx.stopBlueDanube();
   }
 }
