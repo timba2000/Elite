@@ -107,6 +107,7 @@ export class FlightState {
     this.setClearance(null);
     this.game.ui.hud.setPrompt('');
     this.game.sfx.setEngine(0, false, false);
+    this.game.enemyMissilePool?.clear();
   }
 
   // ---------- events wired from EncounterManager ----------
@@ -405,6 +406,9 @@ export class FlightState {
     if (g.missilePool) {
       g.missilePool.update(dt, (t, missile) => this.handleMissileHit(t, missile));
     }
+    if (g.enemyMissilePool) {
+      g.enemyMissilePool.update(dt, (playerTarget, missile) => this.handleEnemyMissileHit(missile));
+    }
 
     this.updateWorldAndFx(dt);
     this.updateCamera(dt);
@@ -547,6 +551,20 @@ export class FlightState {
         g.encounters.onPirateKilled(t, g.explosions);
       }
     }
+  }
+
+  handleEnemyMissileHit(missile) {
+    const g = this.game;
+    g.explosions.spawn(missile.mesh.position, 1.8);
+    g.sfx.play('hitHull');
+
+    const { destroyed, hullHit } = g.ship.takeDamage(missile.damage);
+    g.sfx.play(hullHit ? 'hitHull' : 'hitShield');
+    g.ui.hud.damageFlash();
+    this.shakeT = Math.max(this.shakeT, 0.45);
+    g.ui.hud.toast('WARNING — INCOMING HOSTILE MISSILE DETONATED!', 'warn');
+
+    if (destroyed) this.die();
   }
 
   die() {

@@ -226,3 +226,112 @@ export function buildCargoPod() {
   const mesh = new THREE.Mesh(new THREE.OctahedronGeometry(1.4, 0), mat);
   return mesh;
 }
+
+export function buildMediumPirate(seed = 1) {
+  const group = new THREE.Group();
+  const { map, roughnessMap } = grungeHullTexture('#4d4232', '#9c5a1f', 0.85, 50 + seed);
+  const hullMat = new THREE.MeshStandardMaterial({ map, roughnessMap, metalness: 0.6, roughness: 0.5 });
+  const glassMat = new THREE.MeshStandardMaterial({
+    color: 0x0a1a2a, metalness: 0.2, roughness: 0.15,
+    emissive: new THREE.Color(0xdca12a), emissiveIntensity: 0.8,
+  });
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.2, 5.2), hullMat);
+  group.add(body);
+
+  const canopy = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.4, 1.4), glassMat);
+  canopy.position.set(0, 0.8, 1.2);
+  group.add(canopy);
+
+  const nozzles = [];
+  const glowSprites = [];
+  for (let side = -1; side <= 1; side += 2) {
+    const nozzle = new THREE.Object3D();
+    nozzle.position.set(side * 0.7, 0, -2.8);
+    group.add(nozzle);
+    nozzles.push(nozzle);
+
+    const glowM = new THREE.SpriteMaterial({
+      map: engineGlowTex, blending: THREE.AdditiveBlending, depthWrite: false,
+      transparent: true, color: new THREE.Color(3.0, 1.5, 0.2),
+    });
+    const glow = new THREE.Sprite(glowM);
+    glow.position.set(side * 0.7, 0, -2.8);
+    glow.scale.setScalar(1.2);
+    group.add(glow);
+    glowSprites.push(glow);
+  }
+
+  const hardpoints = [];
+  for (let side = -1; side <= 1; side += 2) {
+    const hp = new THREE.Object3D();
+    hp.position.set(side * 1.1, -0.4, 2.7);
+    group.add(hp);
+    hardpoints.push(hp);
+  }
+
+  return { group, nozzles, glowSprites, hardpoints, boundingRadius: 4.8 };
+}
+
+export function buildHeavyPirate(seed = 1) {
+  const group = new THREE.Group();
+  const { map, roughnessMap } = grungeHullTexture('#2f363f', '#7e2d2d', 0.9, 60 + seed);
+  const hullMat = new THREE.MeshStandardMaterial({ map, roughnessMap, metalness: 0.75, roughness: 0.45 });
+  const darkMat = new THREE.MeshStandardMaterial({ color: 0x121519, metalness: 0.85, roughness: 0.3 });
+  const glassMat = new THREE.MeshStandardMaterial({
+    color: 0x1f0505, metalness: 0.4, roughness: 0.1,
+    emissive: new THREE.Color(0xff1111), emissiveIntensity: 1.2,
+  });
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(3.6, 2.0, 7.5), hullMat);
+  group.add(body);
+
+  const canopy = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.6, 1.8), glassMat);
+  canopy.position.set(0, 1.3, 2.0);
+  group.add(canopy);
+
+  for (let side = -1; side <= 1; side += 2) {
+    const armor = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.6, 5.0), darkMat);
+    armor.position.set(side * 2.2, 0, -0.5);
+    group.add(armor);
+  }
+
+  const nozzles = [];
+  const glowSprites = [];
+  const engineOffsets = [
+    [-1.0, 0, -3.9],
+    [0, 0.4, -3.9],
+    [1.0, 0, -3.9]
+  ];
+  engineOffsets.forEach(([x, y, z]) => {
+    const nozzle = new THREE.Object3D();
+    nozzle.position.set(x, y, z);
+    group.add(nozzle);
+    nozzles.push(nozzle);
+
+    const glowM = new THREE.SpriteMaterial({
+      map: engineGlowTex, blending: THREE.AdditiveBlending, depthWrite: false,
+      transparent: true, color: new THREE.Color(4.0, 0.2, 0.1),
+    });
+    const glow = new THREE.Sprite(glowM);
+    glow.position.set(x, y, z);
+    glow.scale.setScalar(1.5);
+    group.add(glow);
+    glowSprites.push(glow);
+  });
+
+  const hardpoints = [];
+  for (let side = -1; side <= 1; side += 2) {
+    const hp = new THREE.Object3D();
+    hp.position.set(side * 1.5, -0.8, 3.8);
+    group.add(hp);
+    hardpoints.push(hp);
+  }
+
+  const mslHp = new THREE.Object3D();
+  mslHp.position.set(0, 1.0, -1.0);
+  group.add(mslHp);
+  group.userData = { mslHp };
+
+  return { group, nozzles, glowSprites, hardpoints, boundingRadius: 6.2 };
+}

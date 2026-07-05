@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { C } from '../constants.js';
-import { buildPirate } from './ShipFactory.js';
+import { buildPirate, buildMediumPirate, buildHeavyPirate } from './ShipFactory.js';
 
 const _toPlayer = new THREE.Vector3();
 const _fwd = new THREE.Vector3();
@@ -13,22 +13,40 @@ const _up = new THREE.Vector3(0, 1, 0);
 
 let pirateCounter = 0;
 
-// Raider with a 4-state AI: PURSUE -> ATTACK -> BREAK -> (FLEE below 25% hull)
 export class Pirate {
-  constructor(scene, position, scale = 1) {
+  constructor(scene, position, scale = 1, type = 'raider') {
     this.scene = scene;
-    this.ship = buildPirate(++pirateCounter);
+    this.type = type;
+
+    if (this.type === 'dreadnought') {
+      this.ship = buildHeavyPirate(++pirateCounter);
+      this.hullMax = C.PIRATE.HULL * 3.5 * scale;
+      this.shield = C.PIRATE.SHIELD * 3.0 * scale;
+      this.damage = C.PIRATE.DAMAGE * 1.5 * scale;
+      this.speed = C.PIRATE.SPEED * 0.65;
+      this.turn = C.PIRATE.TURN * 0.55;
+      this.missileTimer = 6.0 + Math.random() * 6.0;
+    } else if (this.type === 'marauder') {
+      this.ship = buildMediumPirate(++pirateCounter);
+      this.hullMax = C.PIRATE.HULL * 1.8 * scale;
+      this.shield = C.PIRATE.SHIELD * 1.6 * scale;
+      this.damage = C.PIRATE.DAMAGE * 1.15 * scale;
+      this.speed = C.PIRATE.SPEED * 0.85;
+      this.turn = C.PIRATE.TURN * 0.8;
+    } else {
+      this.ship = buildPirate(++pirateCounter);
+      this.hullMax = C.PIRATE.HULL * scale;
+      this.shield = C.PIRATE.SHIELD * scale;
+      this.damage = C.PIRATE.DAMAGE * scale;
+      this.speed = C.PIRATE.SPEED * (0.9 + Math.random() * 0.25);
+      this.turn = C.PIRATE.TURN * (0.9 + Math.random() * 0.2);
+    }
+
+    this.hull = this.hullMax;
+    this.shieldTimer = 0;
     this.group = this.ship.group;
     this.group.position.copy(position);
     scene.add(this.group);
-
-    this.hullMax = C.PIRATE.HULL * scale;
-    this.hull = this.hullMax;
-    this.shield = C.PIRATE.SHIELD * scale;
-    this.shieldTimer = 0;
-    this.damage = C.PIRATE.DAMAGE * scale;
-    this.speed = C.PIRATE.SPEED * (0.9 + Math.random() * 0.25);
-    this.turn = C.PIRATE.TURN * (0.9 + Math.random() * 0.2);
 
     this.state = 'PURSUE';
     this.stateTimer = 0;
@@ -100,13 +118,35 @@ export class Pirate {
       const angle = _fwd.angleTo(_aim);
       if (angle < C.PIRATE.AIM_CONE) {
         this.fireTimer = C.PIRATE.FIRE_INTERVAL * (0.85 + Math.random() * 0.3);
-        // aim jitter so they miss sometimes
         _aim.x += (Math.random() - 0.5) * C.PIRATE.AIM_JITTER * 2;
         _aim.y += (Math.random() - 0.5) * C.PIRATE.AIM_JITTER * 2;
         _aim.z += (Math.random() - 0.5) * C.PIRATE.AIM_JITTER * 2;
         _aim.normalize();
-        this.ship.hardpoints[0].getWorldPosition(_origin);
-        laserPool.fire(_origin, _aim, 'pirate', this.damage, this.velocity);
+
+        this.ship.hardpoints.forEach((hp) => {
+          hp.getWorldPosition(_origin);
+          laserPool.fire(_origin, _aim, 'pirate', this.damage, this.velocity);
+        });
+      }
+    }
+
+    // Dreadnought missile fire
+    if (this.alive && this.type === 'dreadnought' && this.state === 'ATTACK' && dist > 180 && dist < 650) {
+      this.missileTimer -= dt;
+      if (this.missileTimer <= 0) {
+        this.missileTimer = 10.0 + Math.random() * 8.0;
+        const g = window.game;
+        if (g && g.enemyMissilePool) {
+          const origin = new THREE.Vector3();
+          if (this.ship.group.userData && this.ship.group.userData.mslHp) {
+            this.ship.group.userData.mslHp.getWorldPosition(origin);
+          } else {
+            origin.copy(this.group.position).addScaledVector(_fwd, 4.0);
+          }
+          g.enemyMissilePool.fire(origin, _fwd.clone(), g.ship, 120, this.velocity);
+          g.sfx.play('missileLaunch');
+          g.ui.hud.toast('WARNING — INCOMING HOSTILE MISSILE!', 'warn');
+        }
       }
     }
   }

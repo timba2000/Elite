@@ -114,12 +114,28 @@ export class EncounterManager {
     const scale = (1 + this.playerData.netWorthFactor() * 0.8) * (1.0 + (galaxy - 1) * 0.35);
     const count = 1 + (Math.random() < 0.25 + (galaxy - 1) * 0.2 ? 1 : 0) + Math.floor((galaxy - 1) / 2);
     const fwd = player.forward;
+    const netWorth = this.playerData.netWorthFactor();
+
     for (let i = 0; i < count; i++) {
       _rand.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(500);
       _spawnPos.copy(player.position)
         .addScaledVector(fwd, 600 + Math.random() * 300)
         .add(_rand);
-      this.pirates.push(new Pirate(this.scene, _spawnPos, scale));
+
+      let type = 'raider';
+      const roll = Math.random();
+      if (galaxy >= 3) {
+        if (roll < 0.3) type = 'dreadnought';
+        else if (roll < 0.75) type = 'marauder';
+      } else if (galaxy === 2) {
+        if (roll < 0.15) type = 'dreadnought';
+        else if (roll < 0.5) type = 'marauder';
+      } else {
+        if (netWorth > 0.6 && roll < 0.05) type = 'dreadnought';
+        else if (netWorth > 0.3 && roll < 0.25) type = 'marauder';
+      }
+
+      this.pirates.push(new Pirate(this.scene, _spawnPos, scale, type));
     }
     this.cooldown = C.ENCOUNTER_COOLDOWN;
   }

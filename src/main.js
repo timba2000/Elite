@@ -55,6 +55,8 @@ class Game {
     this.laserPool.sfx = this.sfx;
     this.missilePool = new MissilePool(this.scene);
     this.missilePool.sfx = this.sfx;
+    this.enemyMissilePool = new MissilePool(this.scene, 4);
+    this.enemyMissilePool.sfx = this.sfx;
     this.explosions = new Explosions(this.scene, this.particles);
     this.explosions.sfx = this.sfx;
 
@@ -109,6 +111,7 @@ class Game {
     this.ship = new PlayerShip(this.scene, playerData);
     this.rebuildEngineTrail();
     if (this.missilePool) this.missilePool.clear();
+    if (this.enemyMissilePool) this.enemyMissilePool.clear();
 
     this.encounters = new EncounterManager(this.scene, playerData, {
       toast: (msg, kind) => this.ui.hud.toast(msg, kind),
