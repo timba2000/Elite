@@ -141,6 +141,11 @@ export class Sfx {
         this.noise({ filter: 'lowpass', f0: 220, f1: 80, dur: 0.3, vol: 0.35 });
         this.tone({ type: 'sine', f0: 62, f1: 40, dur: 0.3, vol: 0.3 });
         break;
+      case 'hyperCharge':
+        this.tone({ type: 'sawtooth', f0: 80, f1: 380, dur: 1.2, vol: 0.12 });
+        this.tone({ type: 'sine', f0: 160, f1: 760, dur: 1.2, vol: 0.08 });
+        this.noise({ filter: 'bandpass', f0: 100, f1: 800, q: 1, dur: 1.2, vol: 0.15, attack: 0.2 });
+        break;
       case 'superEngage':
         this.noise({ filter: 'bandpass', f0: 120, f1: 2400, q: 2, dur: 1.1, vol: 0.28, attack: 0.4 });
         this.tone({ type: 'sine', f0: 60, f1: 240, dur: 1.1, vol: 0.14 });

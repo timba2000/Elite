@@ -35,6 +35,8 @@ export class FlightState {
     this.lockTimer = 0;
     this.locked = false;
     this.warpJumpT = 0;
+    this.hyperdrivePhase = 'idle';
+    this.hyperdriveTimer = 0;
   }
 
   enter(params = {}) {
@@ -49,6 +51,8 @@ export class FlightState {
     this.lockTimer = 0;
     this.locked = false;
     this.warpJumpT = 0;
+    this.hyperdrivePhase = 'idle';
+    this.hyperdriveTimer = 0;
     g.ui.hud.show();
     g.ui.hud.navTargets = g.world.getNavTargets();
     g.ui.stationUI.hide();
@@ -184,7 +188,23 @@ export class FlightState {
     if (this.warpJumpT > 0) {
       this.warpJumpT = Math.max(0, this.warpJumpT - dt * 1.5);
     }
-    if (this.mode === 'manual') {
+    if (this.hyperdrivePhase === 'charging') {
+      this.hyperdriveTimer -= dt;
+      this.shakeT = Math.max(this.shakeT, 0.15);
+      ship.updateManual(dt, input);
+      ship.updateSystems(dt);
+
+      if (this.hyperdriveTimer <= 0) {
+        this.hyperdrivePhase = 'active';
+        this.mode = 'super';
+        this.superSpeed = 120;
+        g.sfx.play('superEngage');
+        g.ui.hud.warpFlash();
+        this.warpJumpT = 1.6;
+        g.camera.fov = 115;
+        g.camera.updateProjectionMatrix();
+      }
+    } else if (this.mode === 'manual') {
       ship.updateManual(dt, input);
       if (input.firing) ship.tryFire(g.laserPool);
     } else if (this.mode === 'super') {
@@ -363,7 +383,10 @@ export class FlightState {
   updateWorldAndFx(dt) {
     const g = this.game;
     let warp = 0;
-    if (this.mode === 'super') {
+    if (this.hyperdrivePhase === 'charging') {
+      const ratio = (1.2 - this.hyperdriveTimer) / 1.2;
+      warp = ratio * 0.08;
+    } else if (this.mode === 'super') {
       const ratio = this.superSpeed / C.SUPER_SPEED;
       warp = Math.min(1.5, ratio * 1.6);
       if (warp > 1.0) {
@@ -556,8 +579,11 @@ export class FlightState {
       this.superSpeed = 0;
       g.ship.velocity.clampLength(0, g.ship.stats.maxSpeed);
       g.sfx.play('superDrop');
+      this.hyperdrivePhase = 'idle';
       return;
     }
+    if (this.hyperdrivePhase === 'charging') return;
+
     if (!this.target) {
       g.ui.hud.toast('NO NAV TARGET — PRESS T', 'warn');
       return;
@@ -571,14 +597,11 @@ export class FlightState {
       g.ui.hud.toast('CANNOT ENGAGE — HOSTILES NEARBY', 'warn');
       return;
     }
-    this.mode = 'super';
-    this.superSpeed = g.ship.velocity.length();
-    g.sfx.play('superEngage');
-    g.ui.hud.toast(`SUPERCRUISE — ${this.target.name}`);
 
-    // Trigger warp flash (white glare) and star jump
-    this.warpJumpT = 0.8;
-    g.ui.hud.warpFlash();
+    this.hyperdrivePhase = 'charging';
+    this.hyperdriveTimer = 1.2;
+    g.sfx.play('hyperCharge');
+    g.ui.hud.toast(`ENGAGING HYPERDRIVE — ${this.target.name.toUpperCase()}`);
   }
 
   updateSupercruise(dt) {
@@ -850,7 +873,10 @@ export class FlightState {
 
     // FOV kick: Star Wars jump warp FOV stretch
     let targetFov = C.CAMERA_FOV;
-    if (ship.boosting) {
+    if (this.hyperdrivePhase === 'charging') {
+      const ratio = (1.2 - this.hyperdriveTimer) / 1.2;
+      targetFov = C.CAMERA_FOV + ratio * 20;
+    } else if (ship.boosting) {
       targetFov = C.CAMERA_FOV_BOOST;
     } else if (this.mode === 'super') {
       const ratio = this.superSpeed / C.SUPER_SPEED;

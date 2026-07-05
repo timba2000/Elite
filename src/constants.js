@@ -126,9 +126,9 @@ export const C = {
       name: 'Missile Launcher',
       tiers: [
         { price: 0, maxAmmo: 0, damage: 0 },
-        { price: 1800, maxAmmo: 4, damage: 45 },
-        { price: 4200, maxAmmo: 8, damage: 70 },
-        { price: 9500, maxAmmo: 12, damage: 100 },
+        { price: 1800, maxAmmo: 4, damage: 150 },
+        { price: 4200, maxAmmo: 8, damage: 250 },
+        { price: 9500, maxAmmo: 12, damage: 400 },
       ],
     },
   },
