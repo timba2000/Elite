@@ -39,9 +39,10 @@ export class Station {
     this.group.add(hub);
 
     // Docking aperture glow on hub face
-    const apertureMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.2, 2.2, 2.8) });
-    const aperture = new THREE.Mesh(new THREE.RingGeometry(1.8, 2.6, 24), apertureMat);
+    this.apertureMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.2, 2.2, 2.8) });
+    const aperture = new THREE.Mesh(new THREE.RingGeometry(1.8, 2.6, 24), this.apertureMat);
     aperture.position.z = 3.05;
+    this.apertureLocalZ = aperture.position.z;
     this.group.add(aperture);
 
     // Antenna
@@ -75,6 +76,20 @@ export class Station {
     this.group.scale.setScalar(2.2); // stations read better a bit bigger
     this.time = 0;
     this.radius = 45; // approach/collision radius in world units
+    this.dockingActive = false;
+  }
+
+  // World-space aperture centre and outward normal for the manual approach.
+  // The station spins about its own z, so the frame is stable frame-to-frame.
+  getDockingFrame(outPos, outNormal) {
+    outNormal.set(0, 0, 1).applyQuaternion(this.group.quaternion).normalize();
+    outPos.copy(this.group.position).addScaledVector(outNormal, this.apertureLocalZ * this.group.scale.x);
+  }
+
+  setDockingActive(on) {
+    if (this.dockingActive === on) return;
+    this.dockingActive = on;
+    if (!on) this.apertureMat.color.setRGB(0.2, 2.2, 2.8);
   }
 
   update(dt) {
@@ -83,6 +98,10 @@ export class Station {
     for (const { mesh, phase } of this.navLights) {
       const on = Math.sin(this.time * 3 + phase) > 0.4;
       mesh.visible = on;
+    }
+    if (this.dockingActive) {
+      const p = 2.0 + Math.sin(this.time * 6) * 1.3;
+      this.apertureMat.color.setRGB(0.3, p, 0.9);
     }
   }
 }

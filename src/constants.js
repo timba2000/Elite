@@ -46,7 +46,17 @@ export const C = {
 
   // Docking
   DOCK_RANGE: 130,
-  DOCK_DURATION: 4.0,
+  DOCK_DURATION: 4.0,          // autodock glide (docking computer)
+  DOCK_TRACTOR_DURATION: 1.6,  // short tractor pull after a manual capture
+  DOCK_CLEARANCE_RANGE: 260,   // clearance expires beyond this distance
+  DOCK_MAX_SPEED: 16,          // contact above this bounces you off the hub
+  DOCK_FACE_DIST: 3,           // axial distance from hub face that triggers capture
+  DOCK_FACE_RADIUS: 12,        // lateral radius of the hub face contact zone
+  DOCK_LATERAL_TOL: 6,         // must be this close to the aperture axis to enter
+  DOCK_ALIGN_DOT: 0.5,         // nose must point this much into the port
+  DOCK_INWARD_DOT: 0.6,        // velocity must head this much into the port
+  DOCK_SAFE_SPEED: 6,          // failed contact below this speed does no damage
+  DOCK_BOUNCE_DAMAGE: 1.2,     // hull damage per m/s above safe speed
 
   // Economy
   START_CREDITS: 500,
@@ -103,6 +113,13 @@ export const C = {
         { price: 900, max: 32 },
         { price: 2400, max: 45 },
         { price: 6000, max: 60 },
+      ],
+    },
+    dockingComputer: {
+      name: 'Docking Computer',
+      tiers: [
+        { price: 0, fitted: false },
+        { price: 12000, fitted: true },
       ],
     },
   },

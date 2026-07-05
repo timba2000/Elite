@@ -10,8 +10,8 @@ export class MenuUI {
       <button id="btn-continue" class="clickable" style="display:none">Continue</button>
       <div class="controls">
         <b>MOUSE</b> steer &nbsp; <b>W/S</b> throttle &nbsp; <b>SHIFT</b> boost &nbsp; <b>Q/E</b> roll<br>
-        <b>SPACE / CLICK</b> fire &nbsp; <b>T</b> cycle target &nbsp; <b>J</b> supercruise &nbsp; <b>D</b> dock &nbsp; <b>V</b> view &nbsp; <b>ESC</b> pause<br>
-        Buy low, sell high. Watch for pirates. Don't fly rusty forever.
+        <b>SPACE / CLICK</b> fire &nbsp; <b>T</b> cycle target &nbsp; <b>J</b> supercruise &nbsp; <b>D</b> request docking &nbsp; <b>V</b> view &nbsp; <b>ESC</b> pause<br>
+        Buy low, sell high. Watch for pirates. Fly into the aperture slowly — or save up for a docking computer.
       </div>
     `;
     uiRoot.appendChild(this.menu);

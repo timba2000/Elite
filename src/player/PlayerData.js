@@ -6,7 +6,7 @@ export class PlayerData {
   constructor() {
     this.credits = C.START_CREDITS;
     this.cargo = { ...C.START_CARGO };
-    this.upgrades = { engine: 1, weapons: 1, shield: 0, hull: 1, cargo: 1 };
+    this.upgrades = { engine: 1, weapons: 1, shield: 0, hull: 1, cargo: 1, dockingComputer: 0 };
     this.hull = C.UPGRADES.hull.tiers[1].max;
     this.lastStationId = 'veridia-station';
     this.gameTime = 0;
@@ -31,6 +31,7 @@ export class PlayerData {
       shieldRegen: shd.regen,
       hullMax: hul.max,
       cargoMax: crg.max,
+      dockingComputer: C.UPGRADES.dockingComputer.tiers[u.dockingComputer].fitted,
     };
   }
 

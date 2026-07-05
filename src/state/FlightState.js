@@ -11,6 +11,9 @@ const _q = new THREE.Quaternion();
 const _m = new THREE.Matrix4();
 const _up = new THREE.Vector3(0, 1, 0);
 const _shake = new THREE.Vector3();
+const _dockPos = new THREE.Vector3();
+const _dockN = new THREE.Vector3();
+const _dockRel = new THREE.Vector3();
 // camera looks down -Z but ship forward is +Z; rotate 180° about Y to face forward
 const _FLIP_Y = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
 
@@ -26,6 +29,8 @@ export class FlightState {
     this.targetIndex = -1;
     this.target = null;
     this.cameraView = 'cockpit'; // 'cockpit' | 'chase'
+    this.clearance = null;   // station we have docking clearance at
+    this.dockBounceT = 0;    // cooldown after bouncing off the hub
   }
 
   enter(params = {}) {
@@ -34,6 +39,8 @@ export class FlightState {
     this.mode = 'manual';
     this.superSpeed = 0;
     this.shakeT = 0;
+    this.setClearance(null);
+    this.dockBounceT = 0;
     g.ui.hud.show();
     g.ui.hud.navTargets = g.world.getNavTargets();
     g.ui.stationUI.hide();
@@ -54,6 +61,7 @@ export class FlightState {
   }
 
   exit() {
+    this.setClearance(null);
     this.game.ui.hud.setPrompt('');
   }
 
@@ -136,14 +144,14 @@ export class FlightState {
 
     this.keepOutOfBodies();
 
-    // ---------- docking prompt ----------
-    const dockStation = this.nearestDockableStation();
-    if (this.mode === 'manual' && dockStation) {
-      g.ui.hud.setPrompt('D — REQUEST DOCKING');
-      if (input.pressed('KeyD')) {
-        g.sm.change(g.states.docking, { station: dockStation });
-        return;
-      }
+    // ---------- docking ----------
+    let dockPrompt = null;
+    if (this.mode === 'manual') {
+      dockPrompt = this.updateDocking(dt);
+      if (dockPrompt === true) return; // state changed
+    }
+    if (typeof dockPrompt === 'string') {
+      g.ui.hud.setPrompt(dockPrompt);
     } else if (this.mode === 'manual' && this.target && !g.encounters.inCombat) {
       const d = this.target.object.position.distanceTo(ship.position);
       if (d > this.dropDistance(this.target)) {
@@ -318,6 +326,98 @@ export class FlightState {
       if (st.group.position.distanceTo(g.ship.position) < C.DOCK_RANGE) return st;
     }
     return null;
+  }
+
+  // ---------- docking ----------
+  setClearance(st) {
+    if (this.clearance && this.clearance !== st) this.clearance.setDockingActive(false);
+    this.clearance = st;
+    if (st) st.setDockingActive(true);
+  }
+
+  // Returns true if the game state changed, a prompt string while docking is
+  // in play, or null when no station is relevant this frame.
+  updateDocking(dt) {
+    const g = this.game;
+    this.dockBounceT = Math.max(0, this.dockBounceT - dt);
+
+    if (this.clearance) {
+      const st = this.clearance;
+      if (st.group.position.distanceTo(g.ship.position) > C.DOCK_CLEARANCE_RANGE) {
+        this.setClearance(null);
+        g.ui.hud.toast('DOCKING CLEARANCE EXPIRED', 'warn');
+        return null;
+      }
+      st.getDockingFrame(_dockPos, _dockN);
+      const speed = g.ship.velocity.length();
+
+      if (this.dockBounceT <= 0 && this.tryDockCapture(st, speed)) return true;
+
+      const dist = _dockPos.distanceTo(g.ship.position);
+      let msg = `DOCK — APERTURE ${Math.round(dist)}M · SPEED ${Math.round(speed)}`;
+      if (speed > C.DOCK_MAX_SPEED) msg += ` — SLOW BELOW ${C.DOCK_MAX_SPEED}`;
+      return msg;
+    }
+
+    const dockStation = this.nearestDockableStation();
+    if (!dockStation) return null;
+    if (g.input.pressed('KeyD')) {
+      if (g.ship.stats.dockingComputer) {
+        g.sm.change(g.states.docking, { station: dockStation });
+        return true;
+      }
+      this.setClearance(dockStation);
+      g.ui.hud.toast(`CLEARANCE GRANTED — ENTER THE HUB APERTURE UNDER ${C.DOCK_MAX_SPEED} M/S`, 'gold');
+      return 'PROCEED TO THE GREEN APERTURE';
+    }
+    return 'D — REQUEST DOCKING';
+  }
+
+  // Contact with the hub face: a clean, slow, centred, nose-in approach docks;
+  // anything else bounces the ship off with speed-scaled damage.
+  tryDockCapture(st, speed) {
+    const g = this.game;
+    const ship = g.ship;
+    _dockRel.copy(ship.position).sub(_dockPos);
+    const axial = _dockRel.dot(_dockN);
+    const lateral = Math.sqrt(Math.max(0, _dockRel.lengthSq() - axial * axial));
+
+    // only react when the ship reaches the hub face from outside
+    if (axial > C.DOCK_FACE_DIST || axial < -C.DOCK_FACE_DIST || lateral > C.DOCK_FACE_RADIUS) return false;
+
+    _fwd.set(0, 0, 1).applyQuaternion(ship.group.quaternion);
+    const inward = speed > 0.01 ? -ship.velocity.dot(_dockN) / speed : 0;
+    const nose = -_fwd.dot(_dockN);
+
+    const tooFast = speed > C.DOCK_MAX_SPEED;
+    const offCentre = lateral > C.DOCK_LATERAL_TOL;
+    const misaligned = nose < C.DOCK_ALIGN_DOT || inward < C.DOCK_INWARD_DOT;
+
+    if (!tooFast && !offCentre && !misaligned) {
+      this.setClearance(null);
+      g.sm.change(g.states.docking, { station: st, manual: true });
+      return true;
+    }
+
+    // bounce off the hub
+    const vDotN = ship.velocity.dot(_dockN);
+    ship.velocity.addScaledVector(_dockN, -2 * vDotN).multiplyScalar(0.45);
+    // push back out in front of the face, keeping the lateral offset
+    _dockRel.addScaledVector(_dockN, -axial);
+    ship.group.position.copy(_dockPos).add(_dockRel).addScaledVector(_dockN, C.DOCK_FACE_DIST + 2);
+    this.dockBounceT = 1.2;
+    this.shakeT = Math.max(this.shakeT, 0.5);
+
+    const reason = tooFast ? 'APPROACH TOO FAST' : offCentre ? 'OFF CENTRE' : 'MISALIGNED';
+    g.ui.hud.toast(`DOCKING ABORTED — ${reason}`, 'warn');
+
+    const dmg = Math.max(0, speed - C.DOCK_SAFE_SPEED) * C.DOCK_BOUNCE_DAMAGE;
+    if (dmg > 0) {
+      g.ui.hud.damageFlash();
+      const { destroyed } = ship.takeDamage(dmg);
+      if (destroyed) { this.die(); return true; }
+    }
+    return false;
   }
 
   // soft push-out so you can't fly inside the sun or planets
