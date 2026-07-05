@@ -86,7 +86,7 @@ new way to earn.
       skins still open*
 - [x] **Police / system authority** — respond to fights near stations, attack players
       with a criminal status, fines for friendly fire — *notoriety-driven police
-      interdictions shipped; station response and friendly-fire fines still open*
+      interdictions, station defense response dispatching security ships, and friendly-fire fines shipped*
 - [x] **Escalating interdictions** — cargo value raises interdiction odds (already have
       a base chance); rich traders attract deadlier pirates
 - [ ] **Missile lock + countermeasures** — chaff/ECM for a new defensive layer

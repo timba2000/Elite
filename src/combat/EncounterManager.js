@@ -295,6 +295,24 @@ export class EncounterManager {
     }
   }
 
+  spawnStationSecurity(station, player) {
+    const galaxy = this.playerData.galaxy ?? 1;
+    const scale = (1 + this.playerData.netWorthFactor() * 0.8) * (1.0 + (galaxy - 1) * 0.35);
+    
+    // Spawn security ship slightly out of the station aperture
+    const stationNormal = new THREE.Vector3(0, 0, 1).applyQuaternion(station.group.quaternion).normalize();
+    const spawnPos = station.group.position.clone().addScaledVector(stationNormal, 70);
+    
+    _rand.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(25);
+    spawnPos.add(_rand);
+    
+    const sec = new Police(this.scene, spawnPos, scale * 1.15);
+    this.police.push(sec);
+    
+    this.playerData.notoriety = Math.min(100, (this.playerData.notoriety || 0) + 12);
+    this.events.toast('WARNING — STATION DEFENSES ENGAGED! SECURITY DISPATCHED', 'warn');
+  }
+
   clearAll() {
     for (const p of this.pirates) p.dispose();
     this.pirates = [];

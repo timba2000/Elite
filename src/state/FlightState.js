@@ -47,6 +47,7 @@ export class FlightState {
     this.signal = null;   // pending point-of-interest while in supercruise
     this.scan = null;     // active police cargo scan
     this.scanZoneId = null;
+    this.stationSecurityCooldown = 0;
   }
 
   enter(params = {}) {
@@ -67,6 +68,7 @@ export class FlightState {
     this.signal = null;
     this.scan = null;
     this.scanZoneId = null;
+    this.stationSecurityCooldown = 0;
     g.ui.hud.show();
     g.ui.hud.navTargets = g.world.getNavTargets();
     g.ui.stationUI.hide();
@@ -171,6 +173,9 @@ export class FlightState {
     g.market.update(dt * timeScale);
     if (g.playerData.notoriety > 0) {
       g.playerData.notoriety = Math.max(0, g.playerData.notoriety - dt * timeScale * 0.015);
+    }
+    if (this.stationSecurityCooldown > 0) {
+      this.stationSecurityCooldown = Math.max(0, this.stationSecurityCooldown - dt);
     }
     // contract deadlines run on real flight seconds, not economy time
     for (const m of Missions.tick(dt, g.playerData)) {
@@ -299,6 +304,24 @@ export class FlightState {
     } else if (this.mode === 'manual') {
       ship.updateManual(dt, input);
       if (input.firing) ship.tryFire(g.laserPool);
+
+      // Check if player lasers hit any station
+      for (const b of g.laserPool.pool) {
+        if (b.life <= 0 || b.owner !== 'player') continue;
+        for (const st of g.world.stations) {
+          if (b.mesh.position.distanceTo(st.group.position) < 38) {
+            b.life = 0;
+            b.mesh.visible = false;
+            g.explosions.spawn(b.mesh.position, 0.25);
+            g.sfx.play('hitSpark');
+            if (this.stationSecurityCooldown <= 0 && g.encounters.police.length < 3) {
+              g.encounters.spawnStationSecurity(st, g.ship);
+              this.stationSecurityCooldown = 6.0; // 6 seconds cooldown
+            }
+            break;
+          }
+        }
+      }
     } else if (this.mode === 'super') {
       this.updateSupercruise(dt);
       ship.updateSystems(dt);
@@ -1046,6 +1069,48 @@ export class FlightState {
           const { destroyed, hullHit } = ship.takeDamage(dmg);
           g.sfx.play(hullHit ? 'hitHull' : 'hitShield');
           this.shakeT = Math.max(this.shakeT, 0.45);
+          if (destroyed) { this.die(); return; }
+        }
+      }
+    }
+
+    // Station collision check
+    for (const st of g.world.stations) {
+      const d = pos.distanceTo(st.group.position);
+      const collRadius = 38;
+      if (d < collRadius) {
+        // Check if inside the docking tunnel corridor
+        const rel = pos.clone().sub(st.group.position);
+        const invQ = st.group.quaternion.clone().invert();
+        const localRel = rel.clone().applyQuaternion(invQ);
+        
+        const lateralDist = Math.hypot(localRel.x, localRel.y);
+        const insideCorridor = lateralDist < 8.5 && localRel.z > -12 && localRel.z < 12;
+        
+        if (!insideCorridor) {
+          // Push out and bounce
+          const N = rel.clone().normalize();
+          pos.copy(st.group.position).addScaledVector(N, collRadius + 1);
+          
+          const impactSpeed = -ship.velocity.dot(N);
+          ship.velocity.addScaledVector(N, -2 * ship.velocity.dot(N)).multiplyScalar(0.4);
+          
+          if (this.mode === 'super') {
+            this.mode = 'manual';
+            this.superSpeed = 0;
+            ship.velocity.clampLength(0, ship.stats.maxSpeed);
+            ship.throttle = 0.3;
+            g.sfx.play('superDrop');
+            g.ui.hud.toast('DROPPED OUT — COLLISION WITH STATION', 'warn');
+          }
+          
+          const dmg = Math.max(0, impactSpeed - C.DOCK_SAFE_SPEED) * C.DOCK_BOUNCE_DAMAGE + 8;
+          g.ui.hud.toast('STATION COLLISION!', 'warn');
+          
+          g.ui.hud.damageFlash();
+          const { destroyed, hullHit } = ship.takeDamage(dmg);
+          g.sfx.play(hullHit ? 'hitHull' : 'hitShield');
+          this.shakeT = Math.max(this.shakeT, 0.5);
           if (destroyed) { this.die(); return; }
         }
       }
