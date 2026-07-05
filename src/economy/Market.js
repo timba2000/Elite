@@ -17,15 +17,64 @@ const EVENT_TYPES = [
 export class Market {
   constructor() {
     this.drift = {};
+    this.history = {};
     for (const p of SYSTEM.planets) {
       this.drift[p.id] = {};
+      this.history[p.id] = {};
       for (const g of COMMODITIES) {
         this.drift[p.id][g.id] = 0.85 + Math.random() * 0.3;
+        this.history[p.id][g.id] = [];
       }
     }
+    this.initializeHistory();
     this.minuteAccum = 0;
     this.events = [];   // { planetId, planetName, good, mult, headline, timeLeft }
     this.news = [];     // headlines not yet shown to the player
+  }
+
+  initializeHistory() {
+    for (const p of SYSTEM.planets) {
+      if (!this.history[p.id]) this.history[p.id] = {};
+      for (const g of COMMODITIES) {
+        if (!this.history[p.id][g.id] || this.history[p.id][g.id].length === 0) {
+          this.history[p.id][g.id] = this.simulateHistoricalPrices(p.id, g.id, 15);
+        }
+      }
+    }
+  }
+
+  simulateHistoricalPrices(planetId, goodId, steps) {
+    const planet = SYSTEM.planets.find((p) => p.id === planetId);
+    const good = COMMODITIES.find((g) => g.id === goodId);
+    const prices = [];
+    let d = this.drift[planetId]?.[goodId] ?? (0.85 + Math.random() * 0.3);
+    
+    for (let i = 0; i < steps; i++) {
+      const raw = good.base * this.typeBias(planet, goodId) * d;
+      const galaxy = (typeof window !== 'undefined' && window.game?.playerData?.galaxy) || 1;
+      const priceScale = 1.0 + (galaxy - 1) * 0.45;
+      const buyPrice = Math.max(1, Math.round(raw * priceScale));
+      prices.unshift(buyPrice);
+
+      // Simulate step backwards
+      d = d + (d - 1) * C.DRIFT_REVERT - gaussian() * good.volatility;
+      d = clamp(d, C.DRIFT_MIN, C.DRIFT_MAX);
+    }
+    return prices;
+  }
+
+  recordHistory() {
+    for (const p of SYSTEM.planets) {
+      if (!this.history[p.id]) this.history[p.id] = {};
+      for (const g of COMMODITIES) {
+        if (!this.history[p.id][g.id]) this.history[p.id][g.id] = [];
+        const currentBuyPrice = this.price(p.id, g.id).buy;
+        this.history[p.id][g.id].push(currentBuyPrice);
+        if (this.history[p.id][g.id].length > 15) {
+          this.history[p.id][g.id].shift();
+        }
+      }
+    }
   }
 
   eventFor(planetId, goodId) {
@@ -66,8 +115,10 @@ export class Market {
     if (ended.length) this.events = this.events.filter((e) => e.timeLeft > 0);
 
     this.minuteAccum += gameSeconds;
+    let didTick = false;
     while (this.minuteAccum >= 60) {
       this.minuteAccum -= 60;
+      didTick = true;
       if (this.events.length < 2 && Math.random() < 0.2) this.spawnEvent();
       for (const p of SYSTEM.planets) {
         if (!this.drift[p.id]) this.drift[p.id] = {};
@@ -80,6 +131,9 @@ export class Market {
           this.drift[p.id][g.id] = clamp(d, C.DRIFT_MIN, C.DRIFT_MAX);
         }
       }
+    }
+    if (didTick) {
+      this.recordHistory();
     }
   }
 
@@ -116,6 +170,11 @@ export class Market {
     this.drift[planetId][goodId] = clamp(
       this.drift[planetId][goodId] + delta, C.DRIFT_MIN, C.DRIFT_MAX
     );
+    // Update latest point in history to match the new price immediately
+    if (this.history[planetId] && this.history[planetId][goodId] && this.history[planetId][goodId].length > 0) {
+      const idx = this.history[planetId][goodId].length - 1;
+      this.history[planetId][goodId][idx] = this.price(planetId, goodId).buy;
+    }
   }
 
   galacticAverage(goodId) {
@@ -123,7 +182,7 @@ export class Market {
   }
 
   serialize() {
-    return { drift: this.drift, events: this.events };
+    return { drift: this.drift, events: this.events, history: this.history };
   }
 
   static deserialize(data) {
@@ -133,6 +192,7 @@ export class Market {
     // the "drift" key (Keller's Drift is literally id "drift").
     const isNew = data && Array.isArray(data.events);
     const drift = isNew ? data.drift : data;
+    const history = isNew ? data.history : null;
     if (drift) {
       for (const p of SYSTEM.planets) {
         if (!m.drift[p.id]) m.drift[p.id] = {};
@@ -145,6 +205,18 @@ export class Market {
         }
       }
     }
+    m.history = {};
+    for (const p of SYSTEM.planets) {
+      m.history[p.id] = {};
+      for (const g of COMMODITIES) {
+        if (history && history[p.id] && Array.isArray(history[p.id][g.id])) {
+          m.history[p.id][g.id] = [...history[p.id][g.id]];
+        } else {
+          m.history[p.id][g.id] = [];
+        }
+      }
+    }
+    m.initializeHistory();
     if (data && Array.isArray(data.events)) {
       m.events = data.events.filter((e) => SYSTEM.planets.some((p) => p.id === e.planetId));
     }

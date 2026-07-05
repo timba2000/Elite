@@ -29,6 +29,7 @@ export class StationUI {
     this.missionMsg = null; // accept feedback line
     this.tab = missionNews.length ? 'missions' : 'market';
     this.lastTrade = null; // { msg, cls } report line for the market tab
+    this.selectedGoodId = null;
     this.render();
     this.root.classList.add('visible');
   }
@@ -376,9 +377,12 @@ export class StationUI {
         plTd = `<td class="num ${plCls}">${pl > 0 ? '+' : ''}${Math.round(pl)}</td>`;
       }
 
-      return `
-        <tr data-good="${g.id}">
-          <td>${g.name}</td>
+      const isSelected = this.selectedGoodId === g.id;
+      const arrow = isSelected ? '▼' : '▶';
+
+      const mainRow = `
+        <tr data-good="${g.id}" style="cursor: pointer;" class="${isSelected ? 'selected-row' : ''}">
+          <td><span class="expand-arrow" style="font-size: 10px; margin-right: 6px; color: rgba(80, 220, 255, 0.7);">${arrow}</span>${g.name}</td>
           <td class="num ${buyCls}">${buy}</td>
           <td class="num ${sellCls}">${sell}</td>
           <td class="num">${held}</td>
@@ -392,11 +396,54 @@ export class StationUI {
             <button data-act="sell" data-qty="max" ${held ? '' : 'disabled'}>All</button>
           </div></td>
         </tr>`;
+
+      if (!isSelected) return mainRow;
+
+      const p = this.planetDef;
+      const ev = this.market.eventFor(p.id, g.id);
+      let statusText = 'NORMAL';
+      let statusClass = 'dim';
+      if (ev) {
+        statusText = 'CRISIS SPIKE';
+        statusClass = 'dear';
+      } else if (p.exports.includes(g.id)) {
+        statusText = 'EXPORT (CHEAP)';
+        statusClass = 'cheap';
+      } else if (p.imports.includes(g.id)) {
+        statusText = 'IMPORT (PREMIUM)';
+        statusClass = 'dear';
+      }
+
+      const detailRow = `
+        <tr class="market-detail-row" style="background: rgba(0, 15, 25, 0.45);">
+          <td colspan="7" style="padding: 0;">
+            <div class="market-detail-container" style="display: flex; gap: 20px; padding: 12px 16px; align-items: center; border-left: 3px solid #37d0ff;">
+              <div class="chart-container">
+                ${this.renderGraph(g.id)}
+              </div>
+              <div class="info-container" style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
+                <div class="info-title" style="font-size: 13px; color: #ffd27a; letter-spacing: 1px;">
+                  ${g.name.toUpperCase()} MARKET TREND & PROFILE
+                </div>
+                <div class="info-desc" style="font-size: 11px; line-height: 1.4; color: rgba(159, 232, 255, 0.85); min-height: 32px;">
+                  ${this.getMarketPerspective(g.id)}
+                </div>
+                <div class="info-stats" style="display: flex; gap: 16px; font-size: 10px; margin-top: 4px; border-top: 1px solid rgba(80, 220, 255, 0.15); padding-top: 6px;">
+                  <div>VOLATILITY: <span style="color: ${g.volatility > 0.025 ? '#ff8a7a' : '#7dff9a'}; font-weight: bold;">${g.volatility > 0.03 ? 'HIGH' : g.volatility > 0.015 ? 'MED' : 'LOW'}</span></div>
+                  <div>GALACTIC AVG: <span style="color: #ffd27a; font-weight: bold;">${Math.round(this.market.galacticAverage(g.id))} CR</span></div>
+                  <div>STATUS: <span class="${statusClass}" style="font-weight: bold;">${statusText}</span></div>
+                </div>
+              </div>
+            </div>
+          </td>
+        </tr>`;
+
+      return mainRow + detailRow;
     }).join('');
 
     const report = this.lastTrade
       ? `<div class="trade-report ${this.lastTrade.cls}">${this.lastTrade.msg}</div>`
-      : '<div class="trade-report dim">PAID = avg you paid per unit · P/L = profit per unit if sold here</div>';
+      : '<div class="trade-report dim">PAID = avg you paid per unit · P/L = profit per unit if sold here · CLICK A COMMODITY TO VIEW PRICE TRENDS</div>';
 
     this.body.innerHTML = `
       <table class="market">
@@ -414,6 +461,15 @@ export class StationUI {
       btn.addEventListener('click', () => {
         const tr = btn.closest('tr');
         this.trade(tr.dataset.good, btn.dataset.act, btn.dataset.qty);
+      });
+    });
+    // Add row click listener for expanding detail row:
+    this.body.querySelectorAll('tr[data-good]').forEach((row) => {
+      row.addEventListener('click', (e) => {
+        if (e.target.closest('button')) return;
+        const goodId = row.dataset.good;
+        this.selectedGoodId = this.selectedGoodId === goodId ? null : goodId;
+        this.renderTab();
       });
     });
     this.body.querySelector('button[data-rare-buy]')?.addEventListener('click', () => {
@@ -681,5 +737,81 @@ export class StationUI {
       this.player.hull = stats.hullMax;
       this.renderTab();
     });
+  }
+
+  // ---------- MARKET DETAIL HELPERS ----------
+  renderGraph(goodId) {
+    const pts = this.market.history[this.planetDef.id]?.[goodId] || [];
+    if (!pts.length) return '<div class="m-detail">No history available yet.</div>';
+
+    const min = Math.min(...pts);
+    const max = Math.max(...pts);
+    const range = max - min;
+
+    const w = 260;
+    const h = 80;
+    const paddingX = 10;
+    const paddingY = 12;
+    const chartW = w - paddingX * 2;
+    const chartH = h - paddingY * 2;
+
+    const points = pts.map((val, idx) => {
+      const x = paddingX + (idx / (pts.length - 1)) * chartW;
+      const y = paddingY + chartH - (range > 0 ? ((val - min) / range) * chartH : chartH / 2);
+      return { x, y, val };
+    });
+
+    const pathD = 'M ' + points.map(p => `${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' L ');
+    const areaD = `${pathD} L ${points[points.length - 1].x.toFixed(1)} ${(h - paddingY).toFixed(1)} L ${points[0].x.toFixed(1)} ${(h - paddingY).toFixed(1)} Z`;
+
+    const lastPt = points[points.length - 1];
+    const gridY = [paddingY, paddingY + chartH / 2, paddingY + chartH];
+
+    return `
+      <svg class="history-chart" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+        <defs>
+          <linearGradient id="chart-grad-${goodId}" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#37d0ff" stop-opacity="0.3"/>
+            <stop offset="100%" stop-color="#37d0ff" stop-opacity="0.0"/>
+          </linearGradient>
+        </defs>
+        <!-- Horizontal Grid Lines -->
+        ${gridY.map(y => `<line x1="${paddingX}" y1="${y}" x2="${w - paddingX}" y2="${y}" stroke="rgba(80, 220, 255, 0.08)" stroke-dasharray="2,2" />`).join('')}
+        
+        <!-- Area under line -->
+        <path d="${areaD}" fill="url(#chart-grad-${goodId})" />
+        
+        <!-- The line itself -->
+        <path d="${pathD}" fill="none" stroke="#37d0ff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+        
+        <!-- Latest point dot with SVG animation -->
+        <circle cx="${lastPt.x}" cy="${lastPt.y}" r="3" fill="#fff" stroke="#37d0ff" stroke-width="1.5" />
+        <circle cx="${lastPt.x}" cy="${lastPt.y}" r="3" fill="none" stroke="#37d0ff" stroke-width="1">
+          <animate attributeName="r" values="3;9" dur="2s" repeatCount="indefinite" />
+          <animate attributeName="opacity" values="0.8;0" dur="2s" repeatCount="indefinite" />
+        </circle>
+        
+        <!-- Price labels on left and right -->
+        <text class="chart-text" x="${paddingX}" y="${paddingY - 3}" text-anchor="start">${Math.round(max)} CR</text>
+        <text class="chart-text" x="${paddingX}" y="${h - paddingY + 9}" text-anchor="start">${Math.round(min)} CR</text>
+        <text class="chart-text" x="${w - paddingX}" y="${h - paddingY + 9}" text-anchor="end">Now</text>
+      </svg>
+    `;
+  }
+
+  getMarketPerspective(goodId) {
+    const p = this.planetDef;
+    const g = COMMODITIES.find((c) => c.id === goodId);
+    const ev = this.market.eventFor(p.id, goodId);
+    if (ev) {
+      return `CRITICAL: ${ev.headline}. Relief supplies of ${g.name} are urgently needed. Fulfill supply contracts or sell directly to the market for massive returns.`;
+    }
+    if (p.exports.includes(goodId)) {
+      return `Export Commodity: ${p.name} is a major producer of ${g.name}. Local supplies are abundant, keeping prices low. Excellent opportunity for export trade routes.`;
+    }
+    if (p.imports.includes(goodId)) {
+      return `Import Commodity: ${p.name} has a high consumption of ${g.name} but zero local production. Local merchants pay a premium to import it. Sell here to maximize profit.`;
+    }
+    return `Neutral Trade: Standard supply and demand. Prices are stable but subject to random galactic drift and local trade volumes.`;
   }
 }

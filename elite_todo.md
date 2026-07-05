@@ -29,7 +29,9 @@ new way to earn.
 
 - [ ] **Trade routes UI** — a galactic/system map screen showing known prices at each
       station (last-seen data only, so information itself has value)
-- [ ] **Price history graphs** at market screens so players can learn a station's rhythm
+- [x] **Price history graphs** at market screens so players can learn a station's rhythm
+      — *shipped inline interactive SVG graphs with linear price trend mapping and
+      dynamic market profiles*
 - [x] **Supply/demand events** — famine on Veridia, mining strike on Ferrox, plague at
       Keller's Drift; announced via news ticker, prices spike accordingly — *six event
       types shipped with GALNET toasts, station ticker, and urgent relief contracts*

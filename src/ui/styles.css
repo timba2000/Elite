@@ -329,6 +329,29 @@ table.market .dim { color: rgba(159,232,255,0.35); }
 table.market .qty-btns { display: flex; gap: 3px; justify-content: flex-end; }
 table.market .qty-btns button { padding: 2px 8px; font-size: 10px; }
 
+table.market tr[data-good]:hover {
+  background: rgba(80, 220, 255, 0.06);
+}
+table.market tr.selected-row {
+  background: rgba(80, 220, 255, 0.12) !important;
+}
+table.market tr.selected-row:hover {
+  background: rgba(80, 220, 255, 0.16) !important;
+}
+
+svg.history-chart {
+  background: rgba(0, 10, 15, 0.6);
+  border: 1px solid rgba(80, 220, 255, 0.2);
+  border-radius: 4px;
+  display: block;
+}
+svg.history-chart .chart-text {
+  font-family: Consolas, 'Courier New', monospace;
+  font-size: 9px;
+  fill: rgba(159, 232, 255, 0.6);
+  pointer-events: none;
+}
+
 .shipyard-row {
   display: flex; align-items: center; justify-content: space-between;
   padding: 10px 8px; border-bottom: 1px solid rgba(80,220,255,0.12);
