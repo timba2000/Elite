@@ -140,6 +140,7 @@ export class StationUI {
       shield: (t) => `${t.max} capacity · ${t.regen}/s regen`,
       hull: (t) => `${t.max} hull integrity`,
       cargo: (t) => `${t.max} cargo units`,
+      dockingComputer: (t) => t.fitted ? 'Hands-free docking on request' : 'Manual approach only',
     };
 
     const rows = Object.entries(C.UPGRADES).map(([key, def]) => {

@@ -9,20 +9,25 @@ const _m = new THREE.Matrix4();
 const _up = new THREE.Vector3(0, 1, 0);
 const _camPos = new THREE.Vector3();
 
-// Scripted autopilot glide into the station. Cosmetic, no fail state.
+// Final glide into the station. Two ways in: the docking computer autopilot
+// (long cinematic approach) or the station tractor after a manual capture.
 export class DockingState {
   constructor(game) {
     this.game = game;
   }
 
-  enter({ station }) {
+  enter({ station, manual }) {
     const g = this.game;
     this.station = station;
     this.t = 0;
+    this.manual = !!manual;
+    this.duration = this.manual ? C.DOCK_TRACTOR_DURATION : C.DOCK_DURATION;
     g.ship.ship.group.visible = true; // exterior shot — show the hull even from cockpit view
     g.input.exitPointerLock();
     g.ui.hud.setPrompt('');
-    g.ui.hud.toast(`DOCKING CLEARANCE GRANTED — ${station.name}`);
+    g.ui.hud.toast(this.manual
+      ? `TRACTOR LOCK — WELCOME TO ${station.name}`
+      : `DOCKING COMPUTER ENGAGED — ${station.name}`);
 
     _start.copy(g.ship.group.position);
     _startQ.copy(g.ship.group.quaternion);
@@ -37,12 +42,14 @@ export class DockingState {
 
   update(dt) {
     const g = this.game;
-    this.t += dt / C.DOCK_DURATION;
+    this.t += dt / this.duration;
     const k = Math.min(1, this.t);
     const ease = k * k * (3 - 2 * k); // smoothstep
 
-    // target: station hub
-    this.station.dockingPoint.getWorldPosition(_end);
+    // target: the tractor pulls a manual capture through the aperture into the
+    // hub; the autopilot glides to the marker in front of it
+    if (this.manual) _end.copy(this.station.group.position);
+    else this.station.dockingPoint.getWorldPosition(_end);
     _m.lookAt(_end, _start, _up);
     _endQ.setFromRotationMatrix(_m);
 
