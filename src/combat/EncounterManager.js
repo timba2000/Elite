@@ -145,6 +145,16 @@ export class EncounterManager {
     const bounty = Math.floor(C.PIRATE_BOUNTY_MIN + Math.random() * (C.PIRATE_BOUNTY_MAX - C.PIRATE_BOUNTY_MIN));
     this.playerData.credits += bounty;
     this.events.toast(`BOUNTY +${bounty} CR`, 'gold');
+
+    if (this.playerData.notoriety > 0) {
+      const prev = this.playerData.notoriety;
+      this.playerData.notoriety = Math.max(0, this.playerData.notoriety - 8);
+      const diff = prev - this.playerData.notoriety;
+      if (diff > 0) {
+        setTimeout(() => this.events.toast(`PIRATE DESTROYED — NOTORIETY -${diff}`, 'gold'), 1200);
+      }
+    }
+
     pirate.dispose();
 
     if (Math.random() < C.POD_DROP_CHANCE) {
