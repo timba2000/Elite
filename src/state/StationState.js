@@ -1,4 +1,5 @@
 import { SaveSystem } from '../save/SaveSystem.js';
+import { Missions } from '../missions/Missions.js';
 
 // Docked: station UI over a slow orbit shot of the station. Autosaves on entry.
 export class StationState {
@@ -20,6 +21,17 @@ export class StationState {
     if (g.missilePool) g.missilePool.clear();
     g.ship.missilesAmmo = g.ship.stats.missilesMaxAmmo;
 
+    // resolve contracts before saving so payouts/failures land in the save
+    const missionNews = [];
+    if (respawned) {
+      for (const m of Missions.onDeath(g.playerData)) {
+        missionNews.push({ msg: `CONTRACT FAILED — ${m.qty}x ${m.goodName.toUpperCase()} LOST WITH SHIP`, cls: 'loss' });
+      }
+    }
+    for (const m of Missions.onDock(station.planetDef.id, g.playerData)) {
+      missionNews.push({ msg: `CONTRACT COMPLETE — ${m.qty}x ${m.goodName.toUpperCase()} DELIVERED · +${m.reward.toLocaleString()} CR`, cls: 'profit' });
+    }
+
     g.playerData.lastStationId = station.id;
     SaveSystem.save(g.playerData, g.market);
 
@@ -40,7 +52,7 @@ export class StationState {
         if (key === 'shield') g.ship.shield = g.ship.stats.shieldMax;
         if (key === 'missiles') g.ship.missilesAmmo = g.ship.stats.missilesMaxAmmo;
       },
-    });
+    }, missionNews);
   }
 
   exit() {

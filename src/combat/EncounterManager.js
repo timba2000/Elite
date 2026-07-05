@@ -4,6 +4,7 @@ import { Pirate } from '../ships/Pirate.js';
 import { Police } from '../ships/Police.js';
 import { buildCargoPod } from '../ships/ShipFactory.js';
 import { COMMODITIES } from '../economy/commodities.js';
+import { Missions } from '../missions/Missions.js';
 
 const _spawnPos = new THREE.Vector3();
 const _rand = new THREE.Vector3();
@@ -162,6 +163,14 @@ export class EncounterManager {
     const bounty = Math.floor(C.PIRATE_BOUNTY_MIN + Math.random() * (C.PIRATE_BOUNTY_MAX - C.PIRATE_BOUNTY_MIN));
     this.playerData.credits += bounty;
     this.events.toast(`BOUNTY +${bounty} CR`, 'gold');
+
+    const hunts = Missions.onPirateKill(this.playerData);
+    for (const m of hunts.completed) {
+      this.events.toast(`CONTRACT COMPLETE — +${m.reward.toLocaleString()} CR`, 'gold');
+    }
+    for (const m of hunts.progress) {
+      this.events.toast(`HUNT CONTRACT — ${m.killsDone}/${m.kills} PIRATES`, '');
+    }
 
     if (this.playerData.notoriety > 0) {
       const prev = this.playerData.notoriety;

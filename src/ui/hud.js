@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { SYSTEM } from '../world/SystemDef.js';
+import { Missions } from '../missions/Missions.js';
 
 const _ndc = new THREE.Vector3();
 const _rel = new THREE.Vector3();
@@ -28,6 +29,7 @@ export class Hud {
         <div class="cargo">CARGO 0/20</div>
         <div class="notoriety" style="display:none">NOTORIETY 0</div>
         <div class="loc"></div>
+        <div class="missions" style="display:none"></div>
       </div>
       <canvas id="radar" width="128" height="128"></canvas>
       <div class="hud-target">
@@ -65,6 +67,8 @@ export class Hud {
     this.cargoEl = this.$('.hud-status .cargo');
     this.notorietyEl = this.$('.hud-status .notoriety');
     this.locEl = this.$('.hud-status .loc');
+    this.missionsEl = this.$('.hud-status .missions');
+    this.missionsText = '';
     this.radar = this.$('#radar');
     this.rctx = this.radar.getContext('2d');
     this.tname = this.$('.tname');
@@ -142,6 +146,15 @@ export class Hud {
       this.notorietyEl.className = 'notoriety ' + (notoriety > 50 ? 'warn' : 'gold');
     } else {
       this.notorietyEl.style.display = 'none';
+    }
+
+    // active contracts (up to 3 lines)
+    const missions = playerData.missions || [];
+    const mText = missions.slice(0, 3).map((m) => `▸ ${Missions.hudLine(m)}`).join('\n');
+    if (mText !== this.missionsText) {
+      this.missionsText = mText;
+      this.missionsEl.style.display = mText ? 'block' : 'none';
+      this.missionsEl.textContent = mText;
     }
 
     // target

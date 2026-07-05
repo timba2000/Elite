@@ -7,9 +7,21 @@ new way to earn.
 ## Already in the game (baseline)
 
 - 6DOF flight with boost and supercruise, docking at 6 stations in the Achenar system
-- 8 commodities with per-station import/export bias and drifting prices that react to trades
-- Tiered upgrades: engine, laser cannon, shield, hull plating, cargo hold
+- 9 commodities with per-station import/export bias and drifting prices that react to trades
+- Tiered upgrades: engine, laser cannon, shield, hull plating, cargo hold, docking
+  computer, missile launcher, galactic hyperdrive
 - Pirate encounters via interdiction, bounties, cargo pod scooping, death credit tax
+- Pirate variants (raider / marauder / dreadnought) in multi-ship ambushes; dreadnoughts
+  fire homing missiles, player missiles with lock-on
+- Notoriety system: narcotics trading and police kills raise it, police interdictions
+  hunt criminal players
+- Procedural galaxies via single-use Galactic Hyperdrive; prices and enemies scale up
+  per galaxy
+- Save/load via localStorage (F5 in flight, station save button, autosave on dock)
+- Procedural Web Audio sound: engine hum, lasers, alarms, docking, UI blips
+- Station mission board: courier deliveries (cargo provided, failure penalty), supply
+  contracts at premium rates, and pirate-hunt bounties, with flight-time deadlines,
+  HUD contract tracker, and auto-redemption on dock
 
 ---
 
@@ -20,8 +32,9 @@ new way to earn.
 - [ ] **Price history graphs** at market screens so players can learn a station's rhythm
 - [ ] **Supply/demand events** — famine on Veridia, mining strike on Ferrox, plague at
       Keller's Drift; announced via news ticker, prices spike accordingly
-- [ ] **Bulk contracts** — station offers "deliver 40 machinery within 10 minutes" for a
-      premium over market rate; adds time pressure to plain trading
+- [x] **Bulk contracts** — station offers "deliver 40 machinery within 10 minutes" for a
+      premium over market rate; adds time pressure to plain trading — *shipped as
+      supply contracts on the station mission board*
 - [ ] **Rare goods** — one-off commodities only sold at a specific station (Thalassan
       storm-silk, Veridian whisky) that appreciate with distance carried
 - [ ] **Illegal goods & smuggling** — narcotics/weapons with fat margins; random cargo
@@ -45,8 +58,9 @@ new way to earn.
 
 ## 3. Ways to earn beyond trading
 
-- [ ] **Mission board at stations** — courier runs, timed deliveries, "hunt this named
-      pirate", escort a freighter, rescue an escape pod
+- [x] **Mission board at stations** — courier runs, timed deliveries, "hunt this named
+      pirate", escort a freighter, rescue an escape pod — *courier, supply, and
+      hunt-N-pirates contracts shipped; named pirates, escorts, and rescues still open*
 - [ ] **Bounty hunting as a career** — wanted boards, named pirates with bigger bounties
       and better AI, combat rank separate from trade rank
 - [ ] **Mining** — mineable asteroids in a belt region; mining laser chips off ore
@@ -56,10 +70,13 @@ new way to earn.
 
 ## 4. Combat & danger
 
-- [ ] **Pirate variety** — light/heavy/leader variants, small wings of 2–3, faction skins
-- [ ] **Police / system authority** — respond to fights near stations, attack players
-      with a criminal status, fines for friendly fire
-- [ ] **Escalating interdictions** — cargo value raises interdiction odds (already have
+- [x] **Pirate variety** — light/heavy/leader variants, small wings of 2–3, faction skins
+      — *raider/marauder/dreadnought variants and multi-ship ambushes shipped; faction
+      skins still open*
+- [x] **Police / system authority** — respond to fights near stations, attack players
+      with a criminal status, fines for friendly fire — *notoriety-driven police
+      interdictions shipped; station response and friendly-fire fines still open*
+- [x] **Escalating interdictions** — cargo value raises interdiction odds (already have
       a base chance); rich traders attract deadlier pirates
 - [ ] **Missile lock + countermeasures** — chaff/ECM for a new defensive layer
 - [ ] **Boss encounter** — a pirate dreadnought event once combat rank is high enough
@@ -71,9 +88,11 @@ new way to earn.
 
 ## 5. World & exploration
 
-- [ ] **Second star system + hyperspace jump** — fuel-gated jumps make the fuel
-      commodity strategic; each system gets its own economy character
-- [ ] **Procedural systems** — generate systems from seeds (SystemDef already
+- [x] **Second star system + hyperspace jump** — fuel-gated jumps make the fuel
+      commodity strategic; each system gets its own economy character — *shipped as
+      one-way procedural galaxy jumps via the Galactic Hyperdrive; fuel-gated jumps
+      between systems within a galaxy could still add strategy*
+- [x] **Procedural systems** — generate systems from seeds (SystemDef already
       seed-driven per planet) for effectively unlimited exploration
 - [ ] **Points of interest** — asteroid belts, derelicts, distress beacons (ambush or
       rescue), abandoned stations
@@ -181,12 +200,13 @@ recruit the best ones, and grow from a lone pilot into a small trading company.
 
 ## 9. Quality of life / meta
 
-- [ ] **Save/load** (localStorage) — required before long-term progression matters
+- [x] **Save/load** (localStorage) — required before long-term progression matters
 - [ ] **Stats screen** — credits earned, profit per commodity, pirates killed, distance flown
 - [ ] **Tutorial / first-launch hints** — guided first trade run
 - [ ] **Settings** — volume, graphics quality (bloom toggle), key rebinding
 - [ ] **Gamepad support**
-- [ ] **Audio** — engine hum, laser sfx, dock ambience, dynamic music (calm ↔ combat)
+- [x] **Audio** — engine hum, laser sfx, dock ambience, dynamic music (calm ↔ combat)
+      — *procedural sfx shipped; dynamic music still open*
 
 ---
 

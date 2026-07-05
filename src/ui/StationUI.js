@@ -1,6 +1,7 @@
 import { C } from '../constants.js';
 import { COMMODITIES } from '../economy/commodities.js';
 import { SaveSystem } from '../save/SaveSystem.js';
+import { Missions } from '../missions/Missions.js';
 
 // Docked panel: Market / Shipyard / Repair tabs + undock.
 export class StationUI {
@@ -12,12 +13,15 @@ export class StationUI {
     this.tab = 'market';
   }
 
-  show(planetDef, market, playerData, callbacks) {
+  show(planetDef, market, playerData, callbacks, missionNews = []) {
     this.planetDef = planetDef;
     this.market = market;
     this.player = playerData;
     this.cb = callbacks; // { undock, onUpgrade }
-    this.tab = 'market';
+    this.missionNews = missionNews; // completions/failures resolved on dock
+    this.offers = Missions.generateOffers(planetDef, playerData);
+    this.missionMsg = null; // accept feedback line
+    this.tab = missionNews.length ? 'missions' : 'market';
     this.lastTrade = null; // { msg, cls } report line for the market tab
     this.render();
     this.root.classList.add('visible');
@@ -35,6 +39,7 @@ export class StationUI {
       </div>
       <div class="st-tabs">
         <button data-tab="market">Market</button>
+        <button data-tab="missions">Missions</button>
         <button data-tab="shipyard">Shipyard</button>
         <button data-tab="repair">Repair</button>
         <button class="save-btn" data-tab="save">💾 Save Game</button>
@@ -77,8 +82,106 @@ export class StationUI {
   renderTab() {
     this.renderStatus();
     if (this.tab === 'market') this.renderMarket();
+    else if (this.tab === 'missions') this.renderMissions();
     else if (this.tab === 'shipyard') this.renderShipyard();
     else if (this.tab === 'repair') this.renderRepair();
+  }
+
+  // ---------- MISSIONS ----------
+  renderMissions() {
+    const p = this.player;
+
+    const news = this.missionNews.map((n) =>
+      `<div class="trade-report ${n.cls}">${n.msg}</div>`).join('');
+
+    const activeRows = p.missions.map((m) => {
+      let status;
+      let action = '';
+      if (m.type === 'hunt') {
+        status = `${m.killsDone}/${m.kills} pirates destroyed · no time limit`;
+      } else {
+        const held = p.cargo[m.good] || 0;
+        const atTarget = m.targetId === this.planetDef.id;
+        if (atTarget && Missions.canComplete(m, this.planetDef.id, p)) {
+          status = `${m.qty}x ${m.goodName} in hold — ready to hand over`;
+          action = `<button data-complete="${m.id}">Deliver</button>`;
+        } else if (atTarget && !m.armed) {
+          status = 'Leave the station and return to redeem';
+        } else if (atTarget) {
+          status = `Need ${m.qty - held} more ${m.goodName} — deliver here`;
+        } else {
+          status = `${held}/${m.qty} ${m.goodName} in hold → ${m.targetName}`;
+        }
+        status += ` · ${Missions.fmtTime(m.timeLeft)} left (timer runs in flight)`;
+      }
+      return `
+        <div class="mission-row">
+          <div class="m-name">${this.missionTitle(m)}</div>
+          <div class="m-detail">${status}</div>
+          <div class="m-reward">${m.reward.toLocaleString()} CR</div>
+          ${action}
+        </div>`;
+    }).join('');
+
+    const offerRows = this.offers.map((o) => {
+      let detail;
+      if (o.type === 'deliver') {
+        detail = `Cargo supplied on accept (${o.qty} units of hold space) · ${Missions.fmtTime(o.timeLeft)} limit · ${o.penalty.toLocaleString()} CR penalty on failure`;
+      } else if (o.type === 'supply') {
+        detail = `Source anywhere, deliver here · ${Missions.fmtTime(o.timeLeft)} limit · no penalty`;
+      } else {
+        detail = 'Destroy them anywhere in the system · no time limit';
+      }
+      return `
+        <div class="mission-row">
+          <div class="m-name">${this.missionTitle(o)}</div>
+          <div class="m-detail">${detail}</div>
+          <div class="m-reward">${o.reward.toLocaleString()} CR</div>
+          <button data-accept="${o.id}">Accept</button>
+        </div>`;
+    }).join('');
+
+    const msg = this.missionMsg
+      ? `<div class="trade-report ${this.missionMsg.cls}">${this.missionMsg.msg}</div>` : '';
+
+    this.body.innerHTML = `
+      ${news}
+      <div class="m-section">CONTRACTS IN PROGRESS (${p.missions.length}/${Missions.MAX_ACTIVE})</div>
+      ${activeRows || '<div class="m-detail" style="padding:6px 8px">No active contracts.</div>'}
+      <div class="m-section" style="margin-top:16px">AVAILABLE HERE</div>
+      ${offerRows || '<div class="m-detail" style="padding:6px 8px">Nothing on the board right now.</div>'}
+      ${msg}
+    `;
+
+    this.body.querySelectorAll('button[data-accept]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const offer = this.offers.find((o) => o.id === btn.dataset.accept);
+        if (!offer) return;
+        const res = Missions.accept(offer, this.player);
+        if (res.ok) {
+          this.offers = this.offers.filter((o) => o.id !== offer.id);
+          this.missionMsg = { msg: `CONTRACT ACCEPTED — ${this.missionTitle(offer).toUpperCase()}`, cls: 'profit' };
+        } else {
+          this.missionMsg = { msg: res.reason, cls: 'loss' };
+        }
+        this.renderTab();
+      });
+    });
+    this.body.querySelectorAll('button[data-complete]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const m = this.player.missions.find((x) => x.id === btn.dataset.complete);
+        if (!m || !Missions.canComplete(m, this.planetDef.id, this.player)) return;
+        Missions.completeOne(m, this.player);
+        this.missionMsg = { msg: `CONTRACT COMPLETE — +${m.reward.toLocaleString()} CR`, cls: 'profit' };
+        this.renderTab();
+      });
+    });
+  }
+
+  missionTitle(m) {
+    if (m.type === 'deliver') return `Courier — ${m.qty}x ${m.goodName} to ${m.targetName}`;
+    if (m.type === 'supply') return `Supply — ${m.qty}x ${m.goodName} wanted`;
+    return `Bounty — destroy ${m.kills} pirates`;
   }
 
   // ---------- MARKET ----------

@@ -3,6 +3,7 @@ import { C } from '../constants.js';
 import { SaveSystem } from '../save/SaveSystem.js';
 import { SYSTEM, generateGalaxy } from '../world/SystemDef.js';
 import { Market } from '../economy/Market.js';
+import { Missions } from '../missions/Missions.js';
 
 const _camTarget = new THREE.Vector3();
 const _camOffset = new THREE.Vector3();
@@ -160,6 +161,10 @@ export class FlightState {
     if (g.playerData.notoriety > 0) {
       g.playerData.notoriety = Math.max(0, g.playerData.notoriety - dt * timeScale * 0.015);
     }
+    // contract deadlines run on real flight seconds, not economy time
+    for (const m of Missions.tick(dt, g.playerData)) {
+      g.ui.hud.toast(`CONTRACT FAILED — TIME EXPIRED${m.penalty ? ` · −${m.penalty.toLocaleString()} CR` : ''}`, 'warn');
+    }
 
     // ---------- death ----------
     if (this.mode === 'dead') {
@@ -219,6 +224,7 @@ export class FlightState {
         g.playerData.galaxy++;
         g.playerData.upgrades.galacticHyperdrive = 0; // consume drive
         g.playerData.notoriety = 0; // reset notoriety
+        g.playerData.missions = []; // contracts don't span galaxies
 
         // Procedurally generate new unique galaxy
         generateGalaxy(g.playerData.galaxy - 1);

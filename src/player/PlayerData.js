@@ -20,6 +20,7 @@ export class PlayerData {
     this.spaceMode = 'manual';
     this.spaceTargetId = null;
     this.galaxy = 1;
+    this.missions = [];
   }
 
   getDerivedStats() {
@@ -120,6 +121,7 @@ export class PlayerData {
       spaceMode: this.spaceMode,
       spaceTargetId: this.spaceTargetId,
       galaxy: this.galaxy,
+      missions: this.missions,
     };
   }
 
@@ -141,6 +143,7 @@ export class PlayerData {
     p.spaceMode = data.spaceMode ?? 'manual';
     p.spaceTargetId = data.spaceTargetId ?? null;
     p.galaxy = data.galaxy ?? 1;
+    p.missions = Array.isArray(data.missions) ? data.missions : [];
     return p;
   }
 }
