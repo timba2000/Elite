@@ -186,7 +186,7 @@ export class FlightState {
 
     // ---------- flight ----------
     if (this.warpJumpT > 0) {
-      this.warpJumpT = Math.max(0, this.warpJumpT - dt * 1.5);
+      this.warpJumpT = Math.max(0, this.warpJumpT - dt * 0.8);
     }
     if (this.hyperdrivePhase === 'charging') {
       this.hyperdriveTimer -= dt;
@@ -200,7 +200,7 @@ export class FlightState {
         this.superSpeed = 120;
         g.sfx.play('superEngage');
         g.ui.hud.warpFlash();
-        this.warpJumpT = 1.6;
+        this.warpJumpT = 2.5;
         g.camera.fov = 115;
         g.camera.updateProjectionMatrix();
       }
@@ -386,7 +386,7 @@ export class FlightState {
     const g = this.game;
     let warp = 0;
     if (this.hyperdrivePhase === 'charging') {
-      const ratio = (1.2 - this.hyperdriveTimer) / 1.2;
+      const ratio = (2.2 - this.hyperdriveTimer) / 2.2;
       warp = ratio * 0.08;
     } else if (this.mode === 'super') {
       const ratio = this.superSpeed / C.SUPER_SPEED;
@@ -602,7 +602,7 @@ export class FlightState {
     }
 
     this.hyperdrivePhase = 'charging';
-    this.hyperdriveTimer = 1.2;
+    this.hyperdriveTimer = 2.2;
     g.sfx.play('hyperCharge');
     g.ui.hud.toast(`ENGAGING HYPERDRIVE — ${this.target.name.toUpperCase()}`);
   }
@@ -877,7 +877,7 @@ export class FlightState {
     // FOV kick: Star Wars jump warp FOV stretch
     let targetFov = C.CAMERA_FOV;
     if (this.hyperdrivePhase === 'charging') {
-      const ratio = (1.2 - this.hyperdriveTimer) / 1.2;
+      const ratio = (2.2 - this.hyperdriveTimer) / 2.2;
       targetFov = C.CAMERA_FOV + ratio * 20;
     } else if (ship.boosting) {
       targetFov = C.CAMERA_FOV_BOOST;
