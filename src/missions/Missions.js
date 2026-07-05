@@ -13,6 +13,12 @@ function gscale(pd) { return 1 + ((pd.galaxy ?? 1) - 1) * 0.45; }
 function makeId() { return 'm' + Math.random().toString(36).slice(2, 9); }
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
+const PIRATE_FIRST = ['KRAIT', 'RAZOR', 'VOID', 'SCAR', 'HEX', 'JACKAL', 'IRON', 'GHOST'];
+const PIRATE_LAST = ['ZAVORA', 'KAINE', 'MURDOCK', 'VEX', 'THORNE', 'DRAX', 'SALVO', 'MORROW'];
+
+// mission types that carry cargo the player must hold to redeem
+const CARGO_TYPES = ['deliver', 'supply', 'smuggle'];
+
 export const Missions = {
   MAX_ACTIVE,
 
@@ -87,25 +93,74 @@ export const Missions = {
         });
       }
     }
+
+    // shady work where narcotics flow — 3x courier pay, Trade 2 required
+    const narcoTargets = others.filter((p) => p.imports.includes('narcotics'));
+    const narcoHere = planetDef.exports.includes('narcotics') || planetDef.imports.includes('narcotics');
+    if (narcoHere && narcoTargets.length && Math.random() < 0.6) {
+      const target = pick(narcoTargets);
+      const good = COMMODITIES.find((g) => g.id === 'narcotics');
+      const qty = 2 + Math.floor(Math.random() * 5);
+      const dist = planetDef.position.distanceTo(target.position);
+      offers.push({
+        id: makeId(), type: 'smuggle',
+        good: good.id, goodName: good.name, qty,
+        targetId: target.id, targetName: target.name,
+        originName: planetDef.name,
+        reward: Math.round((good.base * qty * 0.9 + dist * 0.05) * 3 * s),
+        penalty: Math.round(good.base * qty * 0.6 * s),
+        timeLeft: Math.round(90 + dist / 70),
+        armed: true,
+        requires: { skill: 'trade', tier: 2 },
+      });
+    }
+
+    // a wanted poster — one named target, Gunnery 2 required
+    if (Math.random() < 0.5) {
+      const shipType = Math.random() < 0.35 ? 'dreadnought' : 'marauder';
+      offers.push({
+        id: makeId(), type: 'hunt',
+        named: `${pick(PIRATE_FIRST)} ${pick(PIRATE_LAST)}`, shipType,
+        kills: 1, killsDone: 0,
+        originName: planetDef.name,
+        reward: Math.round((shipType === 'dreadnought' ? 3200 : 1900) * s),
+        penalty: 0,
+        timeLeft: null,
+        armed: true,
+        requires: { skill: 'gunnery', tier: 2 },
+      });
+    }
     return offers;
+  },
+
+  lockedReason(offer, pd) {
+    if (!offer.requires) return null;
+    const { skill, tier } = offer.requires;
+    if ((pd.skills[skill] || 0) >= tier) return null;
+    return `REQUIRES ${skill.toUpperCase()} ${tier}`;
   },
 
   accept(offer, pd) {
     if (pd.missions.length >= MAX_ACTIVE) {
       return { ok: false, reason: `CONTRACT LIMIT REACHED (${MAX_ACTIVE})` };
     }
-    if (offer.type === 'deliver') {
+    const locked = this.lockedReason(offer, pd);
+    if (locked) return { ok: false, reason: locked };
+    if (offer.type === 'deliver' || offer.type === 'smuggle') {
       if (pd.cargoSpace() < offer.qty) {
         return { ok: false, reason: `NEED ${offer.qty} FREE CARGO SPACE` };
       }
       pd.addCargo(offer.good, offer.qty, 0);
+      if (offer.type === 'smuggle') {
+        pd.notoriety = Math.min(100, (pd.notoriety || 0) + 2);
+      }
     }
     pd.missions.push({ ...offer });
     return { ok: true };
   },
 
   canComplete(m, planetId, pd) {
-    return (m.type === 'deliver' || m.type === 'supply')
+    return CARGO_TYPES.includes(m.type)
       && m.armed
       && m.targetId === planetId
       && (pd.cargo[m.good] || 0) >= m.qty;
@@ -132,12 +187,22 @@ export const Missions = {
     return done;
   },
 
-  // Called per pirate kill; returns finished hunts and in-progress updates.
+  // Named target destroyed: complete its wanted contract directly.
+  onNamedKill(missionId, pd) {
+    const m = pd.missions.find((x) => x.id === missionId);
+    if (!m) return null;
+    this.payout(m, pd);
+    pd.missions = pd.missions.filter((x) => x.id !== missionId);
+    return m;
+  },
+
+  // Called per generic pirate kill; returns finished hunts and progress.
+  // Named contracts only complete via onNamedKill.
   onPirateKill(pd) {
     const completed = [];
     const progress = [];
     pd.missions = pd.missions.filter((m) => {
-      if (m.type !== 'hunt') return true;
+      if (m.type !== 'hunt' || m.named) return true;
       m.killsDone++;
       if (m.killsDone >= m.kills) {
         this.payout(m, pd);
@@ -167,10 +232,10 @@ export const Missions = {
     return failed;
   },
 
-  // Provided courier cargo goes down with the ship.
+  // Provided cargo (courier and smuggling runs) goes down with the ship.
   onDeath(pd) {
-    const failed = pd.missions.filter((m) => m.type === 'deliver');
-    pd.missions = pd.missions.filter((m) => m.type !== 'deliver');
+    const failed = pd.missions.filter((m) => m.type === 'deliver' || m.type === 'smuggle');
+    pd.missions = pd.missions.filter((m) => m.type !== 'deliver' && m.type !== 'smuggle');
     return failed;
   },
 
@@ -181,8 +246,10 @@ export const Missions = {
   },
 
   hudLine(m) {
-    if (m.type === 'hunt') return `HUNT PIRATES ${m.killsDone}/${m.kills}`;
-    const verb = m.type === 'deliver' ? 'DELIVER' : 'SUPPLY';
+    if (m.type === 'hunt') {
+      return m.named ? `HUNT ${m.named}` : `HUNT PIRATES ${m.killsDone}/${m.kills}`;
+    }
+    const verb = m.type === 'deliver' ? 'DELIVER' : m.type === 'smuggle' ? 'SMUGGLE' : 'SUPPLY';
     return `${verb} ${m.qty} ${m.goodName.toUpperCase()} → ${m.targetName} · ${this.fmtTime(m.timeLeft)}`;
   },
 };

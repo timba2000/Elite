@@ -36,10 +36,12 @@ new way to earn.
 - [x] **Bulk contracts** — station offers "deliver 40 machinery within 10 minutes" for a
       premium over market rate; adds time pressure to plain trading — *shipped as
       supply contracts on the station mission board*
-- [ ] **Rare goods** — one-off commodities only sold at a specific station (Thalassan
+- [x] **Rare goods** — one-off commodities only sold at a specific station (Thalassan
       storm-silk, Veridian whisky) that appreciate with distance carried
-- [ ] **Illegal goods & smuggling** — narcotics/weapons with fat margins; random cargo
+- [x] **Illegal goods & smuggling** — narcotics/weapons with fat margins; random cargo
       scans near stations, fines, confiscation, and reputation damage when caught
+      — *station-approach scans, fines, confiscation, notoriety, and smuggling
+      contracts (Trade 2) shipped*
 - [ ] **Trade rank progression** — Harmless → Mostly Penniless → ... → Elite; unlocks
       titles, station discounts, and access to restricted markets
 
@@ -66,8 +68,10 @@ new way to earn.
 - [x] **Mission board at stations** — courier runs, timed deliveries, "hunt this named
       pirate", escort a freighter, rescue an escape pod — *courier, supply, and
       hunt-N-pirates contracts shipped; named pirates, escorts, and rescues still open*
-- [ ] **Bounty hunting as a career** — wanted boards, named pirates with bigger bounties
-      and better AI, combat rank separate from trade rank
+- [x] **Bounty hunting as a career** — wanted boards, named pirates with bigger bounties
+      and better AI, combat rank separate from trade rank — *wanted contracts shipped:
+      named marauders/dreadnoughts that hunt the player and fight to the death
+      (Gunnery 2); a separate combat rank still open*
 - [ ] **Mining** — mineable asteroids in a belt region; mining laser chips off ore
       fragments to scoop; ties into existing ore commodity
 - [ ] **Passenger runs** — take tourists to Thalassa; luxury cabin module required
@@ -139,11 +143,13 @@ gives a second progression axis that persists across ship swaps and deaths.
 - [ ] **Skill synergies / capstones** — deep investment in one tree unlocks a signature
       ability (Piloting: short emergency FSD hop; Trade: one guaranteed premium contract
       per station; Gunnery: overcharge volley on a cooldown)
-- [ ] **Respec** — buyable at high-tech stations for a credit fee that scales with level,
-      so experimenting is possible but not free
-- [ ] **Skill checks in the world** — locked content that reads the sheet: restricted
+- [x] **Respec** — buyable at high-tech stations for a credit fee that scales with level,
+      so experimenting is possible but not free — *shipped at any station, 400 CR × level*
+- [x] **Skill checks in the world** — locked content that reads the sheet: restricted
       markets need Trade 5, salvage-guard fields need Gunnery 4, plotting a jump through
-      an unscouted system needs Piloting 6 — makes the numbers visible in play
+      an unscouted system needs Piloting 6 — makes the numbers visible in play —
+      *smuggling contracts need Trade 2, wanted contracts need Gunnery 2; more gates
+      welcome as content grows*
 - [x] **XP on the stats screen** — current level, XP bar, and per-source XP breakdown
       — *shipped as the station Pilot tab (level, XP bar, service record)*
 

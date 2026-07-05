@@ -30,6 +30,7 @@ export class PlayerData {
     this.shipId = 'trader';
     this.modules = [];
     this.rescuedPilots = 0;
+    this.rares = []; // rare goods in the hold (count toward cargo space)
   }
 
   modulesValue() {
@@ -83,7 +84,8 @@ export class PlayerData {
   }
 
   cargoUsed() {
-    return Object.values(this.cargo).reduce((a, b) => a + b, 0);
+    return Object.values(this.cargo).reduce((a, b) => a + b, 0)
+      + this.rares.reduce((a, r) => a + r.qty, 0);
   }
   cargoSpace() {
     return this.getDerivedStats().cargoMax - this.cargoUsed();
@@ -163,6 +165,7 @@ export class PlayerData {
       shipId: this.shipId,
       modules: this.modules,
       rescuedPilots: this.rescuedPilots,
+      rares: this.rares,
     };
   }
 
@@ -194,6 +197,7 @@ export class PlayerData {
     p.shipId = C.SHIPS[data.shipId] ? data.shipId : 'trader';
     p.modules = Array.isArray(data.modules) ? data.modules.filter((id) => C.MODULES[id]) : [];
     p.rescuedPilots = data.rescuedPilots ?? 0;
+    p.rares = Array.isArray(data.rares) ? data.rares : [];
     return p;
   }
 }

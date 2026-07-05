@@ -51,11 +51,13 @@ export class EncounterManager {
         const cargoFactor = 1 + 1.5 * Math.min(1, this.playerData.cargoValue() / 3000);
         const notoriety = this.playerData.notoriety || 0;
         const policeChance = notoriety * 0.0035;
+        // a wanted target is actively hunting the player
+        const namedFactor = this.playerData.missions.some((m) => m.named) ? 2 : 1;
         if (notoriety > 5 && Math.random() < policeChance) {
           this.spawnPoliceAmbush(player);
           this.events.onInterdiction();
           break;
-        } else if (Math.random() < C.INTERDICTION_CHANCE * cargoFactor * this.playerData.getDerivedStats().interdictionMult) {
+        } else if (Math.random() < C.INTERDICTION_CHANCE * cargoFactor * namedFactor * this.playerData.getDerivedStats().interdictionMult) {
           this.spawnAmbush(player);
           this.events.onInterdiction();
           break;
@@ -198,6 +200,21 @@ export class EncounterManager {
 
       this.pirates.push(new Pirate(this.scene, _spawnPos, scale, type));
     }
+
+    // a wanted contract's target muscles into the ambush
+    const liveNamed = new Set(this.pirates.map((p) => p.namedMissionId).filter(Boolean));
+    const wanted = this.playerData.missions.find((m) => m.named && !liveNamed.has(m.id));
+    if (wanted) {
+      _rand.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(400);
+      _spawnPos.copy(player.position).addScaledVector(fwd, 700).add(_rand);
+      const boss = new Pirate(this.scene, _spawnPos, scale * 1.25, wanted.shipType);
+      boss.namedMissionId = wanted.id;
+      boss.pirateName = wanted.named;
+      boss.noFlee = true;
+      this.pirates.push(boss);
+      this.events.toast(`${wanted.named} HAS FOUND YOU — CONTRACT TARGET ON SCANNER`, 'warn');
+    }
+
     this.cooldown = C.ENCOUNTER_COOLDOWN;
   }
 
@@ -227,6 +244,14 @@ export class EncounterManager {
     const xp = Progression.XP.kill(pirate.type);
     Progression.award(this.playerData, xp);
     this.events.toast(`BOUNTY +${bounty} CR · +${xp} XP`, 'gold');
+
+    if (pirate.namedMissionId) {
+      const m = Missions.onNamedKill(pirate.namedMissionId, this.playerData);
+      if (m) {
+        setTimeout(() => this.events.toast(
+          `${pirate.pirateName} DESTROYED — CONTRACT COMPLETE +${m.reward.toLocaleString()} CR · +${m.xp} XP`, 'gold'), 600);
+      }
+    }
 
     const hunts = Missions.onPirateKill(this.playerData);
     for (const m of hunts.completed) {

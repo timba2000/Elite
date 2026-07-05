@@ -43,7 +43,9 @@ export class FlightState {
     this.hyperdriveTimer = 0;
     this.chargeDuration = 2.2;
     this.wasInCombat = false;
-    this.signal = null; // pending point-of-interest while in supercruise
+    this.signal = null;   // pending point-of-interest while in supercruise
+    this.scan = null;     // active police cargo scan
+    this.scanZoneId = null;
   }
 
   enter(params = {}) {
@@ -62,6 +64,8 @@ export class FlightState {
     this.hyperdriveTimer = 0;
     this.wasInCombat = false;
     this.signal = null;
+    this.scan = null;
+    this.scanZoneId = null;
     g.ui.hud.show();
     g.ui.hud.navTargets = g.world.getNavTargets();
     g.ui.stationUI.hide();
@@ -295,6 +299,9 @@ export class FlightState {
     }
 
     this.keepOutOfBodies();
+
+    // ---------- police contraband scans near stations ----------
+    if (this.mode === 'manual') this.updateCargoScan(dt);
 
     // ---------- docking ----------
     let dockPrompt = null;
@@ -790,6 +797,51 @@ export class FlightState {
       ship.throttle = 0.5;
       g.sfx.play('superDrop');
       g.ui.hud.toast(`ARRIVED — ${this.target.name}`);
+    }
+  }
+
+  // Entering a station's approach zone with narcotics risks a police sweep.
+  // The scan resolves a few seconds later; docking first is the escape route.
+  updateCargoScan(dt) {
+    const g = this.game;
+    let near = null;
+    for (const st of g.world.stations) {
+      if (st.group.position.distanceTo(g.ship.position) < 500) { near = st; break; }
+    }
+    if (!near) {
+      this.scanZoneId = null;
+      this.scan = null;
+      return;
+    }
+    if (this.scanZoneId !== near.id) {
+      this.scanZoneId = near.id;
+      if ((g.playerData.cargo.narcotics || 0) > 0 && Math.random() < 0.45) {
+        this.scan = { timer: 4 };
+        g.ui.hud.toast('STATION POLICE — CARGO SCAN IN PROGRESS', 'warn');
+      }
+    }
+    if (!this.scan) return;
+    this.scan.timer -= dt;
+    if (this.scan.timer > 0) return;
+    this.scan = null;
+
+    const pd = g.playerData;
+    const narcs = pd.cargo.narcotics || 0;
+    if (narcs <= 0) {
+      g.ui.hud.toast('SCAN COMPLETE — CARGO CLEAN', 'gold');
+      return;
+    }
+    pd.removeCargo('narcotics', narcs);
+    const fine = narcs * 840; // 2x base value per unit
+    pd.credits = Math.max(0, pd.credits - fine);
+    pd.notoriety = Math.min(100, (pd.notoriety || 0) + 10);
+    g.ui.hud.toast(`CONTRABAND SEIZED — ${narcs}x NARCOTICS CONFISCATED`, 'warn');
+    setTimeout(() => g.ui.hud.toast(`FINE −${fine.toLocaleString()} CR · NOTORIETY +10`, 'warn'), 900);
+
+    const blown = pd.missions.filter((m) => m.type === 'smuggle');
+    if (blown.length) {
+      pd.missions = pd.missions.filter((m) => m.type !== 'smuggle');
+      setTimeout(() => g.ui.hud.toast('SMUGGLING CONTRACT BLOWN — CARGO SEIZED', 'warn'), 1800);
     }
   }
 

@@ -72,8 +72,8 @@ export class Pirate {
     _toPlayer.copy(player.position).sub(this.group.position);
     const dist = _toPlayer.length();
 
-    // state transitions
-    if (this.hull / this.hullMax < C.PIRATE.FLEE_HULL) {
+    // state transitions (named contract targets fight to the death)
+    if (!this.noFlee && this.hull / this.hullMax < C.PIRATE.FLEE_HULL) {
       this.state = 'FLEE';
     } else if (this.state === 'PURSUE' && dist < C.PIRATE.ATTACK_DIST) {
       this.state = 'ATTACK';

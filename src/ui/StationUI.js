@@ -3,6 +3,7 @@ import { COMMODITIES } from '../economy/commodities.js';
 import { SaveSystem } from '../save/SaveSystem.js';
 import { Missions } from '../missions/Missions.js';
 import { Progression } from '../player/Progression.js';
+import { RareGoods } from '../economy/RareGoods.js';
 
 // Docked panel: Market / Shipyard / Repair tabs + undock.
 export class StationUI {
@@ -21,6 +22,7 @@ export class StationUI {
     this.cb = callbacks; // { undock, onUpgrade }
     this.missionNews = missionNews; // completions/failures resolved on dock
     this.offers = Missions.generateOffers(planetDef, playerData, market);
+    this.rareBought = 0;
     this.missionMsg = null; // accept feedback line
     this.tab = missionNews.length ? 'missions' : 'market';
     this.lastTrade = null; // { msg, cls } report line for the market tab
@@ -135,6 +137,8 @@ export class StationUI {
     const c = p.career;
     const hours = Math.floor(p.gameTime / 3600);
     const mins = Math.floor((p.gameTime % 3600) / 60);
+    const spent = p.skills.piloting + p.skills.gunnery + p.skills.trade;
+    const respecCost = 400 * p.level;
 
     this.body.innerHTML = `
       <div class="pilot-head">
@@ -142,6 +146,12 @@ export class StationUI {
         <div class="bar xp"><label>XP ${Math.floor(p.xp)} / ${need}</label><div class="fill" style="transform:scaleX(${pct})"></div></div>
       </div>
       ${trees}
+      <div class="mission-row">
+        <div class="m-name">Neural Respec</div>
+        <div class="m-detail">Refund all ${spent} spent skill point${spent === 1 ? '' : 's'} for retraining · fee scales with level</div>
+        <div class="m-reward">${respecCost.toLocaleString()} CR</div>
+        <button data-respec="1" ${spent > 0 && p.credits >= respecCost ? '' : 'disabled'}>Respec</button>
+      </div>
       <div class="m-section" style="margin-top:16px">SERVICE RECORD</div>
       <div class="pilot-stats">
         <div>CREDITS EARNED</div><div>${Math.round(c.creditsEarned).toLocaleString()} CR</div>
@@ -164,6 +174,17 @@ export class StationUI {
         this.renderTab();
       });
     });
+    this.body.querySelector('button[data-respec]')?.addEventListener('click', () => {
+      const pl = this.player;
+      const spentNow = pl.skills.piloting + pl.skills.gunnery + pl.skills.trade;
+      const cost = 400 * pl.level;
+      if (spentNow <= 0 || pl.credits < cost) return;
+      pl.credits -= cost;
+      pl.skillPoints += spentNow;
+      pl.skills = { piloting: 0, gunnery: 0, trade: 0 };
+      this.cb.onSkill?.();
+      this.renderTab();
+    });
   }
 
   // ---------- MISSIONS ----------
@@ -177,7 +198,9 @@ export class StationUI {
       let status;
       let action = '';
       if (m.type === 'hunt') {
-        status = `${m.killsDone}/${m.kills} pirates destroyed · no time limit`;
+        status = m.named
+          ? 'The target hunts YOU — cruise the spacelanes and it will find you'
+          : `${m.killsDone}/${m.kills} pirates destroyed · no time limit`;
       } else {
         const held = p.cargo[m.good] || 0;
         const atTarget = m.targetId === this.planetDef.id;
@@ -206,17 +229,23 @@ export class StationUI {
       let detail;
       if (o.type === 'deliver') {
         detail = `Cargo supplied on accept (${o.qty} units of hold space) · ${Missions.fmtTime(o.timeLeft)} limit · ${o.penalty.toLocaleString()} CR penalty on failure`;
+      } else if (o.type === 'smuggle') {
+        detail = `Unmarked narcotics supplied · dodge station scans · ${Missions.fmtTime(o.timeLeft)} limit · ${o.penalty.toLocaleString()} CR penalty on failure`;
       } else if (o.type === 'supply') {
         detail = `Source anywhere, deliver here · ${Missions.fmtTime(o.timeLeft)} limit · no penalty`;
+      } else if (o.named) {
+        detail = `A ${o.shipType} that will come hunting YOU · fights to the death · no time limit`;
       } else {
         detail = 'Destroy them anywhere in the system · no time limit';
       }
+      const locked = Missions.lockedReason(o, p);
+      if (locked) detail += ` · <span class="dear">${locked}</span>`;
       return `
         <div class="mission-row${o.urgent ? ' urgent' : ''}">
           <div class="m-name">${o.urgent ? '⚠ URGENT: ' : ''}${this.missionTitle(o)}</div>
           <div class="m-detail">${detail}</div>
           <div class="m-reward">${o.reward.toLocaleString()} CR</div>
-          <button data-accept="${o.id}">Accept</button>
+          <button data-accept="${o.id}" ${locked ? 'disabled' : ''}>${locked ? 'Locked' : 'Accept'}</button>
         </div>`;
     }).join('');
 
@@ -259,7 +288,9 @@ export class StationUI {
 
   missionTitle(m) {
     if (m.type === 'deliver') return `Courier — ${m.qty}x ${m.goodName} to ${m.targetName}`;
+    if (m.type === 'smuggle') return `Smuggle — ${m.qty}x ${m.goodName} to ${m.targetName}`;
     if (m.type === 'supply') return `Supply — ${m.qty}x ${m.goodName} wanted`;
+    if (m.named) return `Wanted — ${m.named}`;
     return `Bounty — destroy ${m.kills} pirates`;
   }
 
@@ -314,6 +345,7 @@ export class StationUI {
       <div style="margin-top:6px;font-size:11px;color:rgba(159,232,255,0.55)">
         <span class="cheap">GREEN</span> = good price here · <span class="dear">RED</span> = bad price here
       </div>
+      ${this.renderRares()}
     `;
 
     this.body.querySelectorAll('button[data-act]').forEach((btn) => {
@@ -322,6 +354,60 @@ export class StationUI {
         this.trade(tr.dataset.good, btn.dataset.act, btn.dataset.qty);
       });
     });
+    this.body.querySelector('button[data-rare-buy]')?.addEventListener('click', () => {
+      const offer = RareGoods.offerFor(this.planetDef, this.player);
+      if (RareGoods.buy(offer, 1, this.player)) {
+        this.rareBought = (this.rareBought || 0) + 1;
+        this.lastTrade = { msg: `BOUGHT 1x ${offer.name.toUpperCase()} — WORTH MORE THE FURTHER YOU CARRY IT`, cls: '' };
+        this.renderTab();
+      }
+    });
+    this.body.querySelectorAll('button[data-rare-sell]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const res = RareGoods.sell(btn.dataset.rareSell, this.planetDef, this.player);
+        if (!res) return;
+        let xpText = '';
+        if (res.profit > 0) {
+          const xp = Progression.XP.tradeProfit(res.profit);
+          const levels = Progression.award(this.player, xp);
+          xpText = ` · +${xp} XP${levels > 0 ? ' · LEVEL UP!' : ''}`;
+        }
+        this.lastTrade = {
+          msg: `SOLD ${res.name.toUpperCase()} FOR ${res.proceeds.toLocaleString()} CR — PROFIT ${res.profit >= 0 ? '+' : ''}${res.profit.toLocaleString()} CR${xpText}`,
+          cls: res.profit >= 0 ? 'profit' : 'loss',
+        };
+        this.renderTab();
+      });
+    });
+  }
+
+  // ---------- RARE GOODS ----------
+  renderRares() {
+    const p = this.player;
+    const offer = RareGoods.offerFor(this.planetDef, p);
+    const canBuyMore = (this.rareBought || 0) < 2;
+
+    const heldRows = p.rares.map((r) => {
+      const unit = RareGoods.sellValue(r, this.planetDef, p);
+      const atOrigin = r.originId === this.planetDef.id;
+      return `
+        <div class="mission-row">
+          <div class="m-name">${r.name} ×${r.qty}</div>
+          <div class="m-detail">From ${r.originName} · paid ~${Math.round(r.paid)} CR each${atOrigin ? ' · carry it further for profit' : ''}</div>
+          <div class="m-reward">${unit.toLocaleString()} CR/u</div>
+          <button data-rare-sell="${r.id}">Sell All</button>
+        </div>`;
+    }).join('');
+
+    return `
+      <div class="m-section" style="margin-top:14px">RARE GOODS — LOCAL SPECIALTY</div>
+      <div class="mission-row">
+        <div class="m-name">${offer.name}</div>
+        <div class="m-detail">Sold only here. Value rises with distance carried · uses 1 cargo unit · max 2 per visit</div>
+        <div class="m-reward">${offer.price.toLocaleString()} CR</div>
+        <button data-rare-buy="1" ${canBuyMore && p.credits >= offer.price && p.cargoSpace() >= 1 ? '' : 'disabled'}>Buy 1</button>
+      </div>
+      ${heldRows}`;
   }
 
   trade(goodId, act, qtyStr) {
