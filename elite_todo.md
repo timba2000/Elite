@@ -229,6 +229,18 @@ recruit the best ones, and grow from a lone pilot into a small trading company.
 - [x] **Audio** — engine hum, laser sfx, dock ambience, dynamic music (calm ↔ combat)
       — *procedural sfx shipped; dynamic music still open*
 
+## 10. Visual fidelity
+
+- [ ] **Photoreal rendering pass** — push the Three.js scene toward cinematic realism:
+      PBR hull materials with normal/roughness maps on ships and stations, an HDR
+      nebula skybox with believable star colour temperatures, planet shaders with
+      atmospheric scattering, rolling cloud layers, and night-side city lights, plus
+      soft shadows, SSAO, sun god-rays, and subtle lens flare/film grain in the post
+      stack (PostFX already runs ACES + bloom, so the pipeline is ready). Gate the
+      heavy passes behind the graphics-quality setting (§9) so low-end machines keep
+      the current look — a world this convincing makes every trade run, docking
+      approach, and dogfight more compelling to sit in.
+
 ---
 
 ## Suggested build order
