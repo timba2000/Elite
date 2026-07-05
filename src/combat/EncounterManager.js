@@ -110,9 +110,9 @@ export class EncounterManager {
   }
 
   spawnAmbush(player) {
-    const upgradeLevel = this.playerData.totalUpgradeTiers();
-    const count = Math.min(3, 1 + Math.floor(upgradeLevel / 5) + (Math.random() < 0.4 ? 1 : 0));
-    const scale = 1 + this.playerData.netWorthFactor() * 0.6;
+    const galaxy = this.playerData.galaxy ?? 1;
+    const scale = (1 + this.playerData.netWorthFactor() * 0.8) * (1.0 + (galaxy - 1) * 0.35);
+    const count = 1 + (Math.random() < 0.25 + (galaxy - 1) * 0.2 ? 1 : 0) + Math.floor((galaxy - 1) / 2);
     const fwd = player.forward;
     for (let i = 0; i < count; i++) {
       _rand.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(500);
@@ -125,9 +125,10 @@ export class EncounterManager {
   }
 
   spawnPoliceAmbush(player) {
-    const scale = 1 + this.playerData.netWorthFactor() * 0.8;
+    const galaxy = this.playerData.galaxy ?? 1;
+    const scale = (1 + this.playerData.netWorthFactor() * 0.8) * (1.0 + (galaxy - 1) * 0.35);
     const notoriety = this.playerData.notoriety || 0;
-    const count = Math.min(3, 1 + Math.floor(notoriety / 35) + (Math.random() < 0.3 ? 1 : 0));
+    const count = Math.min(4, 1 + Math.floor(notoriety / 35) + (Math.random() < 0.3 ? 1 : 0) + Math.floor((galaxy - 1) / 2));
     const fwd = player.forward;
     for (let i = 0; i < count; i++) {
       _rand.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(400);
@@ -136,7 +137,7 @@ export class EncounterManager {
         .add(_rand);
       this.police.push(new Police(this.scene, _spawnPos, scale));
     }
-    this.events.toast('POLICE INTERDICTON — CONTRA-BAND SCANNED!', 'warn');
+    this.events.toast('POLICE INTERDICTION — CONTRA-BAND SCANNED!', 'warn');
     this.cooldown = C.ENCOUNTER_COOLDOWN;
   }
 

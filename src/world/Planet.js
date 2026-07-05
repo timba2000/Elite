@@ -151,6 +151,30 @@ export class Planet {
 
     this.surfMat = surfMat;
     this.atmoMat = atmoMat;
+
+    this.moons = [];
+    if (def.moons) {
+      def.moons.forEach((mDef) => {
+        const moonGroup = new THREE.Group();
+        const moonMat = new THREE.MeshStandardMaterial({
+          color: new THREE.Color(mDef.color ?? '#8a8d94'),
+          roughness: 0.9,
+          metalness: 0.05
+        });
+        const moonMesh = new THREE.Mesh(new THREE.SphereGeometry(mDef.radius, 16, 16), moonMat);
+        moonMesh.position.set(mDef.orbitRadius, 0, 0);
+        moonGroup.add(moonMesh);
+        moonGroup.rotation.y = Math.random() * Math.PI * 2;
+        moonGroup.rotation.x = (Math.random() - 0.5) * 0.2;
+        this.group.add(moonGroup);
+        this.moons.push({
+          group: moonGroup,
+          mesh: moonMesh,
+          orbitSpeed: mDef.orbitSpeed ?? 0.05,
+          spinSpeed: mDef.spinSpeed ?? 0.1
+        });
+      });
+    }
   }
 
   update(dt, sunPos) {
@@ -158,5 +182,10 @@ export class Planet {
     const dir = sunPos.clone().sub(this.group.position).normalize();
     this.surfMat.uniforms.uSunDir.value.copy(dir);
     this.atmoMat.uniforms.uSunDir.value.copy(dir);
+
+    for (const m of this.moons) {
+      m.group.rotation.y += m.orbitSpeed * dt;
+      m.mesh.rotation.y += m.spinSpeed * dt;
+    }
   }
 }

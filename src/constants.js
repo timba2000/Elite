@@ -131,6 +131,13 @@ export const C = {
         { price: 9500, maxAmmo: 12, damage: 400 },
       ],
     },
+    galacticHyperdrive: {
+      name: 'Galactic Hyperdrive',
+      tiers: [
+        { price: 0, fitted: false },
+        { price: 15000, fitted: true },
+      ],
+    },
   },
 
   // Pirates

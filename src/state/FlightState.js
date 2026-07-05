@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { C } from '../constants.js';
 import { SaveSystem } from '../save/SaveSystem.js';
+import { SYSTEM, generateGalaxy } from '../world/SystemDef.js';
+import { Market } from '../economy/Market.js';
 
 const _camTarget = new THREE.Vector3();
 const _camOffset = new THREE.Vector3();
@@ -170,6 +172,7 @@ export class FlightState {
     // ---------- edge-triggered actions ----------
     if (input.pressed('KeyT') || input.pressed('Tab')) this.cycleTarget();
     if (input.pressed('KeyJ')) this.toggleSupercruise();
+    if (input.pressed('KeyG')) this.tryGalacticJump();
     if (input.pressed('KeyV')) {
       this.cameraView = this.cameraView === 'cockpit' ? 'chase' : 'cockpit';
       g.ui.hud.toast(this.cameraView === 'cockpit' ? 'COCKPIT VIEW' : 'EXTERNAL VIEW');
@@ -203,6 +206,45 @@ export class FlightState {
         this.warpJumpT = 2.5;
         g.camera.fov = 115;
         g.camera.updateProjectionMatrix();
+      }
+    } else if (this.hyperdrivePhase === 'galactic_charging') {
+      this.hyperdriveTimer -= dt;
+      this.shakeT = Math.max(this.shakeT, 0.35); // heavy ship vibration
+      ship.updateManual(dt, input);
+      ship.updateSystems(dt);
+
+      if (this.hyperdriveTimer <= 0) {
+        this.hyperdrivePhase = 'idle';
+        g.playerData.galaxy++;
+        g.playerData.upgrades.galacticHyperdrive = 0; // consume drive
+        g.playerData.notoriety = 0; // reset notoriety
+
+        // Procedurally generate new unique galaxy
+        generateGalaxy(g.playerData.galaxy - 1);
+
+        // Regenerate prices/market
+        g.market = new Market();
+
+        // Rebuild 3D world
+        g.world.rebuild();
+
+        // Show flash & play boom
+        g.ui.hud.warpFlash();
+        g.sfx.play('superEngage');
+
+        // Place player safely docked at first planet of new galaxy
+        const firstPlanet = SYSTEM.planets[0];
+        const station = g.world.getStation(firstPlanet.id);
+        g.playerData.lastStationId = station.id;
+        g.playerData.inSpace = false;
+        g.ship.group.visible = false;
+        g.ship.velocity.set(0, 0, 0);
+
+        // Save
+        SaveSystem.save(g.playerData, g.market);
+
+        // Enter station state
+        g.sm.change(g.states.station, { station });
       }
     } else if (this.mode === 'manual') {
       ship.updateManual(dt, input);
@@ -605,6 +647,31 @@ export class FlightState {
     this.hyperdriveTimer = 2.2;
     g.sfx.play('hyperCharge');
     g.ui.hud.toast(`ENGAGING HYPERDRIVE — ${this.target.name.toUpperCase()}`);
+  }
+
+  tryGalacticJump() {
+    const g = this.game;
+    if (this.mode === 'super') {
+      g.ui.hud.toast('DROP OUT OF SUPERCRUISE FIRST', 'warn');
+      return;
+    }
+    if (this.hyperdrivePhase === 'galactic_charging' || this.hyperdrivePhase === 'charging') return;
+
+    const stats = g.playerData.getDerivedStats();
+    if (!stats.galacticHyperdrive) {
+      g.ui.hud.toast('REQUIRES GALACTIC HYPERDRIVE UPGRADE', 'warn');
+      return;
+    }
+
+    if (g.encounters.nearestPirateDist(g.ship.position) < C.SUPER_MIN_PIRATE_DIST) {
+      g.ui.hud.toast('CANNOT ENGAGE — HOSTILES NEARBY', 'warn');
+      return;
+    }
+
+    this.hyperdrivePhase = 'galactic_charging';
+    this.hyperdriveTimer = 2.2;
+    g.sfx.play('hyperCharge');
+    g.ui.hud.toast('ENGAGING GALACTIC HYPERDRIVE — STAND BY...', 'gold');
   }
 
   updateSupercruise(dt) {

@@ -64,7 +64,7 @@ export class StationUI {
 
   renderStatus() {
     const stats = this.player.getDerivedStats();
-    let txt = `${this.player.credits.toLocaleString()} CR   ·   CARGO ${this.player.cargoUsed()}/${stats.cargoMax}   ·   HULL ${Math.round(this.player.hull)}/${stats.hullMax}`;
+    let txt = `GALAXY ${this.player.galaxy}   ·   ${this.player.credits.toLocaleString()} CR   ·   CARGO ${this.player.cargoUsed()}/${stats.cargoMax}   ·   HULL ${Math.round(this.player.hull)}/${stats.hullMax}`;
     if (this.player.notoriety > 0) {
       txt += `   ·   NOTORIETY ${Math.round(this.player.notoriety)}`;
     }
@@ -192,6 +192,7 @@ export class StationUI {
       cargo: (t) => `${t.max} cargo units`,
       dockingComputer: (t) => t.fitted ? 'Hands-free docking on request' : 'Manual approach only',
       missiles: (t) => t.maxAmmo > 0 ? `${t.maxAmmo} capacity · ${t.damage} DMG` : 'No launcher fitted',
+      galacticHyperdrive: (t) => t.fitted ? 'Enables intergalactic jump (G key in space)' : 'Standard hyperdrive only',
     };
 
     const rows = Object.entries(C.UPGRADES).map(([key, def]) => {

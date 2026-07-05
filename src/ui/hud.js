@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { SYSTEM } from '../world/SystemDef.js';
 
 const _ndc = new THREE.Vector3();
 const _rel = new THREE.Vector3();
@@ -132,6 +133,7 @@ export class Hud {
     // status
     this.creditsEl.textContent = `${playerData.credits.toLocaleString()} CR`;
     this.cargoEl.textContent = `CARGO ${playerData.cargoUsed()}/${stats.cargoMax}`;
+    this.locEl.textContent = `${SYSTEM.name} · GALAXY ${playerData.galaxy ?? 1}`;
 
     const notoriety = playerData.notoriety || 0;
     if (notoriety > 0) {

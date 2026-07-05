@@ -17,22 +17,49 @@ export class WorldScene {
     this.starfield = new Starfield();
     scene.add(this.starfield.points);
 
-    this.sun = new Sun(SYSTEM.sunRadius);
-    scene.add(this.sun.group);
-    this.sunPos = new THREE.Vector3(0, 0, 0);
-
     scene.add(new THREE.AmbientLight(0x1a2030, 0.7));
     scene.add(new THREE.HemisphereLight(0x303a50, 0x14100c, 0.5));
+
+    this.suns = [];
+    this.planets = [];
+    this.stations = [];
+    this.rebuild();
+  }
+
+  rebuild() {
+    if (this.suns) {
+      for (const s of this.suns) this.scene.remove(s.group);
+    }
+    if (this.planets) {
+      for (const p of this.planets) this.scene.remove(p.group);
+    }
+    if (this.stations) {
+      for (const s of this.stations) this.scene.remove(s.group);
+    }
+
+    this.suns = [];
+    if (SYSTEM.suns && SYSTEM.suns.length > 0) {
+      SYSTEM.suns.forEach((sDef) => {
+        const sun = new Sun(sDef.radius, sDef.color);
+        sun.group.position.copy(sDef.position);
+        this.scene.add(sun.group);
+        this.suns.push(sun);
+      });
+    } else {
+      const sun = new Sun(SYSTEM.sunRadius);
+      this.scene.add(sun.group);
+      this.suns.push(sun);
+    }
 
     this.planets = [];
     this.stations = [];
     SYSTEM.planets.forEach((def, i) => {
       const planet = new Planet(def);
-      scene.add(planet.group);
+      this.scene.add(planet.group);
       this.planets.push(planet);
 
       const station = new Station(def, i);
-      scene.add(station.group);
+      this.scene.add(station.group);
       this.stations.push(station);
     });
   }
@@ -62,7 +89,8 @@ export class WorldScene {
   update(dt, cameraPos, warpFactor = 0) {
     this.nebula.update(cameraPos);
     this.starfield.update(cameraPos, warpFactor);
-    for (const p of this.planets) p.update(dt, this.sunPos);
+    const sunPos = this.suns[0]?.group.position || new THREE.Vector3(0, 0, 0);
+    for (const p of this.planets) p.update(dt, sunPos);
     for (const s of this.stations) s.update(dt);
   }
 }

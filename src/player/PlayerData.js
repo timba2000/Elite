@@ -7,7 +7,7 @@ export class PlayerData {
     this.credits = C.START_CREDITS;
     this.cargo = { ...C.START_CARGO };
     this.costBasis = {}; // goodId -> avg credits paid per unit held
-    this.upgrades = { engine: 1, weapons: 1, shield: 1, hull: 1, cargo: 1, dockingComputer: 0, missiles: 0 };
+    this.upgrades = { engine: 1, weapons: 1, shield: 1, hull: 1, cargo: 1, dockingComputer: 0, missiles: 0, galacticHyperdrive: 0 };
     this.hull = C.UPGRADES.hull.tiers[1].max;
     this.lastStationId = 'veridia-station';
     this.gameTime = 0;
@@ -19,6 +19,7 @@ export class PlayerData {
     this.spaceThrottle = 0;
     this.spaceMode = 'manual';
     this.spaceTargetId = null;
+    this.galaxy = 1;
   }
 
   getDerivedStats() {
@@ -44,6 +45,7 @@ export class PlayerData {
       dockingComputer: C.UPGRADES.dockingComputer.tiers[u.dockingComputer].fitted,
       missilesMaxAmmo: msl.maxAmmo,
       missilesDamage: msl.damage,
+      galacticHyperdrive: C.UPGRADES.galacticHyperdrive.tiers[u.galacticHyperdrive || 0].fitted,
     };
   }
 
@@ -117,6 +119,7 @@ export class PlayerData {
       spaceThrottle: this.spaceThrottle,
       spaceMode: this.spaceMode,
       spaceTargetId: this.spaceTargetId,
+      galaxy: this.galaxy,
     };
   }
 
@@ -137,6 +140,7 @@ export class PlayerData {
     p.spaceThrottle = data.spaceThrottle ?? 0;
     p.spaceMode = data.spaceMode ?? 'manual';
     p.spaceTargetId = data.spaceTargetId ?? null;
+    p.galaxy = data.galaxy ?? 1;
     return p;
   }
 }
