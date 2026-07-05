@@ -1085,7 +1085,7 @@ export class FlightState {
         const localRel = rel.clone().applyQuaternion(invQ);
         
         const lateralDist = Math.hypot(localRel.x, localRel.y);
-        const insideCorridor = lateralDist < 8.5 && localRel.z > -12 && localRel.z < 12;
+        const insideCorridor = lateralDist < 8.5 && localRel.z > -6.2;
         
         if (!insideCorridor) {
           // Push out and bounce
