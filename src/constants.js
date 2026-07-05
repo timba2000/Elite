@@ -106,6 +106,7 @@ export const C = {
     cargoRacks: { name: 'Expanded Racks', price: 3800, desc: '+8 cargo units' },
     afterburner: { name: 'Afterburner', price: 4600, desc: '+15% boost speed' },
     ecm: { name: 'ECM Suite', price: 7400, desc: 'Deflects incoming missiles 50% of the time' },
+    chaff: { name: 'Chaff Launcher', price: 6200, desc: 'Active countermeasure (Press X to break missile locks)' },
     salvageScoop: { name: 'Salvage Scoop', price: 2900, desc: 'Double cargo scoop radius' },
   },
   MODULE_SELL_RATE: 0.6,

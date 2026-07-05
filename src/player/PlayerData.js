@@ -96,6 +96,7 @@ export class PlayerData {
       dockingComputer: C.UPGRADES.dockingComputer.tiers[u.dockingComputer].fitted,
       missilesMaxAmmo: msl.maxAmmo,
       missilesDamage: msl.damage,
+      chaffMax: has('chaff') ? 3 : 0,
       galacticHyperdrive: C.UPGRADES.galacticHyperdrive.tiers[u.galacticHyperdrive || 0].fitted,
     };
   }

@@ -29,6 +29,7 @@ export class PlayerShip {
     this.applyStats();
     this.shield = this.stats.shieldMax;
     this.missilesAmmo = this.stats.missilesMaxAmmo;
+    this.chaffAmmo = this.stats.chaffMax;
   }
 
   rebuildMesh() {
@@ -44,6 +45,7 @@ export class PlayerShip {
     this.stats = this.playerData.getDerivedStats();
     this.shield = Math.min(this.shield, this.stats.shieldMax);
     this.missilesAmmo = Math.min(this.missilesAmmo ?? this.stats.missilesMaxAmmo, this.stats.missilesMaxAmmo);
+    this.chaffAmmo = Math.min(this.chaffAmmo ?? this.stats.chaffMax, this.stats.chaffMax);
   }
 
   get position() { return this.group.position; }

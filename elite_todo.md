@@ -89,7 +89,7 @@ new way to earn.
       interdictions, station defense response dispatching security ships, and friendly-fire fines shipped*
 - [x] **Escalating interdictions** — cargo value raises interdiction odds (already have
       a base chance); rich traders attract deadlier pirates
-- [ ] **Missile lock + countermeasures** — chaff/ECM for a new defensive layer
+- [x] **Missile lock + countermeasures** — chaff/ECM for a new defensive layer — *chaff launcher module, active X deployment, lock breaking, and visual particles shipped*
 - [ ] **Boss encounter** — a pirate dreadnought event once combat rank is high enough
 - [ ] **High-stakes docking** — raise the docking skill ceiling: the station projects a
       lit runway/approach corridor showing the correct glide path and orientation;

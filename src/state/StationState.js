@@ -22,6 +22,7 @@ export class StationState {
     g.laserPool.clear();
     if (g.missilePool) g.missilePool.clear();
     g.ship.missilesAmmo = g.ship.stats.missilesMaxAmmo;
+    g.ship.chaffAmmo = g.ship.stats.chaffMax;
 
     // resolve contracts before saving so payouts/failures land in the save
     const missionNews = [];
@@ -68,6 +69,7 @@ export class StationState {
         g.rebuildEngineTrail();
         if (key === 'shield') g.ship.shield = g.ship.stats.shieldMax;
         if (key === 'missiles') g.ship.missilesAmmo = g.ship.stats.missilesMaxAmmo;
+        if (key === 'module') g.ship.chaffAmmo = g.ship.stats.chaffMax;
       },
       onSkill: () => g.ship.applyStats(),
     }, missionNews);

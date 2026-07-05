@@ -31,11 +31,13 @@ npm run preview
 | Arrow keys | Steer (keyboard alternative) |
 | `W` / `S` | Throttle up / down |
 | `Shift` | Boost (drains energy) |
-| `Q` / `E` | Roll |
+| `Q` / `A` / `D` | Roll left / right |
 | `Space` / Left click | Fire lasers |
+| `E` | Fire missile (when target lock is active) |
+| `X` | Deploy Chaff countermeasure (breaks enemy missile locks) |
 | `T` | Cycle nav target |
 | `J` | Supercruise to target / drop out |
-| `D` | Dock (when in range of a station) |
+| `F` | Request docking (when in range of a station) |
 | `V` | Toggle cockpit / external view |
 | `M` | Mute / unmute sound |
 | `F5` | Quick save |

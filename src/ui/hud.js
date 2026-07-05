@@ -17,6 +17,7 @@ export class Hud {
         <div class="bar shield"><label>SHLD</label><div class="fill"></div></div>
         <div class="bar energy"><label>ENRG</label><div class="fill"></div></div>
         <div class="hud-missiles" style="display:none; font-size:10px; margin-top:2px; letter-spacing:1px; color:rgba(159,232,255,0.85)">MSL: <span class="msl-ammo">0</span> / <span class="msl-max">0</span></div>
+        <div class="hud-chaff" style="display:none; font-size:10px; margin-top:2px; letter-spacing:1px; color:rgba(255,210,122,0.85)">CHF: <span class="chf-ammo">0</span> / <span class="chf-max">0</span></div>
       </div>
       <div class="hud-speed">
         <canvas id="speedo" width="180" height="104"></canvas>
@@ -58,6 +59,9 @@ export class Hud {
     this.mslEl = this.$('.hud-missiles');
     this.mslAmmoEl = this.$('.msl-ammo');
     this.mslMaxEl = this.$('.msl-max');
+    this.chfEl = this.$('.hud-chaff');
+    this.chfAmmoEl = this.$('.chf-ammo');
+    this.chfMaxEl = this.$('.chf-max');
     this.speedo = this.$('#speedo');
     this.sctx = this.speedo.getContext('2d');
     this.speedEl = this.$('.hud-speed .big');
@@ -121,6 +125,15 @@ export class Hud {
       this.mslMaxEl.textContent = stats.missilesMaxAmmo;
     } else {
       this.mslEl.style.display = 'none';
+    }
+
+    // chaff display
+    if (stats.chaffMax > 0) {
+      this.chfEl.style.display = 'block';
+      this.chfAmmoEl.textContent = ship.chaffAmmo;
+      this.chfMaxEl.textContent = stats.chaffMax;
+    } else {
+      this.chfEl.style.display = 'none';
     }
 
     // crosshair lock state

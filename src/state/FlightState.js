@@ -507,6 +507,15 @@ export class FlightState {
       g.enemyMissilePool.update(dt, (playerTarget, missile) => this.handleEnemyMissileHit(missile));
     }
 
+    // ---------- chaff launcher ----------
+    if (this.mode === 'manual' && input.pressed('KeyX')) {
+      if (ship.stats.chaffMax > 0) {
+        this.tryDeployChaff();
+      } else {
+        g.ui.hud.toast('NO CHAFF LAUNCHER FITTED — BUY ONE AT A SHIPYARD', 'warn');
+      }
+    }
+
     this.updateWorldAndFx(dt);
     this.updateCamera(dt);
 
@@ -637,6 +646,54 @@ export class FlightState {
     this.locked = false;
     this.lockTimer = 0;
     this.lockTarget = null;
+  }
+
+  tryDeployChaff() {
+    const g = this.game;
+    const ship = g.ship;
+
+    if (ship.chaffAmmo <= 0) {
+      g.ui.hud.toast('NO CHAFF REMAINING', 'warn');
+      return;
+    }
+
+    ship.chaffAmmo--;
+    g.sfx.play('hitShield'); // Play neon static discharge sound
+    g.ui.hud.toast('CHAFF DEPLOYED — MISSILE LOCK BROKEN', 'gold');
+
+    // 1. Deflect/Destroy all active enemy missiles tracking the player
+    if (g.enemyMissilePool) {
+      for (const m of g.enemyMissilePool.pool) {
+        if (m.life > 0) {
+          g.explosions.spawn(m.mesh.position, 0.85); // visual blast
+          m.life = 0;
+          m.mesh.visible = false;
+          m.target = null;
+        }
+      }
+    }
+
+    // 2. Spawn a glittering trail of gold-white chaff particles behind the player ship
+    const playerPos = ship.group.position;
+    const playerVel = ship.velocity;
+    const oppositeDir = ship.forward.multiplyScalar(-1);
+
+    for (let i = 0; i < 40; i++) {
+      const vel = oppositeDir.clone()
+        .add(new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(0.45))
+        .normalize()
+        .multiplyScalar(40 + Math.random() * 30)
+        .addScaledVector(playerVel, 0.45); // Inherit some player velocity
+
+      const col = new THREE.Color();
+      const r = 2.0 + Math.random() * 1.0;
+      const gCol = 1.8 + Math.random() * 0.8;
+      const b = 1.0 + Math.random() * 0.5;
+      col.setRGB(r, gCol, b);
+
+      const startPos = playerPos.clone().addScaledVector(oppositeDir, 2);
+      g.particles.spawn(startPos, vel, col, 1.2 + Math.random() * 1.5, 0.8 + Math.random() * 0.8);
+    }
   }
 
   handleMissileHit(t, missile) {
