@@ -17,6 +17,7 @@ export class StationUI {
     this.player = playerData;
     this.cb = callbacks; // { undock, onUpgrade }
     this.tab = 'market';
+    this.lastTrade = null; // { msg, cls } report line for the market tab
     this.render();
     this.root.classList.add('visible');
   }
@@ -75,12 +76,26 @@ export class StationUI {
       const held = this.player.cargo[g.id] || 0;
       const buyCls = buy < avg * 0.85 ? 'cheap' : buy > avg * 1.2 ? 'dear' : '';
       const sellCls = sell > avg * 1.1 ? 'cheap' : sell < avg * 0.8 ? 'dear' : '';
+
+      // what you paid and what selling here would make, per unit
+      let paidTd = '<td class="num dim">—</td>';
+      let plTd = '<td class="num dim">—</td>';
+      if (held > 0) {
+        const basis = this.player.getCostBasis(g.id);
+        const pl = sell - basis;
+        const plCls = pl > 0 ? 'cheap' : pl < 0 ? 'dear' : '';
+        paidTd = `<td class="num">${Math.round(basis)}</td>`;
+        plTd = `<td class="num ${plCls}">${pl > 0 ? '+' : ''}${Math.round(pl)}</td>`;
+      }
+
       return `
         <tr data-good="${g.id}">
           <td>${g.name}</td>
           <td class="num ${buyCls}">${buy}</td>
           <td class="num ${sellCls}">${sell}</td>
           <td class="num">${held}</td>
+          ${paidTd}
+          ${plTd}
           <td><div class="qty-btns">
             <button data-act="buy" data-qty="1">Buy 1</button>
             <button data-act="buy" data-qty="5">+5</button>
@@ -91,12 +106,17 @@ export class StationUI {
         </tr>`;
     }).join('');
 
+    const report = this.lastTrade
+      ? `<div class="trade-report ${this.lastTrade.cls}">${this.lastTrade.msg}</div>`
+      : '<div class="trade-report dim">PAID = avg you paid per unit · P/L = profit per unit if sold here</div>';
+
     this.body.innerHTML = `
       <table class="market">
-        <tr><th>COMMODITY</th><th style="text-align:right">BUY</th><th style="text-align:right">SELL</th><th style="text-align:right">HELD</th><th></th></tr>
+        <tr><th>COMMODITY</th><th style="text-align:right">BUY</th><th style="text-align:right">SELL</th><th style="text-align:right">HELD</th><th style="text-align:right">PAID</th><th style="text-align:right">P/L</th><th></th></tr>
         ${rows}
       </table>
-      <div style="margin-top:10px;font-size:11px;color:rgba(159,232,255,0.55)">
+      ${report}
+      <div style="margin-top:6px;font-size:11px;color:rgba(159,232,255,0.55)">
         <span class="cheap">GREEN</span> = good price here · <span class="dear">RED</span> = bad price here
       </div>
     `;
@@ -112,6 +132,7 @@ export class StationUI {
   trade(goodId, act, qtyStr) {
     const { buy, sell } = this.market.price(this.planetDef.id, goodId);
     const p = this.player;
+    const name = COMMODITIES.find((c) => c.id === goodId).name.toUpperCase();
     let qty;
     if (act === 'buy') {
       const affordable = Math.floor(p.credits / buy);
@@ -119,15 +140,25 @@ export class StationUI {
       qty = qtyStr === 'max' ? Math.min(affordable, space) : Math.min(+qtyStr, affordable, space);
       if (qty <= 0) return;
       p.credits -= qty * buy;
-      p.addCargo(goodId, qty);
+      p.addCargo(goodId, qty, buy);
       this.market.recordTrade(this.planetDef.id, goodId, qty, true);
+      this.lastTrade = { msg: `BOUGHT ${qty}x ${name} FOR ${(qty * buy).toLocaleString()} CR`, cls: '' };
     } else {
       const held = p.cargo[goodId] || 0;
       qty = qtyStr === 'max' ? held : Math.min(+qtyStr, held);
       if (qty <= 0) return;
+      const basis = p.getCostBasis(goodId);
+      const profit = Math.round((sell - basis) * qty);
       p.credits += qty * sell;
       p.removeCargo(goodId, qty);
       this.market.recordTrade(this.planetDef.id, goodId, qty, false);
+      const plText = profit >= 0
+        ? `PROFIT +${profit.toLocaleString()} CR`
+        : `LOSS −${Math.abs(profit).toLocaleString()} CR`;
+      this.lastTrade = {
+        msg: `SOLD ${qty}x ${name} FOR ${(qty * sell).toLocaleString()} CR — ${plText}`,
+        cls: profit >= 0 ? 'profit' : 'loss',
+      };
     }
     this.renderTab();
   }

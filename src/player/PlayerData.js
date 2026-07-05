@@ -6,6 +6,7 @@ export class PlayerData {
   constructor() {
     this.credits = C.START_CREDITS;
     this.cargo = { ...C.START_CARGO };
+    this.costBasis = {}; // goodId -> avg credits paid per unit held
     this.upgrades = { engine: 1, weapons: 1, shield: 0, hull: 1, cargo: 1, dockingComputer: 0 };
     this.hull = C.UPGRADES.hull.tiers[1].max;
     this.lastStationId = 'veridia-station';
@@ -41,12 +42,24 @@ export class PlayerData {
   cargoSpace() {
     return this.getDerivedStats().cargoMax - this.cargoUsed();
   }
-  addCargo(goodId, qty) {
-    this.cargo[goodId] = (this.cargo[goodId] || 0) + qty;
+  // unitCost feeds the running average cost basis (what you paid per unit).
+  // Scooped/free cargo passes 0, which correctly dilutes the basis.
+  addCargo(goodId, qty, unitCost = 0) {
+    const held = this.cargo[goodId] || 0;
+    const basis = this.costBasis[goodId] || 0;
+    this.costBasis[goodId] = (basis * held + unitCost * qty) / (held + qty);
+    this.cargo[goodId] = held + qty;
   }
   removeCargo(goodId, qty) {
     this.cargo[goodId] = Math.max(0, (this.cargo[goodId] || 0) - qty);
-    if (this.cargo[goodId] === 0) delete this.cargo[goodId];
+    if (this.cargo[goodId] === 0) {
+      delete this.cargo[goodId];
+      delete this.costBasis[goodId];
+    }
+  }
+  // average price paid per unit currently held (0 if none tracked)
+  getCostBasis(goodId) {
+    return this.costBasis[goodId] || 0;
   }
   // eject one random cargo unit; returns goodId or null
   ejectRandomCargo() {
@@ -80,6 +93,7 @@ export class PlayerData {
     return {
       credits: this.credits,
       cargo: this.cargo,
+      costBasis: this.costBasis,
       upgrades: this.upgrades,
       hull: this.hull,
       lastStationId: this.lastStationId,
@@ -91,6 +105,7 @@ export class PlayerData {
     const p = new PlayerData();
     p.credits = data.credits ?? p.credits;
     p.cargo = data.cargo ?? p.cargo;
+    p.costBasis = data.costBasis ?? {};
     p.upgrades = { ...p.upgrades, ...data.upgrades };
     p.hull = data.hull ?? p.hull;
     p.lastStationId = data.lastStationId ?? p.lastStationId;
