@@ -27,6 +27,12 @@ export class PlayerData {
     this.skills = { piloting: 0, gunnery: 0, trade: 0 };
     this.career = { creditsEarned: 0, piratesKilled: 0, contractsCompleted: 0, distanceFlown: 0 };
     this.visitedStations = [];
+    this.shipId = 'trader';
+    this.modules = [];
+  }
+
+  modulesValue() {
+    return this.modules.reduce((a, id) => a + (C.MODULES[id]?.price || 0), 0);
   }
 
   getDerivedStats() {
@@ -38,19 +44,26 @@ export class PlayerData {
     const crg = C.UPGRADES.cargo.tiers[u.cargo];
     const msl = C.UPGRADES.missiles.tiers[u.missiles ?? 0];
     const sk = this.skills;
+    const ship = C.SHIPS[this.shipId] ?? C.SHIPS.trader;
+    const has = (id) => this.modules.includes(id);
     return {
-      maxSpeed: eng.maxSpeed * (sk.piloting >= 1 ? 1.08 : 1),
-      boost: eng.boost * (sk.piloting >= 1 ? 1.08 : 1),
-      turnMult: eng.turnMult * (sk.piloting >= 4 ? 1.1 : 1),
-      laserDamage: wep.damage * (sk.gunnery >= 1 ? 1.15 : 1),
+      maxSpeed: eng.maxSpeed * ship.speedMult * (sk.piloting >= 1 ? 1.08 : 1),
+      boost: eng.boost * ship.speedMult * (has('afterburner') ? 1.15 : 1) * (sk.piloting >= 1 ? 1.08 : 1),
+      turnMult: eng.turnMult * ship.turnMult * (sk.piloting >= 4 ? 1.1 : 1),
+      laserDamage: wep.damage * ship.damageMult * (sk.gunnery >= 1 ? 1.15 : 1),
       laserEnergy: wep.energy * (sk.gunnery >= 2 ? 0.75 : 1),
       fireInterval: wep.interval,
       twin: wep.twin,
-      shieldMax: shd.max,
+      shieldMax: Math.round(shd.max * ship.shieldMult * (has('shieldCell') ? 1.4 : 1)),
       // every pilot level adds +1% shield recharge (the flat level perk)
       shieldRegen: shd.regen * (1 + 0.01 * (this.level - 1)),
-      hullMax: hul.max,
-      cargoMax: crg.max,
+      hullMax: Math.round(hul.max * ship.hullMult),
+      cargoMax: Math.round(crg.max * ship.cargoMult) + (has('cargoRacks') ? 8 : 0),
+      moduleSlots: ship.slots,
+      crewSlots: ship.crew,
+      shipName: ship.name,
+      scoopMult: has('salvageScoop') ? 2 : 1,
+      ecm: has('ecm'),
       chargeTime: sk.piloting >= 2 ? 1.5 : 2.2,
       interdictionMult: sk.piloting >= 3 ? 0.65 : 1,
       boostDrainMult: sk.piloting >= 4 ? 0.6 : 1,
@@ -146,6 +159,8 @@ export class PlayerData {
       skills: this.skills,
       career: this.career,
       visitedStations: this.visitedStations,
+      shipId: this.shipId,
+      modules: this.modules,
     };
   }
 
@@ -174,6 +189,8 @@ export class PlayerData {
     p.skills = { ...p.skills, ...data.skills };
     p.career = { ...p.career, ...data.career };
     p.visitedStations = Array.isArray(data.visitedStations) ? data.visitedStations : [];
+    p.shipId = C.SHIPS[data.shipId] ? data.shipId : 'trader';
+    p.modules = Array.isArray(data.modules) ? data.modules.filter((id) => C.MODULES[id]) : [];
     return p;
   }
 }

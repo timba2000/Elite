@@ -44,17 +44,21 @@ new way to earn.
 
 ## 2. Ship upgrades & progression (retention driver)
 
-- [ ] **More upgrade categories**: fuel scoop, cargo scoop range, shield cell banks,
+- [x] **More upgrade categories**: fuel scoop, cargo scoop range, shield cell banks,
       point-defense turret, ECM (breaks pirate missile lock), afterburner capacity
+      — *shield cell, salvage scoop, ECM, and afterburner shipped as utility modules;
+      point-defense turret still open*
 - [ ] **New weapon types** — beam laser (sustained), burst cannon, mining laser,
       seeker missiles (ammo-limited, bought at stations)
-- [ ] **Utility modules with slots** — limited module slots so players make build
+- [x] **Utility modules with slots** — limited module slots so players make build
       choices instead of buying everything (trader build vs fighter build vs miner build)
-- [ ] **Buyable ship hulls** — 3–5 distinct ships (light courier, mid trader, heavy
+- [x] **Buyable ship hulls** — 3–5 distinct ships (light courier, mid trader, heavy
       freighter, combat interceptor) with different slot counts, base stats, and price
-      tags from ~10k to ~500k credits; trade-in value for the old ship
+      tags from ~10k to ~500k credits; trade-in value for the old ship — *4 hulls
+      shipped: Swift Courier, Cobra Trader, Bulk Freighter, Fer-de-Lance*
 - [ ] **Ship paint jobs / decals** — pure cosmetic credit sink
-- [ ] **Insurance** — rebuy cost on death instead of flat credit tax once ships are buyable
+- [x] **Insurance** — rebuy cost on death instead of flat credit tax once ships are buyable
+      — *6% of hull + modules value, halved by the Underwriter skill*
 
 ## 3. Ways to earn beyond trading
 

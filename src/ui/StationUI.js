@@ -71,7 +71,7 @@ export class StationUI {
 
   renderStatus() {
     const stats = this.player.getDerivedStats();
-    let txt = `GALAXY ${this.player.galaxy}   ·   LVL ${this.player.level}   ·   ${this.player.credits.toLocaleString()} CR   ·   CARGO ${this.player.cargoUsed()}/${stats.cargoMax}   ·   HULL ${Math.round(this.player.hull)}/${stats.hullMax}`;
+    let txt = `${stats.shipName.toUpperCase()}   ·   GALAXY ${this.player.galaxy}   ·   LVL ${this.player.level}   ·   ${this.player.credits.toLocaleString()} CR   ·   CARGO ${this.player.cargoUsed()}/${stats.cargoMax}   ·   HULL ${Math.round(this.player.hull)}/${stats.hullMax}`;
     if (this.player.skillPoints > 0) {
       txt += `   ·   ${this.player.skillPoints} SKILL PT${this.player.skillPoints > 1 ? 'S' : ''}`;
     }
@@ -372,6 +372,55 @@ export class StationUI {
   }
 
   // ---------- SHIPYARD ----------
+  renderShips() {
+    const p = this.player;
+    const cur = C.SHIPS[p.shipId] ?? C.SHIPS.trader;
+    const tradeIn = Math.round(cur.price * C.SHIP_TRADE_IN);
+
+    return Object.entries(C.SHIPS).map(([id, s]) => {
+      const owned = id === p.shipId;
+      const net = s.price - tradeIn;
+      const newCargoMax = Math.round(C.UPGRADES.cargo.tiers[p.upgrades.cargo].max * s.cargoMult)
+        + (p.modules.includes('cargoRacks') ? 8 : 0);
+      let block = '';
+      if (!owned) {
+        if (p.credits < net) block = 'INSUFFICIENT CREDITS';
+        else if (p.cargoUsed() > newCargoMax) block = 'UNLOAD CARGO FIRST';
+        else if (p.modules.length > s.slots) block = 'SELL MODULES FIRST';
+      }
+      const stats = `SPD ×${s.speedMult} · TURN ×${s.turnMult} · HULL ×${s.hullMult} · CARGO ×${s.cargoMult} · SHLD ×${s.shieldMult}${s.damageMult > 1 ? ` · DMG ×${s.damageMult}` : ''} · ${s.slots} SLOT${s.slots > 1 ? 'S' : ''} · ${s.crew} CREW`;
+      return `
+        <div class="mission-row">
+          <div class="m-name">${s.name}${owned ? ' ★' : ''}<div class="m-sub">${s.desc}</div></div>
+          <div class="m-detail">${stats}${block ? `<br><span class="dear">${block}</span>` : ''}</div>
+          <div class="m-reward">${owned ? 'OWNED' : `${net.toLocaleString()} CR<div class="m-sub">after trade-in</div>`}</div>
+          <button data-ship="${id}" ${owned || block ? 'disabled' : ''}>${owned ? 'Flying' : 'Buy'}</button>
+        </div>`;
+    }).join('');
+  }
+
+  renderModules() {
+    const p = this.player;
+    const stats = p.getDerivedStats();
+    const rows = Object.entries(C.MODULES).map(([id, m]) => {
+      const owned = p.modules.includes(id);
+      const slotsFree = p.modules.length < stats.moduleSlots;
+      const sellBack = Math.round(m.price * C.MODULE_SELL_RATE);
+      return `
+        <div class="mission-row">
+          <div class="m-name">${m.name}</div>
+          <div class="m-detail">${m.desc}</div>
+          <div class="m-reward">${owned ? `+${sellBack.toLocaleString()} CR` : `${m.price.toLocaleString()} CR`}</div>
+          <button data-module="${id}" data-owned="${owned}" ${owned || (slotsFree && p.credits >= m.price) ? '' : 'disabled'}>
+            ${owned ? 'Sell' : 'Fit'}
+          </button>
+        </div>`;
+    }).join('');
+    return `
+      <div class="m-section" style="margin-top:16px">UTILITY MODULES — ${p.modules.length}/${stats.moduleSlots} SLOTS USED</div>
+      ${rows}`;
+  }
+
   renderShipyard() {
     const effects = {
       engine: (t) => `Speed ${t.maxSpeed} · Boost ${t.boost} · Turn +${Math.round((t.turnMult - 1) * 100)}%`,
@@ -403,7 +452,13 @@ export class StationUI {
         </div>`;
     }).join('');
 
-    this.body.innerHTML = rows;
+    this.body.innerHTML = `
+      <div class="m-section">SHIPS FOR SALE — TRADE-IN PAYS ${Math.round(C.SHIP_TRADE_IN * 100)}%</div>
+      ${this.renderShips()}
+      <div class="m-section" style="margin-top:16px">SYSTEM UPGRADES</div>
+      ${rows}
+      ${this.renderModules()}
+    `;
     this.body.querySelectorAll('button[data-key]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const key = btn.dataset.key;
@@ -414,6 +469,41 @@ export class StationUI {
         this.player.upgrades[key]++;
         if (key === 'hull') this.player.hull = Math.min(this.player.hull + (next.max - C.UPGRADES.hull.tiers[cur].max), next.max);
         this.cb.onUpgrade(key);
+        this.renderTab();
+      });
+    });
+    this.body.querySelectorAll('button[data-ship]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.ship;
+        const p = this.player;
+        const s = C.SHIPS[id];
+        const net = s.price - Math.round((C.SHIPS[p.shipId] ?? C.SHIPS.trader).price * C.SHIP_TRADE_IN);
+        const newCargoMax = Math.round(C.UPGRADES.cargo.tiers[p.upgrades.cargo].max * s.cargoMult)
+          + (p.modules.includes('cargoRacks') ? 8 : 0);
+        if (id === p.shipId || p.credits < net) return;
+        if (p.cargoUsed() > newCargoMax || p.modules.length > s.slots) return;
+        p.credits -= net;
+        p.shipId = id;
+        p.hull = p.getDerivedStats().hullMax; // fresh hull with the new ship
+        this.cb.onUpgrade('ship');
+        this.renderTab();
+      });
+    });
+    this.body.querySelectorAll('button[data-module]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.module;
+        const p = this.player;
+        const m = C.MODULES[id];
+        if (btn.dataset.owned === 'true') {
+          p.modules = p.modules.filter((x) => x !== id);
+          p.credits += Math.round(m.price * C.MODULE_SELL_RATE);
+        } else {
+          const stats = p.getDerivedStats();
+          if (p.modules.length >= stats.moduleSlots || p.credits < m.price) return;
+          p.credits -= m.price;
+          p.modules.push(id);
+        }
+        this.cb.onUpgrade('module');
         this.renderTab();
       });
     });

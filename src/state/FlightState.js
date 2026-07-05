@@ -581,6 +581,13 @@ export class FlightState {
 
   handleEnemyMissileHit(missile) {
     const g = this.game;
+    // ECM Suite: half of incoming missiles detonate harmlessly
+    if (g.ship.stats.ecm && Math.random() < 0.5) {
+      g.explosions.spawn(missile.mesh.position, 1.0);
+      g.sfx.play('hitShield');
+      g.ui.hud.toast('ECM DECOY — MISSILE DEFLECTED', 'gold');
+      return;
+    }
     g.explosions.spawn(missile.mesh.position, 1.8);
     g.sfx.play('hitHull');
 
@@ -607,8 +614,10 @@ export class FlightState {
     const stats = g.playerData.getDerivedStats();
     g.playerData.hull = stats.hullMax;
     g.playerData.cargo = {};
-    // Underwriter perk halves the death tax
-    g.playerData.credits = Math.floor(g.playerData.credits * (1 - C.DEATH_CREDIT_TAX * stats.deathTaxMult));
+    // insurance rebuy scales with what you fly; Underwriter halves it
+    const shipDef = C.SHIPS[g.playerData.shipId] ?? C.SHIPS.trader;
+    const rebuy = Math.round((shipDef.price + g.playerData.modulesValue()) * C.INSURANCE_RATE * stats.deathTaxMult);
+    g.playerData.credits = Math.max(0, g.playerData.credits - rebuy);
     g.ship.alive = true;
     g.ship.shield = stats.shieldMax;
     g.ship.energy = C.ENERGY_MAX;

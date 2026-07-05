@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { C } from '../constants.js';
-import { buildTrader } from './ShipFactory.js';
+import { buildPlayerShip } from './ShipFactory.js';
 
 const _fwd = new THREE.Vector3();
 const _target = new THREE.Vector3();
@@ -36,7 +36,7 @@ export class PlayerShip {
     const u = this.playerData.upgrades;
     // ship visually sheds its rust as hull plating is upgraded
     const wear = Math.max(0.15, 1 - (u.hull - 1) * 0.45);
-    this.ship = buildTrader({ wear, cargoTier: u.cargo, engineTier: u.engine });
+    this.ship = buildPlayerShip(this.playerData.shipId, { wear, cargoTier: u.cargo, engineTier: u.engine });
     this.group.add(this.ship.group);
   }
 

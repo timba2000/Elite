@@ -69,6 +69,47 @@ export const C = {
   DRIFT_MAX: 2.0,
   TRADE_PRICE_IMPACT: 0.002, // drift nudge per unit traded
 
+  // Buyable hulls. Multipliers apply over upgrade-tier stats; slots limit
+  // utility modules; crew seats gate the crew system. Trade-in pays 70%.
+  SHIPS: {
+    courier: {
+      name: 'Swift Courier', price: 9000,
+      desc: 'Fast, agile, and tiny. Outruns trouble it cannot fight.',
+      speedMult: 1.25, turnMult: 1.2, hullMult: 0.7, cargoMult: 0.5,
+      shieldMult: 0.85, damageMult: 1.0, slots: 1, crew: 0,
+    },
+    trader: {
+      name: 'Cobra Trader', price: 15000,
+      desc: 'The beat-up all-rounder you started with. Honest work.',
+      speedMult: 1.0, turnMult: 1.0, hullMult: 1.0, cargoMult: 1.0,
+      shieldMult: 1.0, damageMult: 1.0, slots: 2, crew: 1,
+    },
+    freighter: {
+      name: 'Bulk Freighter', price: 90000,
+      desc: 'A warehouse with engines. Slow, tough, and very profitable.',
+      speedMult: 0.8, turnMult: 0.72, hullMult: 1.5, cargoMult: 2.2,
+      shieldMult: 1.2, damageMult: 1.0, slots: 3, crew: 2,
+    },
+    interceptor: {
+      name: 'Fer-de-Lance', price: 140000,
+      desc: 'A bounty hunter\'s blade. Guns and speed, no room for freight.',
+      speedMult: 1.15, turnMult: 1.35, hullMult: 1.1, cargoMult: 0.6,
+      shieldMult: 1.4, damageMult: 1.3, slots: 2, crew: 1,
+    },
+  },
+  SHIP_TRADE_IN: 0.7,        // fraction of hull price credited when swapping
+  INSURANCE_RATE: 0.06,      // death rebuy = rate * (hull + modules value)
+
+  // Utility modules — one slot each, sell back at 60%
+  MODULES: {
+    shieldCell: { name: 'Shield Cell Bank', price: 5200, desc: '+40% shield capacity' },
+    cargoRacks: { name: 'Expanded Racks', price: 3800, desc: '+8 cargo units' },
+    afterburner: { name: 'Afterburner', price: 4600, desc: '+15% boost speed' },
+    ecm: { name: 'ECM Suite', price: 7400, desc: 'Deflects incoming missiles 50% of the time' },
+    salvageScoop: { name: 'Salvage Scoop', price: 2900, desc: 'Double cargo scoop radius' },
+  },
+  MODULE_SELL_RATE: 0.6,
+
   // Upgrades: index by tier (tier 0 unused where noted)
   UPGRADES: {
     engine: {

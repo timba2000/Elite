@@ -334,6 +334,7 @@ table.market .qty-btns button { padding: 2px 8px; font-size: 10px; }
 .mission-row .m-detail, .st-body > .m-detail { flex: 1; font-size: 11px; color: rgba(159,232,255,0.75); }
 .mission-row .m-reward { color: #ffd27a; font-size: 12px; width: 90px; text-align: right; }
 .m-section { margin: 8px 0 4px; font-size: 11px; letter-spacing: 2px; color: #ffd27a; }
+.m-sub { font-size: 10px; color: rgba(159,232,255,0.5); letter-spacing: 0.5px; margin-top: 2px; }
 
 .pilot-head { padding: 4px 8px 12px 8px; border-bottom: 1px solid rgba(80,220,255,0.2); }
 .pilot-head .bar.xp { margin-top: 8px; height: 16px; }

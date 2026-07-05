@@ -6,12 +6,29 @@ import { radialGlowTexture } from '../fx/textures.js';
 
 const engineGlowTex = radialGlowTexture(64, 'rgba(180,220,255,1)', 'rgba(80,140,255,0)');
 
+// Player hull dispatcher: one entry point per buyable ship.
+export function buildPlayerShip(shipId, opts = {}) {
+  switch (shipId) {
+    case 'courier':
+      return buildTrader({ ...opts, cargoTier: 1, baseColor: '#7aa0b8', rustColor: '#3a5a72', scale: 0.78, seed: 12 });
+    case 'freighter':
+      return buildTrader({ ...opts, cargoTier: Math.max(opts.cargoTier ?? 1, 3), baseColor: '#9a8f6a', rustColor: '#6a4a2a', scale: 1.38, seed: 21 });
+    case 'interceptor':
+      return buildInterceptor(opts);
+    default:
+      return buildTrader(opts);
+  }
+}
+
 // The player's trader. `wear` 1 = rust bucket, drops as hull upgrades are bought.
 // cargoTier 1..4 adds/extends side cargo pods. engineTier scales nozzle glow.
-export function buildTrader({ wear = 1, cargoTier = 1, engineTier = 1 } = {}) {
+export function buildTrader({
+  wear = 1, cargoTier = 1, engineTier = 1,
+  baseColor = '#8a8d92', rustColor = '#b3552e', scale = 1, seed = 7,
+} = {}) {
   const group = new THREE.Group();
 
-  const { map, roughnessMap } = grungeHullTexture('#8a8d92', '#b3552e', wear, 7);
+  const { map, roughnessMap } = grungeHullTexture(baseColor, rustColor, wear, seed);
   const hullMat = new THREE.MeshStandardMaterial({
     map, roughnessMap, metalness: 0.45, roughness: 0.75,
   });
@@ -92,7 +109,74 @@ export function buildTrader({ wear = 1, cargoTier = 1, engineTier = 1 } = {}) {
     hardpoints.push(hp);
   }
 
-  return { group, nozzles, glowSprites, hardpoints, boundingRadius: 4.5 };
+  group.scale.setScalar(scale);
+  return { group, nozzles, glowSprites, hardpoints, boundingRadius: 4.5 * scale };
+}
+
+// The Fer-de-Lance: a civilian gun platform — sleek wedge, twin cannon.
+export function buildInterceptor({ wear = 1, engineTier = 1 } = {}) {
+  const group = new THREE.Group();
+
+  const { map, roughnessMap } = grungeHullTexture('#5a626e', '#b3742e', wear * 0.6, 33);
+  const hullMat = new THREE.MeshStandardMaterial({ map, roughnessMap, metalness: 0.7, roughness: 0.4 });
+  const darkMat = new THREE.MeshStandardMaterial({ color: 0x14171c, metalness: 0.8, roughness: 0.3 });
+  const glassMat = new THREE.MeshStandardMaterial({
+    color: 0x0a1a2a, metalness: 0.2, roughness: 0.15,
+    emissive: new THREE.Color(0xff8830), emissiveIntensity: 0.9,
+  });
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.95, 5.6), hullMat);
+  group.add(body);
+
+  const nose = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.9, 2.4, 5), hullMat);
+  nose.rotation.x = Math.PI / 2;
+  nose.position.z = 3.9;
+  group.add(nose);
+
+  const canopy = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.4, 1.5), glassMat);
+  canopy.position.set(0, 0.62, 1.1);
+  group.add(canopy);
+
+  for (let side = -1; side <= 1; side += 2) {
+    const wing = new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.12, 1.9), darkMat);
+    wing.position.set(side * 2.0, -0.15, -0.9);
+    wing.rotation.y = side * 0.35;
+    group.add(wing);
+    const cannon = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 1.8, 6), darkMat);
+    cannon.rotation.x = Math.PI / 2;
+    cannon.position.set(side * 3.1, -0.15, 0.1);
+    group.add(cannon);
+  }
+
+  const nozzles = [];
+  const glowSprites = [];
+  for (let side = -1; side <= 1; side += 2) {
+    const glowMat = new THREE.SpriteMaterial({
+      map: engineGlowTex, blending: THREE.AdditiveBlending, depthWrite: false,
+      transparent: true,
+      color: new THREE.Color(2.6, 1.2 + engineTier * 0.3, 0.4),
+    });
+    const glow = new THREE.Sprite(glowMat);
+    glow.position.set(side * 0.6, 0, -3.4);
+    glow.scale.setScalar(0.1);
+    group.add(glow);
+    glowSprites.push(glow);
+
+    const marker = new THREE.Object3D();
+    marker.position.set(side * 0.6, 0, -3.4);
+    group.add(marker);
+    nozzles.push(marker);
+  }
+
+  const hardpoints = [];
+  for (let side = -1; side <= 1; side += 2) {
+    const hp = new THREE.Object3D();
+    hp.position.set(side * 3.1, -0.15, 1.0);
+    group.add(hp);
+    hardpoints.push(hp);
+  }
+
+  return { group, nozzles, glowSprites, hardpoints, boundingRadius: 4.8 };
 }
 
 // Pirate raider: angular, aggressive, dark red/black.

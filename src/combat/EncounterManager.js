@@ -93,7 +93,7 @@ export class EncounterManager {
         pod.dead = true;
         continue;
       }
-      if (pod.mesh.position.distanceTo(player.position) < C.POD_SCOOP_DIST) {
+      if (pod.mesh.position.distanceTo(player.position) < C.POD_SCOOP_DIST * (player.stats?.scoopMult ?? 1)) {
         const space = this.playerData.cargoSpace();
         const take = Math.min(pod.qty, space);
         if (take > 0) {
