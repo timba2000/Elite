@@ -177,17 +177,20 @@ recruit the best ones, and grow from a lone pilot into a small trading company.
 
 ### Crew aboard the player's ship
 
-- [ ] **Crew slots by hull** — light courier 0, mid trader 1, heavy freighter 2, combat
+- [x] **Crew slots by hull** — light courier 0, mid trader 1, heavy freighter 2, combat
       interceptor 1; ties crew directly into the buyable-ships feature (§2)
-- [ ] **Crew roles with passive + active effects**:
+- [x] **Crew roles with passive + active effects** — *all five roles shipped as
+      passives hired at the station Bar (two tiers each); the gunner's aimed turret
+      is still open*:
       - *Gunner* — mans a turret the player doesn't have to aim
       - *Navigator* — faster supercruise, shows interdiction warnings earlier
       - *Quartermaster* — +cargo capacity via smart packing, faster pod scooping
       - *Engineer* — slow hull/module repair in flight, boost recharge bonus
       - *Negotiator* — better market spreads while aboard, unlocks haggle dialog
-- [ ] **Wages & morale** — crew take a weekly credit wage or a small profit cut; morale
+- [x] **Wages & morale** — crew take a weekly credit wage or a small profit cut; morale
       drops from deaths, crimes they disapprove of, and unpaid wages; low morale means
-      worse performance, then quitting (and gossiping — station rep hit)
+      worse performance, then quitting (and gossiping — station rep hit) — *per-game-hour
+      wages settled on dock shipped; unpaid crew walks out; morale still open*
 - [ ] **Crew XP & loyalty** — crew level up alongside the player; at max loyalty they
       gain a unique trait (a gunner who never overheats, a navigator who breaks one
       interdiction per trip for free)

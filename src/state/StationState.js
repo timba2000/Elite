@@ -1,6 +1,7 @@
 import { SaveSystem } from '../save/SaveSystem.js';
 import { Missions } from '../missions/Missions.js';
 import { Progression } from '../player/Progression.js';
+import { Crew } from '../crew/Crew.js';
 
 // Docked: station UI over a slow orbit shot of the station. Autosaves on entry.
 export class StationState {
@@ -31,6 +32,14 @@ export class StationState {
     }
     for (const m of Missions.onDock(station.planetDef.id, g.playerData)) {
       missionNews.push({ msg: `CONTRACT COMPLETE — ${m.qty}x ${m.goodName.toUpperCase()} DELIVERED · +${m.reward.toLocaleString()} CR · +${m.xp} XP`, cls: 'profit' });
+    }
+
+    const wages = Crew.chargeWages(g.playerData);
+    if (wages.charged > 0) {
+      missionNews.push({ msg: `CREW WAGES PAID — −${wages.charged.toLocaleString()} CR`, cls: 'loss' });
+    } else if (wages.quit.length) {
+      missionNews.push({ msg: `UNPAID CREW WALKED OUT: ${wages.quit.join(', ')}`, cls: 'loss' });
+      g.ship.applyStats();
     }
 
     const pid = station.planetDef.id;

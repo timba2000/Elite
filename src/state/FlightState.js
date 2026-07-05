@@ -234,6 +234,11 @@ export class FlightState {
     // career distance (world units, all modes)
     g.playerData.career.distanceFlown += ship.velocity.length() * dt;
 
+    // engineer crew patches the hull mid-flight
+    if (ship.stats.hullRepairRate > 0 && g.playerData.hull < ship.stats.hullMax) {
+      g.playerData.hull = Math.min(ship.stats.hullMax, g.playerData.hull + ship.stats.hullRepairRate * dt);
+    }
+
     if (this.hyperdrivePhase === 'charging') {
       this.hyperdriveTimer -= dt;
       this.shakeT = Math.max(this.shakeT, 0.15);
@@ -779,8 +784,8 @@ export class FlightState {
     _q.setFromRotationMatrix(_m);
     ship.group.quaternion.rotateTowards(_q, 1.4 * dt);
 
-    // ramp speed
-    this.superSpeed = Math.min(C.SUPER_SPEED, this.superSpeed + C.SUPER_ACCEL * dt);
+    // ramp speed (navigator crew sharpens the ramp)
+    this.superSpeed = Math.min(C.SUPER_SPEED, this.superSpeed + C.SUPER_ACCEL * ship.stats.superAccelMult * dt);
     _fwd.set(0, 0, 1).applyQuaternion(ship.group.quaternion);
     ship.velocity.copy(_fwd).multiplyScalar(this.superSpeed);
     ship.group.position.addScaledVector(ship.velocity, dt);

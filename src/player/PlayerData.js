@@ -31,6 +31,13 @@ export class PlayerData {
     this.modules = [];
     this.rescuedPilots = 0;
     this.rares = []; // rare goods in the hold (count toward cargo space)
+    this.crew = []; // { name, role, tier, wage }
+    this.lastWagePaidAt = 0;
+  }
+
+  crewTier(role) {
+    const c = this.crew.find((x) => x.role === role);
+    return c ? c.tier : 0;
   }
 
   modulesValue() {
@@ -48,11 +55,18 @@ export class PlayerData {
     const sk = this.skills;
     const ship = C.SHIPS[this.shipId] ?? C.SHIPS.trader;
     const has = (id) => this.modules.includes(id);
+    // crew tiers (0 = none aboard)
+    const gun = this.crewTier('gunner');
+    const nav = this.crewTier('navigator');
+    const qm = this.crewTier('quartermaster');
+    const engn = this.crewTier('engineer');
+    const neg = this.crewTier('negotiator');
     return {
       maxSpeed: eng.maxSpeed * ship.speedMult * (sk.piloting >= 1 ? 1.08 : 1),
       boost: eng.boost * ship.speedMult * (has('afterburner') ? 1.15 : 1) * (sk.piloting >= 1 ? 1.08 : 1),
       turnMult: eng.turnMult * ship.turnMult * (sk.piloting >= 4 ? 1.1 : 1),
-      laserDamage: wep.damage * ship.damageMult * (sk.gunnery >= 1 ? 1.15 : 1),
+      laserDamage: wep.damage * ship.damageMult * (sk.gunnery >= 1 ? 1.15 : 1)
+        * (gun ? (gun >= 2 ? 1.15 : 1.1) : 1),
       laserEnergy: wep.energy * (sk.gunnery >= 2 ? 0.75 : 1),
       fireInterval: wep.interval,
       twin: wep.twin,
@@ -60,19 +74,22 @@ export class PlayerData {
       // every pilot level adds +1% shield recharge (the flat level perk)
       shieldRegen: shd.regen * (1 + 0.01 * (this.level - 1)),
       hullMax: Math.round(hul.max * ship.hullMult),
-      cargoMax: Math.round(crg.max * ship.cargoMult) + (has('cargoRacks') ? 8 : 0),
+      cargoMax: Math.round(crg.max * ship.cargoMult) + (has('cargoRacks') ? 8 : 0)
+        + (qm ? (qm >= 2 ? 10 : 6) : 0),
       moduleSlots: ship.slots,
       crewSlots: ship.crew,
       shipName: ship.name,
-      scoopMult: has('salvageScoop') ? 2 : 1,
+      scoopMult: (has('salvageScoop') ? 2 : 1) * (qm ? (qm >= 2 ? 2 : 1.5) : 1),
       ecm: has('ecm'),
       chargeTime: sk.piloting >= 2 ? 1.5 : 2.2,
-      interdictionMult: sk.piloting >= 3 ? 0.65 : 1,
-      boostDrainMult: sk.piloting >= 4 ? 0.6 : 1,
+      interdictionMult: (sk.piloting >= 3 ? 0.65 : 1) * (nav ? (nav >= 2 ? 0.7 : 0.8) : 1),
+      boostDrainMult: (sk.piloting >= 4 ? 0.6 : 1) * (engn ? (engn >= 2 ? 0.6 : 0.75) : 1),
+      superAccelMult: nav ? (nav >= 2 ? 1.5 : 1.3) : 1,
+      hullRepairRate: engn ? (engn >= 2 ? 0.7 : 0.4) : 0,
       lockTime: sk.gunnery >= 3 ? 0.8 : 1.5,
       critChance: sk.gunnery >= 4 ? 0.12 : 0,
-      buyMult: sk.trade >= 1 ? 0.95 : 1,
-      sellMult: sk.trade >= 2 ? 1.05 : 1,
+      buyMult: (sk.trade >= 1 ? 0.95 : 1) * (neg ? (neg >= 2 ? 0.95 : 0.97) : 1),
+      sellMult: (sk.trade >= 2 ? 1.05 : 1) * (neg ? (neg >= 2 ? 1.05 : 1.03) : 1),
       rewardMult: sk.trade >= 3 ? 1.2 : 1,
       deathTaxMult: sk.trade >= 4 ? 0.5 : 1,
       repairMult: sk.trade >= 4 ? 0.7 : 1,
@@ -166,6 +183,8 @@ export class PlayerData {
       modules: this.modules,
       rescuedPilots: this.rescuedPilots,
       rares: this.rares,
+      crew: this.crew,
+      lastWagePaidAt: this.lastWagePaidAt,
     };
   }
 
@@ -198,6 +217,8 @@ export class PlayerData {
     p.modules = Array.isArray(data.modules) ? data.modules.filter((id) => C.MODULES[id]) : [];
     p.rescuedPilots = data.rescuedPilots ?? 0;
     p.rares = Array.isArray(data.rares) ? data.rares : [];
+    p.crew = Array.isArray(data.crew) ? data.crew : [];
+    p.lastWagePaidAt = data.lastWagePaidAt ?? 0;
     return p;
   }
 }

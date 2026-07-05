@@ -4,6 +4,7 @@ import { SaveSystem } from '../save/SaveSystem.js';
 import { Missions } from '../missions/Missions.js';
 import { Progression } from '../player/Progression.js';
 import { RareGoods } from '../economy/RareGoods.js';
+import { Crew } from '../crew/Crew.js';
 
 // Docked panel: Market / Shipyard / Repair tabs + undock.
 export class StationUI {
@@ -23,6 +24,8 @@ export class StationUI {
     this.missionNews = missionNews; // completions/failures resolved on dock
     this.offers = Missions.generateOffers(planetDef, playerData, market);
     this.rareBought = 0;
+    this.barCandidates = Crew.generateCandidates(playerData);
+    this.barMsg = null;
     this.missionMsg = null; // accept feedback line
     this.tab = missionNews.length ? 'missions' : 'market';
     this.lastTrade = null; // { msg, cls } report line for the market tab
@@ -44,6 +47,7 @@ export class StationUI {
       <div class="st-tabs">
         <button data-tab="market">Market</button>
         <button data-tab="missions">Missions</button>
+        <button data-tab="bar">Bar</button>
         <button data-tab="pilot">Pilot</button>
         <button data-tab="shipyard">Shipyard</button>
         <button data-tab="repair">Repair</button>
@@ -91,9 +95,67 @@ export class StationUI {
     this.renderStatus();
     if (this.tab === 'market') this.renderMarket();
     else if (this.tab === 'missions') this.renderMissions();
+    else if (this.tab === 'bar') this.renderBar();
     else if (this.tab === 'pilot') this.renderPilot();
     else if (this.tab === 'shipyard') this.renderShipyard();
     else if (this.tab === 'repair') this.renderRepair();
+  }
+
+  // ---------- BAR (crew hiring) ----------
+  renderBar() {
+    const p = this.player;
+    const stats = p.getDerivedStats();
+
+    const aboard = p.crew.map((c) => `
+      <div class="mission-row">
+        <div class="m-name">${c.name}<div class="m-sub">${Crew.ROLES[c.role].name} · Tier ${c.tier}</div></div>
+        <div class="m-detail">${Crew.ROLES[c.role].desc(c.tier)}</div>
+        <div class="m-reward">${c.wage} CR/h</div>
+        <button data-fire="${c.name}">Dismiss</button>
+      </div>`).join('');
+
+    const candidates = this.barCandidates.map((c, i) => `
+      <div class="mission-row">
+        <div class="m-name">${c.name}${c.rescued ? ' ♥' : ''}<div class="m-sub">${Crew.ROLES[c.role].name} · Tier ${c.tier}${c.rescued ? ' · the pilot you rescued — half fee' : ''}</div></div>
+        <div class="m-detail">${Crew.ROLES[c.role].desc(c.tier)} · wage ${c.wage} CR per game-hour, settled on dock</div>
+        <div class="m-reward">${c.fee.toLocaleString()} CR</div>
+        <button data-hire="${i}">Hire</button>
+      </div>`).join('');
+
+    const msg = this.barMsg
+      ? `<div class="trade-report ${this.barMsg.cls}">${this.barMsg.msg}</div>` : '';
+
+    this.body.innerHTML = `
+      <div class="m-section">YOUR CREW — ${p.crew.length}/${stats.crewSlots} SEAT${stats.crewSlots === 1 ? '' : 'S'} (${stats.shipName.toUpperCase()})</div>
+      ${aboard || '<div class="m-detail" style="padding:6px 8px">Nobody aboard but you and the hum of the reactor.</div>'}
+      <div class="m-section" style="margin-top:16px">AT THE BAR TONIGHT</div>
+      ${candidates || '<div class="m-detail" style="padding:6px 8px">The bar is empty.</div>'}
+      ${msg}
+    `;
+
+    this.body.querySelectorAll('button[data-hire]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const cand = this.barCandidates[+btn.dataset.hire];
+        if (!cand) return;
+        const res = Crew.hire(cand, this.player);
+        if (res.ok) {
+          this.barCandidates = this.barCandidates.filter((c) => c !== cand);
+          this.barMsg = { msg: `${cand.name} SIGNED ON AS ${Crew.ROLES[cand.role].name.toUpperCase()}`, cls: 'profit' };
+          this.cb.onSkill?.();
+        } else {
+          this.barMsg = { msg: res.reason, cls: 'loss' };
+        }
+        this.renderTab();
+      });
+    });
+    this.body.querySelectorAll('button[data-fire]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        Crew.fire(btn.dataset.fire, this.player);
+        this.barMsg = { msg: `${btn.dataset.fire} PAID OFF AND DISMISSED`, cls: '' };
+        this.cb.onSkill?.();
+        this.renderTab();
+      });
+    });
   }
 
   // market price with Haggler/Negotiator perks applied
@@ -474,6 +536,7 @@ export class StationUI {
         if (p.credits < net) block = 'INSUFFICIENT CREDITS';
         else if (p.cargoUsed() > newCargoMax) block = 'UNLOAD CARGO FIRST';
         else if (p.modules.length > s.slots) block = 'SELL MODULES FIRST';
+        else if (p.crew.length > s.crew) block = 'DISMISS CREW FIRST';
       }
       const stats = `SPD ×${s.speedMult} · TURN ×${s.turnMult} · HULL ×${s.hullMult} · CARGO ×${s.cargoMult} · SHLD ×${s.shieldMult}${s.damageMult > 1 ? ` · DMG ×${s.damageMult}` : ''} · ${s.slots} SLOT${s.slots > 1 ? 'S' : ''} · ${s.crew} CREW`;
       return `
@@ -568,7 +631,7 @@ export class StationUI {
         const newCargoMax = Math.round(C.UPGRADES.cargo.tiers[p.upgrades.cargo].max * s.cargoMult)
           + (p.modules.includes('cargoRacks') ? 8 : 0);
         if (id === p.shipId || p.credits < net) return;
-        if (p.cargoUsed() > newCargoMax || p.modules.length > s.slots) return;
+        if (p.cargoUsed() > newCargoMax || p.modules.length > s.slots || p.crew.length > s.crew) return;
         p.credits -= net;
         p.shipId = id;
         p.hull = p.getDerivedStats().hullMax; // fresh hull with the new ship
