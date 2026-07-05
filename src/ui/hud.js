@@ -34,7 +34,7 @@ export class Hud {
         <div class="tdist"></div>
         <div class="thint">T — CYCLE TARGET</div>
       </div>
-      <div class="crosshair"><div class="dot"></div></div>
+      <div class="crosshair"><div class="dot"></div><div class="lock-label"></div></div>
       <div class="hud-prompt"></div>
       <div id="toasts"></div>
       <div class="offscreen-arrow" style="display:none"></div>
@@ -366,9 +366,19 @@ export class Hud {
 
   updateCrosshair(lockState) {
     const ch = this.$('.crosshair');
+    const label = this.$('.crosshair .lock-label');
     if (ch) {
       ch.classList.toggle('locking', lockState === 'locking');
       ch.classList.toggle('locked', lockState === 'locked');
+      if (label) {
+        if (lockState === 'locked') {
+          label.textContent = 'LOCKED';
+        } else if (lockState === 'locking') {
+          label.textContent = 'LOCKING';
+        } else {
+          label.textContent = '';
+        }
+      }
     }
   }
 }

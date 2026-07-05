@@ -292,12 +292,20 @@ export class FlightState {
         if (bestHostile) {
           if (this.lockTarget === bestHostile) {
             this.lockTimer += dt;
-            if (this.lockTimer >= 3.0) {
-              this.lockTimer = 3.0;
+            
+            // play locking ticks (4 times per second)
+            const prevSec = Math.floor((this.lockTimer - dt) * 4);
+            const curSec = Math.floor(this.lockTimer * 4);
+            if (curSec > prevSec && !this.locked) {
+              g.sfx.play('lockTick');
+            }
+
+            if (this.lockTimer >= 1.5) {
+              this.lockTimer = 1.5;
               if (!this.locked) {
                 this.locked = true;
                 g.ui.hud.toast('MISSILE LOCK ACQUIRED', 'gold');
-                g.sfx.play('cash');
+                g.sfx.play('lockBeep');
               }
             }
           } else {

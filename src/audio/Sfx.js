@@ -123,6 +123,13 @@ export class Sfx {
       case 'click':
         this.tone({ type: 'square', f0: 950, dur: 0.03, vol: 0.05 });
         break;
+      case 'lockTick':
+        this.tone({ type: 'sine', f0: 750, dur: 0.04, vol: 0.07 });
+        break;
+      case 'lockBeep':
+        this.tone({ type: 'sine', f0: 1100, dur: 0.12, vol: 0.15 });
+        this.tone({ type: 'sine', f0: 1100, dur: 0.12, vol: 0.15, delay: 0.08 });
+        break;
       case 'toastInfo':
         this.tone({ type: 'sine', f0: 700, dur: 0.06, vol: 0.08 });
         break;
