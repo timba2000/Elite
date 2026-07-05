@@ -17,13 +17,30 @@ export const Missions = {
   MAX_ACTIVE,
 
   // Fresh offers each time the player docks (3-4 per visit).
-  generateOffers(planetDef, pd) {
+  generateOffers(planetDef, pd, market = null) {
     const s = gscale(pd) * pd.getDerivedStats().rewardMult; // Contract Broker perk
     const legal = COMMODITIES.filter((g) => g.id !== 'narcotics');
     const others = SYSTEM.planets.filter((p) => p.id !== planetDef.id);
     const imports = legal.filter((g) => planetDef.imports.includes(g.id));
     const offers = [];
     const count = 3 + (Math.random() < 0.5 ? 1 : 0);
+
+    // active news event here spawns an urgent relief contract at crisis rates
+    const ev = market?.events.find((e) => e.planetId === planetDef.id);
+    if (ev) {
+      const good = COMMODITIES.find((g) => g.id === ev.good);
+      const qty = 6 + Math.floor(Math.random() * 9);
+      offers.push({
+        id: makeId(), type: 'supply', urgent: true,
+        good: good.id, goodName: good.name, qty,
+        targetId: planetDef.id, targetName: planetDef.name,
+        originName: planetDef.name,
+        reward: Math.round(good.base * C.IMPORT_BIAS * ev.mult * 1.25 * qty * s),
+        penalty: 0,
+        timeLeft: 300 + qty * 6,
+        armed: false,
+      });
+    }
 
     for (let i = 0; i < count; i++) {
       const roll = Math.random();

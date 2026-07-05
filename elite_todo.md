@@ -30,8 +30,9 @@ new way to earn.
 - [ ] **Trade routes UI** — a galactic/system map screen showing known prices at each
       station (last-seen data only, so information itself has value)
 - [ ] **Price history graphs** at market screens so players can learn a station's rhythm
-- [ ] **Supply/demand events** — famine on Veridia, mining strike on Ferrox, plague at
-      Keller's Drift; announced via news ticker, prices spike accordingly
+- [x] **Supply/demand events** — famine on Veridia, mining strike on Ferrox, plague at
+      Keller's Drift; announced via news ticker, prices spike accordingly — *six event
+      types shipped with GALNET toasts, station ticker, and urgent relief contracts*
 - [x] **Bulk contracts** — station offers "deliver 40 machinery within 10 minutes" for a
       premium over market rate; adds time pressure to plain trading — *shipped as
       supply contracts on the station mission board*
@@ -98,8 +99,10 @@ new way to earn.
       between systems within a galaxy could still add strategy*
 - [x] **Procedural systems** — generate systems from seeds (SystemDef already
       seed-driven per planet) for effectively unlimited exploration
-- [ ] **Points of interest** — asteroid belts, derelicts, distress beacons (ambush or
-      rescue), abandoned stations
+- [x] **Points of interest** — asteroid belts, derelicts, distress beacons (ambush or
+      rescue), abandoned stations — *supercruise signal sources shipped: derelict
+      cargo fields, distress beacons (rescue or trap), smuggler dead drops; asteroid
+      belts and abandoned stations still open*
 - [ ] **Exploration income** — sell scan data for undiscovered bodies at stations
 
 ## 6. Reputation & factions

@@ -94,6 +94,17 @@ export class EncounterManager {
         continue;
       }
       if (pod.mesh.position.distanceTo(player.position) < C.POD_SCOOP_DIST * (player.stats?.scoopMult ?? 1)) {
+        if (pod.rescue) {
+          const reward = 400 + Math.floor(Math.random() * 500);
+          this.playerData.credits += reward;
+          this.playerData.career.creditsEarned += reward;
+          this.playerData.rescuedPilots = (this.playerData.rescuedPilots || 0) + 1;
+          Progression.award(this.playerData, 100);
+          this.events.toast(`PILOT RESCUED — +${reward} CR · +100 XP`, 'gold');
+          this.scene.remove(pod.mesh);
+          pod.dead = true;
+          continue;
+        }
         const space = this.playerData.cargoSpace();
         const take = Math.min(pod.qty, space);
         if (take > 0) {
@@ -109,6 +120,54 @@ export class EncounterManager {
       }
     }
     this.pods = this.pods.filter((p) => !p.dead);
+  }
+
+  dropPod(position, good, qty, opts = {}) {
+    const mesh = buildCargoPod();
+    mesh.position.copy(position);
+    this.scene.add(mesh);
+    this.pods.push({ mesh, good, qty, life: opts.life ?? 90, dead: false, rescue: opts.rescue ?? false });
+  }
+
+  // Points of interest found via supercruise signals. Contents spawn around
+  // the player right after the drop-out.
+  spawnPOI(type, player) {
+    const around = (spread, ahead) => _spawnPos.copy(player.position)
+      .addScaledVector(player.forward, ahead)
+      .add(_rand.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(spread))
+      .clone();
+
+    if (type === 'derelict') {
+      const n = 3 + Math.floor(Math.random() * 4);
+      for (let i = 0; i < n; i++) {
+        const good = COMMODITIES[Math.floor(Math.random() * COMMODITIES.length)];
+        this.dropPod(around(140, 90), good.id, 1 + Math.floor(Math.random() * 2));
+      }
+      if (Math.random() < 0.2) {
+        this.pirates.push(new Pirate(this.scene, around(200, 160), 1, 'raider'));
+        this.events.toast('DERELICT FREIGHTER — CARGO ADRIFT, SCAVENGER ON SITE', 'warn');
+      } else {
+        this.events.toast('DERELICT FREIGHTER — CARGO ADRIFT', 'gold');
+      }
+    } else if (type === 'distress') {
+      if (Math.random() < 0.4) {
+        const galaxy = this.playerData.galaxy ?? 1;
+        const scale = (1 + this.playerData.netWorthFactor() * 0.8) * (1.0 + (galaxy - 1) * 0.35);
+        for (let i = 0; i < 2; i++) {
+          this.pirates.push(new Pirate(this.scene, around(240, 220), scale, 'raider'));
+        }
+        this.events.toast('THE DISTRESS SIGNAL WAS A TRAP — PIRATES INBOUND!', 'warn');
+      } else {
+        this.dropPod(around(80, 70), 'rescue', 1, { rescue: true, life: 120 });
+        this.events.toast('ESCAPE POD BEACON — SCOOP IT UP', 'gold');
+      }
+    } else if (type === 'cache') {
+      const n = 2 + Math.floor(Math.random() * 2);
+      for (let i = 0; i < n; i++) {
+        this.dropPod(around(100, 80), 'narcotics', 1 + Math.floor(Math.random() * 2));
+      }
+      this.events.toast('SMUGGLER DEAD DROP — UNMARKED CARGO ADRIFT', 'gold');
+    }
   }
 
   spawnAmbush(player) {

@@ -29,6 +29,7 @@ export class PlayerData {
     this.visitedStations = [];
     this.shipId = 'trader';
     this.modules = [];
+    this.rescuedPilots = 0;
   }
 
   modulesValue() {
@@ -161,6 +162,7 @@ export class PlayerData {
       visitedStations: this.visitedStations,
       shipId: this.shipId,
       modules: this.modules,
+      rescuedPilots: this.rescuedPilots,
     };
   }
 
@@ -191,6 +193,7 @@ export class PlayerData {
     p.visitedStations = Array.isArray(data.visitedStations) ? data.visitedStations : [];
     p.shipId = C.SHIPS[data.shipId] ? data.shipId : 'trader';
     p.modules = Array.isArray(data.modules) ? data.modules.filter((id) => C.MODULES[id]) : [];
+    p.rescuedPilots = data.rescuedPilots ?? 0;
     return p;
   }
 }

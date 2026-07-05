@@ -43,6 +43,7 @@ export class FlightState {
     this.hyperdriveTimer = 0;
     this.chargeDuration = 2.2;
     this.wasInCombat = false;
+    this.signal = null; // pending point-of-interest while in supercruise
   }
 
   enter(params = {}) {
@@ -60,6 +61,7 @@ export class FlightState {
     this.hyperdrivePhase = 'idle';
     this.hyperdriveTimer = 0;
     this.wasInCombat = false;
+    this.signal = null;
     g.ui.hud.show();
     g.ui.hud.navTargets = g.world.getNavTargets();
     g.ui.stationUI.hide();
@@ -168,6 +170,30 @@ export class FlightState {
     // contract deadlines run on real flight seconds, not economy time
     for (const m of Missions.tick(dt, g.playerData)) {
       g.ui.hud.toast(`CONTRACT FAILED — TIME EXPIRED${m.penalty ? ` · −${m.penalty.toLocaleString()} CR` : ''}`, 'warn');
+    }
+
+    // galactic news headlines
+    for (const headline of g.market.consumeNews()) {
+      g.ui.hud.toast(`GALNET — ${headline}`, 'gold');
+    }
+
+    // signal sources: only roll while cruising calmly
+    if (this.mode === 'super' && !this.signal && this.hyperdrivePhase === 'idle') {
+      if (Math.random() < 0.025 * dt) { // ~2.5% per supercruise second
+        const roll = Math.random();
+        const type = roll < 0.4 ? 'derelict' : roll < 0.75 ? 'distress' : 'cache';
+        this.signal = { type, timeLeft: 14 };
+        g.sfx.play('lockBeep');
+        g.ui.hud.toast('UNIDENTIFIED SIGNAL DETECTED — DROP OUT (J) TO INVESTIGATE', 'gold');
+      }
+    }
+    if (this.signal) {
+      this.signal.timeLeft -= dt;
+      if (this.mode !== 'super') { this.signal = null; }
+      else if (this.signal.timeLeft <= 0) {
+        this.signal = null;
+        g.ui.hud.toast('SIGNAL FADED', '');
+      }
     }
 
     // ---------- death ----------
@@ -283,6 +309,8 @@ export class FlightState {
       if (d > this.dropDistance(this.target)) {
         g.ui.hud.setPrompt(`J — SUPERCRUISE TO ${this.target.name}`);
       } else g.ui.hud.setPrompt('');
+    } else if (this.mode === 'super' && this.signal) {
+      g.ui.hud.setPrompt(`J — INVESTIGATE SIGNAL (${Math.ceil(this.signal.timeLeft)}s)`);
     } else if (g.encounters.inCombat) {
       g.ui.hud.setPrompt('');
     } else if (!input.pointerLocked && this.mode === 'manual') {
@@ -679,6 +707,10 @@ export class FlightState {
       g.ship.velocity.clampLength(0, g.ship.stats.maxSpeed);
       g.sfx.play('superDrop');
       this.hyperdrivePhase = 'idle';
+      if (this.signal) {
+        g.encounters.spawnPOI(this.signal.type, g.ship);
+        this.signal = null;
+      }
       return;
     }
     if (this.hyperdrivePhase === 'charging') return;

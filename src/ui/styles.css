@@ -277,6 +277,13 @@ button.amber:hover:not(:disabled) { background: rgba(100, 65, 15, 0.95); box-sha
 #station-ui .st-header h2 { font-size: 20px; letter-spacing: 4px; color: #dffaff; font-weight: normal; }
 #station-ui .st-header .flavor { font-size: 11px; color: rgba(159,232,255,0.6); margin-top: 3px; letter-spacing: 1px; }
 #station-ui .st-status { font-size: 12px; color: #ffd27a; margin-top: 6px; letter-spacing: 1px; }
+#station-ui .st-ticker {
+  font-size: 11px; color: #ff8a7a; margin-top: 5px; letter-spacing: 1px;
+  text-shadow: 0 0 6px rgba(255, 80, 60, 0.4);
+  animation: pulse 2.4s ease-in-out infinite;
+}
+.mission-row.urgent .m-name { color: #ff8a7a; }
+.mission-row.urgent { border-left: 2px solid #ff8a7a; padding-left: 6px; }
 
 .st-tabs { display: flex; gap: 2px; padding: 10px 20px 0 20px; }
 .st-tabs button { border-bottom: none; flex: 1; }

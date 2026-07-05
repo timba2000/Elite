@@ -2,7 +2,17 @@ import { C } from '../constants.js';
 import { COMMODITIES } from './commodities.js';
 import { SYSTEM } from '../world/SystemDef.js';
 
-// Per-planet prices: base * typeBias * drift.
+// Galactic news events: temporary price spikes at one planet for one good.
+const EVENT_TYPES = [
+  { good: 'food', mult: 2.6, headline: 'FAMINE ON %P — FOOD PRICES SURGING' },
+  { good: 'water', mult: 2.4, headline: 'RESERVOIR FAILURE ON %P — WATER CRITICAL' },
+  { good: 'medicine', mult: 3.0, headline: 'PLAGUE OUTBREAK ON %P — MEDICINE DESPERATELY NEEDED' },
+  { good: 'ore', mult: 2.2, headline: 'MINING STRIKE ON %P — ORE SUPPLY CHOKED' },
+  { good: 'fuel', mult: 2.0, headline: 'REFINERY FIRE ON %P — FUEL RESERVES BURNING' },
+  { good: 'luxuries', mult: 1.9, headline: 'GRAND FESTIVAL ON %P — LUXURIES IN DEMAND' },
+];
+
+// Per-planet prices: base * typeBias * drift * event.
 // drift is a mean-reverting random walk per (planet, good), advanced by game time.
 export class Market {
   constructor() {
@@ -14,6 +24,32 @@ export class Market {
       }
     }
     this.minuteAccum = 0;
+    this.events = [];   // { planetId, planetName, good, mult, headline, timeLeft }
+    this.news = [];     // headlines not yet shown to the player
+  }
+
+  eventFor(planetId, goodId) {
+    return this.events.find((e) => e.planetId === planetId && e.good === goodId) || null;
+  }
+
+  // headlines queued since last call (flight state toasts these)
+  consumeNews() {
+    const n = this.news;
+    this.news = [];
+    return n;
+  }
+
+  spawnEvent() {
+    const t = EVENT_TYPES[Math.floor(Math.random() * EVENT_TYPES.length)];
+    const candidates = SYSTEM.planets.filter((p) => !this.eventFor(p.id, t.good));
+    if (!candidates.length) return;
+    const p = candidates[Math.floor(Math.random() * candidates.length)];
+    const headline = t.headline.replace('%P', p.name);
+    this.events.push({
+      planetId: p.id, planetName: p.name, good: t.good, mult: t.mult,
+      headline, timeLeft: 420 + Math.random() * 300, // game-seconds
+    });
+    this.news.push(headline);
   }
 
   typeBias(planetDef, goodId) {
@@ -24,9 +60,15 @@ export class Market {
 
   // advance economy time (seconds of game time)
   update(gameSeconds) {
+    for (const e of this.events) e.timeLeft -= gameSeconds;
+    const ended = this.events.filter((e) => e.timeLeft <= 0);
+    for (const e of ended) this.news.push(`MARKETS STEADY — ${e.headline.split(' — ')[0]} HAS ENDED`);
+    if (ended.length) this.events = this.events.filter((e) => e.timeLeft > 0);
+
     this.minuteAccum += gameSeconds;
     while (this.minuteAccum >= 60) {
       this.minuteAccum -= 60;
+      if (this.events.length < 2 && Math.random() < 0.2) this.spawnEvent();
       for (const p of SYSTEM.planets) {
         if (!this.drift[p.id]) this.drift[p.id] = {};
         for (const g of COMMODITIES) {
@@ -51,10 +93,12 @@ export class Market {
     }
 
     const good = COMMODITIES.find((g) => g.id === goodId);
-    const raw = good.base * this.typeBias(planet, goodId) * this.drift[planetId][goodId];
+    let raw = good.base * this.typeBias(planet, goodId) * this.drift[planetId][goodId];
+    const ev = this.eventFor(planetId, goodId);
+    if (ev) raw *= ev.mult;
     
     // Scale prices up per galaxy for bigger absolute profits!
-    const galaxy = window.game?.playerData?.galaxy ?? 1;
+    const galaxy = (typeof window !== 'undefined' && window.game?.playerData?.galaxy) || 1;
     const priceScale = 1.0 + (galaxy - 1) * 0.45;
 
     const buy = Math.max(1, Math.round(raw * priceScale));
@@ -79,22 +123,30 @@ export class Market {
   }
 
   serialize() {
-    return this.drift;
+    return { drift: this.drift, events: this.events };
   }
 
   static deserialize(data) {
     const m = new Market();
-    if (data) {
+    // Legacy saves stored the drift map directly; new saves wrap it as
+    // {drift, events}. Detect by the events array — a planet id can shadow
+    // the "drift" key (Keller's Drift is literally id "drift").
+    const isNew = data && Array.isArray(data.events);
+    const drift = isNew ? data.drift : data;
+    if (drift) {
       for (const p of SYSTEM.planets) {
         if (!m.drift[p.id]) m.drift[p.id] = {};
         for (const g of COMMODITIES) {
-          if (data[p.id] && typeof data[p.id][g.id] === 'number') {
-            m.drift[p.id][g.id] = data[p.id][g.id];
+          if (drift[p.id] && typeof drift[p.id][g.id] === 'number') {
+            m.drift[p.id][g.id] = drift[p.id][g.id];
           } else {
             m.drift[p.id][g.id] = 0.85 + Math.random() * 0.3;
           }
         }
       }
+    }
+    if (data && Array.isArray(data.events)) {
+      m.events = data.events.filter((e) => SYSTEM.planets.some((p) => p.id === e.planetId));
     }
     return m;
   }

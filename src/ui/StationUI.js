@@ -20,7 +20,7 @@ export class StationUI {
     this.player = playerData;
     this.cb = callbacks; // { undock, onUpgrade }
     this.missionNews = missionNews; // completions/failures resolved on dock
-    this.offers = Missions.generateOffers(planetDef, playerData);
+    this.offers = Missions.generateOffers(planetDef, playerData, market);
     this.missionMsg = null; // accept feedback line
     this.tab = missionNews.length ? 'missions' : 'market';
     this.lastTrade = null; // { msg, cls } report line for the market tab
@@ -37,6 +37,7 @@ export class StationUI {
         <h2>${p.name} STATION</h2>
         <div class="flavor">${p.type} — ${p.flavor}</div>
         <div class="st-status"></div>
+        ${this.market.events.length ? `<div class="st-ticker">${this.market.events.map((e) => `⚠ ${e.headline}`).join('   ·   ')}</div>` : ''}
       </div>
       <div class="st-tabs">
         <button data-tab="market">Market</button>
@@ -211,8 +212,8 @@ export class StationUI {
         detail = 'Destroy them anywhere in the system · no time limit';
       }
       return `
-        <div class="mission-row">
-          <div class="m-name">${this.missionTitle(o)}</div>
+        <div class="mission-row${o.urgent ? ' urgent' : ''}">
+          <div class="m-name">${o.urgent ? '⚠ URGENT: ' : ''}${this.missionTitle(o)}</div>
           <div class="m-detail">${detail}</div>
           <div class="m-reward">${o.reward.toLocaleString()} CR</div>
           <button data-accept="${o.id}">Accept</button>
