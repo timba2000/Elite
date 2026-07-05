@@ -16,6 +16,7 @@ export class Hud {
         <div class="bar energy"><label>ENRG</label><div class="fill"></div></div>
       </div>
       <div class="hud-speed">
+        <canvas id="speedo" width="180" height="104"></canvas>
         <div class="big">0</div>
         <div>M/S · THR <span class="thr">0</span>%</div>
         <div class="mode"></div>
@@ -46,6 +47,8 @@ export class Hud {
       shield: this.$('.bar.shield .fill'),
       energy: this.$('.bar.energy .fill'),
     };
+    this.speedo = this.$('#speedo');
+    this.sctx = this.speedo.getContext('2d');
     this.speedEl = this.$('.hud-speed .big');
     this.thrEl = this.$('.hud-speed .thr');
     this.modeEl = this.$('.hud-speed .mode');
@@ -90,10 +93,12 @@ export class Hud {
     this.bars.energy.style.transform = `scaleX(${ship.energy / 100})`;
 
     // speed / mode
-    this.speedEl.textContent = Math.round(ship.velocity.length());
+    const speed = ship.velocity.length();
+    this.speedEl.textContent = Math.round(speed);
     this.thrEl.textContent = Math.round(ship.throttle * 100);
     this.modeEl.textContent =
       mode === 'super' ? 'SUPERCRUISE' : ship.boosting ? 'BOOST' : '';
+    this.drawSpeedo(speed, stats, ship.boosting, mode);
 
     // status
     this.creditsEl.textContent = `${playerData.credits.toLocaleString()} CR`;
@@ -117,6 +122,73 @@ export class Hud {
       this.flashT -= dt;
       this.flashEl.style.opacity = Math.max(0, this.flashT / 0.25);
     }
+  }
+
+  // Analog arc speedometer. Manual flight scales 0..boost with an amber boost
+  // zone past normal max; supercruise rescales to 0..2500 in purple.
+  drawSpeedo(speed, stats, boosting, mode) {
+    const ctx = this.sctx;
+    const W = 180, cx = W / 2, cy = 96, R = 74;
+    ctx.clearRect(0, 0, W, 104);
+
+    const superMode = mode === 'super';
+    const maxScale = superMode ? 2500 : stats.boost;
+    const t = Math.min(1, speed / maxScale);
+    const a0 = Math.PI, a1 = 2 * Math.PI; // upper semicircle, left -> right
+
+    // background track
+    ctx.lineWidth = 9;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = 'rgba(80,220,255,0.16)';
+    ctx.beginPath(); ctx.arc(cx, cy, R, a0, a1); ctx.stroke();
+
+    // boost zone marker (between cruise max and boost max), manual mode only
+    if (!superMode && stats.boost > stats.maxSpeed) {
+      const z0 = a0 + (stats.maxSpeed / maxScale) * Math.PI;
+      ctx.strokeStyle = 'rgba(255,190,90,0.22)';
+      ctx.beginPath(); ctx.arc(cx, cy, R, z0, a1); ctx.stroke();
+    }
+
+    // progress arc
+    const color = superMode ? '#b06bff' : boosting ? '#ffd27a' : '#37d0ff';
+    if (t > 0.005) {
+      ctx.strokeStyle = color;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 8;
+      ctx.beginPath(); ctx.arc(cx, cy, R, a0, a0 + t * Math.PI); ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
+
+    // ticks every quarter
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(159,232,255,0.5)';
+    for (let i = 0; i <= 4; i++) {
+      const a = a0 + (i / 4) * Math.PI;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a) * (R - 9), cy + Math.sin(a) * (R - 9));
+      ctx.lineTo(cx + Math.cos(a) * (R - 16), cy + Math.sin(a) * (R - 16));
+      ctx.stroke();
+    }
+
+    // scale labels
+    ctx.fillStyle = 'rgba(159,232,255,0.55)';
+    ctx.font = '9px Consolas, monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('0', cx - R - 2, cy + 2 - 12);
+    ctx.textAlign = 'right';
+    ctx.fillText(superMode ? '2.5K' : String(maxScale), cx + R + 3, cy + 2 - 12);
+
+    // needle
+    const na = a0 + t * Math.PI;
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 6;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(na) * (R - 30), cy + Math.sin(na) * (R - 30));
+    ctx.lineTo(cx + Math.cos(na) * (R - 6), cy + Math.sin(na) * (R - 6));
+    ctx.stroke();
+    ctx.shadowBlur = 0;
   }
 
   drawRadar(ship, target, pirates = [], pods = []) {

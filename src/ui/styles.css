@@ -74,7 +74,8 @@ button.amber:hover:not(:disabled) { background: rgba(100, 65, 15, 0.95); box-sha
   text-align: center; font-size: 13px; letter-spacing: 2px;
   text-shadow: 0 0 8px rgba(80, 220, 255, 0.6);
 }
-.hud-speed .big { font-size: 26px; color: #dffaff; }
+.hud-speed #speedo { display: block; margin: 0 auto; }
+.hud-speed .big { font-size: 26px; color: #dffaff; margin-top: -56px; }
 .hud-speed .mode { color: #ffd27a; font-size: 11px; margin-top: 2px; min-height: 14px; }
 
 .hud-status {
