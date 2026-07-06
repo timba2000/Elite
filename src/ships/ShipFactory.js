@@ -6,6 +6,23 @@ import { radialGlowTexture } from '../fx/textures.js';
 
 const engineGlowTex = radialGlowTexture(64, 'rgba(180,220,255,1)', 'rgba(80,140,255,0)');
 
+// PBR grunge hull: colour + roughness + baked normal relief (panel lines,
+// rivets and scorch read as geometry under the key light).
+function hullMaterial(baseColor, rustColor, wear, seed, metalness, roughness) {
+  const { map, roughnessMap, normalMap } = grungeHullTexture(baseColor, rustColor, wear, seed);
+  return new THREE.MeshStandardMaterial({
+    map, roughnessMap, normalMap, normalScale: new THREE.Vector2(0.6, 0.6),
+    metalness, roughness,
+  });
+}
+
+// Every factory mesh takes part in the photo-tier sun shadows (sprites don't).
+function enableShadows(group) {
+  group.traverse((o) => {
+    if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; }
+  });
+}
+
 // Player hull dispatcher: one entry point per buyable ship.
 export function buildPlayerShip(shipId, opts = {}) {
   switch (shipId) {
@@ -28,10 +45,7 @@ export function buildTrader({
 } = {}) {
   const group = new THREE.Group();
 
-  const { map, roughnessMap } = grungeHullTexture(baseColor, rustColor, wear, seed);
-  const hullMat = new THREE.MeshStandardMaterial({
-    map, roughnessMap, metalness: 0.45, roughness: 0.75,
-  });
+  const hullMat = hullMaterial(baseColor, rustColor, wear, seed, 0.45, 0.75);
   const darkMat = new THREE.MeshStandardMaterial({ color: 0x33363c, metalness: 0.6, roughness: 0.5 });
   const glassMat = new THREE.MeshStandardMaterial({
     color: 0x0a1a2a, metalness: 0.2, roughness: 0.15,
@@ -110,6 +124,7 @@ export function buildTrader({
   }
 
   group.scale.setScalar(scale);
+  enableShadows(group);
   return { group, nozzles, glowSprites, hardpoints, boundingRadius: 4.5 * scale };
 }
 
@@ -117,8 +132,7 @@ export function buildTrader({
 export function buildInterceptor({ wear = 1, engineTier = 1 } = {}) {
   const group = new THREE.Group();
 
-  const { map, roughnessMap } = grungeHullTexture('#5a626e', '#b3742e', wear * 0.6, 33);
-  const hullMat = new THREE.MeshStandardMaterial({ map, roughnessMap, metalness: 0.7, roughness: 0.4 });
+  const hullMat = hullMaterial('#5a626e', '#b3742e', wear * 0.6, 33, 0.7, 0.4);
   const darkMat = new THREE.MeshStandardMaterial({ color: 0x14171c, metalness: 0.8, roughness: 0.3 });
   const glassMat = new THREE.MeshStandardMaterial({
     color: 0x0a1a2a, metalness: 0.2, roughness: 0.15,
@@ -176,6 +190,7 @@ export function buildInterceptor({ wear = 1, engineTier = 1 } = {}) {
     hardpoints.push(hp);
   }
 
+  enableShadows(group);
   return { group, nozzles, glowSprites, hardpoints, boundingRadius: 4.8 };
 }
 
@@ -183,8 +198,7 @@ export function buildInterceptor({ wear = 1, engineTier = 1 } = {}) {
 export function buildPirate(seed = 1) {
   const group = new THREE.Group();
 
-  const { map, roughnessMap } = grungeHullTexture('#3a3235', '#7a1f1f', 0.8, 40 + seed);
-  const hullMat = new THREE.MeshStandardMaterial({ map, roughnessMap, metalness: 0.6, roughness: 0.6 });
+  const hullMat = hullMaterial('#3a3235', '#7a1f1f', 0.8, 40 + seed, 0.6, 0.6);
   const accentMat = new THREE.MeshStandardMaterial({
     color: 0x1a1418, metalness: 0.7, roughness: 0.4,
     emissive: new THREE.Color(0x8a1010), emissiveIntensity: 0.4,
@@ -230,6 +244,7 @@ export function buildPirate(seed = 1) {
   hardpoint.position.set(0, -0.35, 2.8);
   group.add(hardpoint);
 
+  enableShadows(group);
   return { group, nozzles: [nozzle], glowSprites: [glow], hardpoints: [hardpoint], boundingRadius: 3.5 };
 }
 
@@ -237,8 +252,7 @@ export function buildPirate(seed = 1) {
 export function buildPolice(seed = 1) {
   const group = new THREE.Group();
 
-  const { map, roughnessMap } = grungeHullTexture('#d0d3d4', '#1f3a60', 0.15, 80 + seed); // cleaner white/navy hull
-  const hullMat = new THREE.MeshStandardMaterial({ map, roughnessMap, metalness: 0.65, roughness: 0.4 });
+  const hullMat = hullMaterial('#d0d3d4', '#1f3a60', 0.15, 80 + seed, 0.65, 0.4); // cleaner white/navy hull
   const darkMat = new THREE.MeshStandardMaterial({ color: 0x111116, metalness: 0.8, roughness: 0.3 });
   const glassMat = new THREE.MeshStandardMaterial({
     color: 0x0a1a2a, metalness: 0.2, roughness: 0.15,
@@ -298,6 +312,7 @@ export function buildPolice(seed = 1) {
   hardpoint.position.set(0, -0.3, 2.2);
   group.add(hardpoint);
 
+  enableShadows(group);
   return { group, nozzles: [nozzle], glowSprites: [glow], hardpoints: [hardpoint], boundingRadius: 3.5 };
 }
 
@@ -313,8 +328,7 @@ export function buildCargoPod() {
 
 export function buildMediumPirate(seed = 1) {
   const group = new THREE.Group();
-  const { map, roughnessMap } = grungeHullTexture('#4d4232', '#9c5a1f', 0.85, 50 + seed);
-  const hullMat = new THREE.MeshStandardMaterial({ map, roughnessMap, metalness: 0.6, roughness: 0.5 });
+  const hullMat = hullMaterial('#4d4232', '#9c5a1f', 0.85, 50 + seed, 0.6, 0.5);
   const glassMat = new THREE.MeshStandardMaterial({
     color: 0x0a1a2a, metalness: 0.2, roughness: 0.15,
     emissive: new THREE.Color(0xdca12a), emissiveIntensity: 0.8,
@@ -354,13 +368,13 @@ export function buildMediumPirate(seed = 1) {
     hardpoints.push(hp);
   }
 
+  enableShadows(group);
   return { group, nozzles, glowSprites, hardpoints, boundingRadius: 4.8 };
 }
 
 export function buildHeavyPirate(seed = 1) {
   const group = new THREE.Group();
-  const { map, roughnessMap } = grungeHullTexture('#2f363f', '#7e2d2d', 0.9, 60 + seed);
-  const hullMat = new THREE.MeshStandardMaterial({ map, roughnessMap, metalness: 0.75, roughness: 0.45 });
+  const hullMat = hullMaterial('#2f363f', '#7e2d2d', 0.9, 60 + seed, 0.75, 0.45);
   const darkMat = new THREE.MeshStandardMaterial({ color: 0x121519, metalness: 0.85, roughness: 0.3 });
   const glassMat = new THREE.MeshStandardMaterial({
     color: 0x1f0505, metalness: 0.4, roughness: 0.1,
@@ -417,5 +431,6 @@ export function buildHeavyPirate(seed = 1) {
   group.add(mslHp);
   group.userData = { mslHp };
 
+  enableShadows(group);
   return { group, nozzles, glowSprites, hardpoints, boundingRadius: 6.2 };
 }

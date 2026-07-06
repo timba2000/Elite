@@ -1,3 +1,5 @@
+import { Graphics } from '../fx/Graphics.js';
+
 // Title screen + pause overlay.
 export class MenuUI {
   constructor(uiRoot) {
@@ -10,6 +12,7 @@ export class MenuUI {
       <button id="btn-new-cheat" class="clickable amber">New Game (Cheat)</button>
       <button id="btn-continue" class="clickable" style="display:none">Continue</button>
       <button id="btn-continue-cheat" class="clickable amber" style="display:none">Continue (Cheat)</button>
+      <button id="btn-gfx" class="clickable">Graphics: ${Graphics.label()}</button>
       <div class="controls">
         <b>MOUSE</b> steer &nbsp; <b>W/S</b> throttle &nbsp; <b>SHIFT</b> boost &nbsp; <b>Q/A</b> roll left &nbsp; <b>D</b> roll right &nbsp; <b>E</b> fire missile when locked<br>
         <b>SPACE / CLICK</b> fire laser &nbsp; <b>T</b> cycle target &nbsp; <b>X</b> deploy chaff &nbsp; <b>J</b> supercruise &nbsp; <b>F</b> request docking &nbsp; <b>G</b> galactic jump &nbsp; <b>V</b> view &nbsp; <b>M</b> mute &nbsp; <b>ESC</b> pause<br>
@@ -25,9 +28,21 @@ export class MenuUI {
       <h2>PAUSED</h2>
       <button id="btn-resume" class="clickable">Resume</button>
       <button id="btn-save" class="clickable">Save</button>
+      <button id="btn-gfx-pause" class="clickable">Graphics: ${Graphics.label()}</button>
       <button id="btn-quit" class="clickable">Quit to Menu</button>
     `;
     uiRoot.appendChild(this.pause);
+
+    // Graphics-quality cycler lives on both screens; the setting itself
+    // persists in localStorage and applies instantly via Graphics listeners.
+    const syncGfxLabels = () => {
+      const label = `Graphics: ${Graphics.label()}`;
+      this.menu.querySelector('#btn-gfx').textContent = label;
+      this.pause.querySelector('#btn-gfx-pause').textContent = label;
+    };
+    this.menu.querySelector('#btn-gfx').onclick = () => Graphics.cycle();
+    this.pause.querySelector('#btn-gfx-pause').onclick = () => Graphics.cycle();
+    Graphics.onChange(syncGfxLabels);
   }
 
   show({ hasSave, onNew, onNewCheat, onContinue, onContinueCheat }) {

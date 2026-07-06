@@ -20,7 +20,7 @@ export function radialGlowTexture(size = 128, inner = 'rgba(255,255,255,1)', out
 
 // Grungy hull texture: base color, panel lines, rust streaks, scorch blotches.
 // `wear` 0..1 controls how beat-up it looks (1 = rust bucket, 0 = fresh paint).
-// Returns { map, roughnessMap }.
+// Returns { map, roughnessMap, normalMap }.
 export function grungeHullTexture(baseColor = '#8a8d92', accentColor = '#b3552e', wear = 1, seed = 1) {
   const size = 512;
   const rnd = mulberry32(seed);
@@ -101,7 +101,68 @@ export function grungeHullTexture(baseColor = '#8a8d92', accentColor = '#b3552e'
   const rough = new THREE.CanvasTexture(rc);
   rough.wrapS = rough.wrapT = THREE.RepeatWrapping;
 
-  return { map, roughnessMap: rough };
+  // Normal map: treat the painted grunge as a height field (dark panel lines
+  // etch inward, rivets and scorch dip, patches stand proud) and Sobel it.
+  const normalMap = normalMapFromCanvas(c, 2.2);
+
+  return { map, roughnessMap: rough, normalMap };
+}
+
+// Derive a tangent-space normal map from a canvas, reading luminance as height.
+// One-time CPU cost per texture; gives PBR hulls real surface relief.
+export function normalMapFromCanvas(srcCanvas, strength = 2.0) {
+  const size = srcCanvas.width;
+  const src = srcCanvas.getContext('2d').getImageData(0, 0, size, size).data;
+  const height = new Float32Array(size * size);
+  for (let i = 0; i < size * size; i++) {
+    height[i] = (src[i * 4] * 0.299 + src[i * 4 + 1] * 0.587 + src[i * 4 + 2] * 0.114) / 255;
+  }
+
+  // 3×3 box blur first: single-pixel speckle in the paint would otherwise
+  // become per-pixel normals and read as glitter under specular light.
+  const raw = (x, y) => height[((y + size) % size) * size + ((x + size) % size)];
+  const blurred = new Float32Array(size * size);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      let sum = 0;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) sum += raw(x + dx, y + dy);
+      }
+      blurred[y * size + x] = sum / 9;
+    }
+  }
+
+  const nc = document.createElement('canvas');
+  nc.width = nc.height = size;
+  const nctx = nc.getContext('2d');
+  const out = nctx.createImageData(size, size);
+  const at = (x, y) => blurred[((y + size) % size) * size + ((x + size) % size)];
+
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      // Sobel gradients (wrapping edges — textures repeat)
+      const gx =
+        at(x - 1, y - 1) + 2 * at(x - 1, y) + at(x - 1, y + 1) -
+        at(x + 1, y - 1) - 2 * at(x + 1, y) - at(x + 1, y + 1);
+      const gy =
+        at(x - 1, y - 1) + 2 * at(x, y - 1) + at(x + 1, y - 1) -
+        at(x - 1, y + 1) - 2 * at(x, y + 1) - at(x + 1, y + 1);
+      const nx = gx * strength;
+      const ny = gy * strength;
+      const nz = 1.0;
+      const inv = 1 / Math.sqrt(nx * nx + ny * ny + nz * nz);
+      const o = (y * size + x) * 4;
+      out.data[o] = Math.round((nx * inv * 0.5 + 0.5) * 255);
+      out.data[o + 1] = Math.round((ny * inv * 0.5 + 0.5) * 255);
+      out.data[o + 2] = Math.round((nz * inv * 0.5 + 0.5) * 255);
+      out.data[o + 3] = 255;
+    }
+  }
+  nctx.putImageData(out, 0, 0);
+
+  const tex = new THREE.CanvasTexture(nc);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  return tex;
 }
 
 export function mulberry32(a) {

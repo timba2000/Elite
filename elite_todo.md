@@ -232,14 +232,16 @@ recruit the best ones, and grow from a lone pilot into a small trading company.
 - [x] **Stats screen** — credits earned, profit per commodity, pirates killed, distance flown
       — *shipped in the Pilot tab; per-commodity profit breakdown still open*
 - [ ] **Tutorial / first-launch hints** — guided first trade run
-- [ ] **Settings** — volume, graphics quality (bloom toggle), key rebinding
+- [ ] **Settings** — volume, graphics quality (bloom toggle), key rebinding — *graphics
+      quality shipped as the three-tier Low/Standard/Photoreal setting on the title and
+      pause menus (§10); volume and key rebinding still open*
 - [ ] **Gamepad support**
 - [x] **Audio** — engine hum, laser sfx, dock ambience, dynamic music (calm ↔ combat)
       — *procedural sfx shipped; dynamic music still open*
 
 ## 10. Visual fidelity
 
-- [ ] **Photoreal rendering pass** — push the Three.js scene toward cinematic realism:
+- [x] **Photoreal rendering pass** — push the Three.js scene toward cinematic realism:
       PBR hull materials with normal/roughness maps on ships and stations, an HDR
       nebula skybox with believable star colour temperatures, planet shaders with
       atmospheric scattering, rolling cloud layers, and night-side city lights, plus
@@ -247,7 +249,13 @@ recruit the best ones, and grow from a lone pilot into a small trading company.
       stack (PostFX already runs ACES + bloom, so the pipeline is ready). Gate the
       heavy passes behind the graphics-quality setting (§9) so low-end machines keep
       the current look — a world this convincing makes every trade run, docking
-      approach, and dogfight more compelling to sit in.
+      approach, and dogfight more compelling to sit in. — *shipped behind the
+      Low/Standard/Photoreal setting: baked normal maps + nebula env reflections on
+      every hull, HDR nebula with blackbody hero stars, scattering atmospheres with
+      sunset terminators, rolling cloud decks, ocean sun-glint, drifting gas-giant
+      bands, sun-tracking soft shadows, SSAO, screen-space god-rays, anamorphic lens
+      flare, film grain and vignette; Standard keeps the classic bloom-only look and
+      Low drops post entirely*
 
 ---
 

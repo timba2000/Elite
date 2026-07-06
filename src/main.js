@@ -22,6 +22,7 @@ import { FlightState } from './state/FlightState.js';
 import { DockingState } from './state/DockingState.js';
 import { StationState } from './state/StationState.js';
 import { Sfx } from './audio/Sfx.js';
+import { Graphics } from './fx/Graphics.js';
 
 class Game {
   constructor() {
@@ -31,6 +32,9 @@ class Game {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    // soft shadows only cost when the photo-tier shadow light is active
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
     document.getElementById('app').appendChild(this.renderer.domElement);
 
     this.scene = new THREE.Scene();
@@ -49,7 +53,12 @@ class Game {
     window.addEventListener('keydown', unlock);
 
     // world + shared FX
-    this.world = new WorldScene(this.scene);
+    this.world = new WorldScene(this.scene, this.renderer);
+    // graphics-quality changes (menu/pause button) apply live
+    Graphics.onChange(() => {
+      this.postfx.setQuality(Graphics.quality);
+      this.world.setQuality();
+    });
     this.particles = new ParticleSystem(this.scene, 900);
     this.laserPool = new LaserPool(this.scene);
     this.laserPool.sfx = this.sfx;
@@ -169,6 +178,8 @@ class Game {
     const dt = Math.min(0.05, this.clock.getDelta());
     this.sm.update(dt);
     this.input.consume();
+    const sun = this.world.suns[0];
+    if (sun) this.postfx.update(dt, sun.group.position, sun.light.color);
     this.postfx.render();
   }
 }

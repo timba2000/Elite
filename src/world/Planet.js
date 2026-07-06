@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { Graphics } from '../fx/Graphics.js';
 
 const NOISE_GLSL = /* glsl */`
   float hash(vec3 p) {
@@ -47,19 +48,25 @@ export class Planet {
         uSeed: { value: def.seed * 7.31 },
         uGas: { value: def.gas ? 1.0 : 0.0 },
         uCity: { value: def.inhabited ? 1.0 : 0.0 },
+        uTime: { value: 0 },
+        uQuality: { value: Graphics.photo ? 1.0 : 0.0 },
       },
       vertexShader: /* glsl */`
         varying vec3 vNormalW;
         varying vec3 vNormalO;
+        varying vec3 vPosW;
         void main() {
           vNormalO = normalize(position);
           vNormalW = normalize(mat3(modelMatrix) * normal);
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          vec4 wp = modelMatrix * vec4(position, 1.0);
+          vPosW = wp.xyz;
+          gl_Position = projectionMatrix * viewMatrix * wp;
         }
       `,
       fragmentShader: NOISE_GLSL + /* glsl */`
         varying vec3 vNormalW;
         varying vec3 vNormalO;
+        varying vec3 vPosW;
         uniform vec3 uSunDir;
         uniform vec3 uOcean;
         uniform vec3 uLand;
@@ -67,15 +74,20 @@ export class Planet {
         uniform float uSeed;
         uniform float uGas;
         uniform float uCity;
+        uniform float uTime;
+        uniform float uQuality;
 
         void main() {
           vec3 p = vNormalO;
           vec3 col;
+          float oceanMask = 0.0;
 
           if (uGas > 0.5) {
-            // Banded gas giant: stretch noise along y
-            float bands = fbm(vec3(p.x * 1.5, p.y * 7.0 + uSeed, p.z * 1.5));
-            float swirl = fbm(p * 3.0 + vec3(uSeed));
+            // Banded gas giant: stretch noise along y; photo tier lets the
+            // storms crawl slowly so the bands feel like weather, not paint.
+            float drift = uTime * 0.006 * uQuality;
+            float bands = fbm(vec3(p.x * 1.5 + drift, p.y * 7.0 + uSeed, p.z * 1.5));
+            float swirl = fbm(p * 3.0 + vec3(uSeed + drift * 2.0));
             float t = fract(p.y * 3.5 + bands * 0.6 + swirl * 0.2);
             col = mix(uOcean, uLand, smoothstep(0.2, 0.5, t));
             col = mix(col, uHigh, smoothstep(0.75, 0.95, bands));
@@ -83,6 +95,7 @@ export class Planet {
             float terrain = fbm(p * 3.5 + vec3(uSeed));
             float detail = fbm(p * 9.0 + vec3(uSeed * 2.7));
             float h = terrain * 0.75 + detail * 0.25;
+            oceanMask = 1.0 - smoothstep(0.40, 0.46, h);
             col = mix(uOcean, uLand, smoothstep(0.42, 0.55, h));
             col = mix(col, uHigh, smoothstep(0.62, 0.78, h));
             // polar caps
@@ -94,6 +107,15 @@ export class Planet {
           float daylight = clamp(dot(normalize(vNormalW), normalize(uSunDir)), -1.0, 1.0);
           float lit = smoothstep(-0.12, 0.25, daylight);
           vec3 dayCol = col * (0.15 + 0.95 * max(daylight, 0.0));
+
+          // photo tier: sun glint off oceans — a tight specular lobe that
+          // tracks the camera, the single biggest "that's a real planet" cue
+          if (uQuality > 0.5 && oceanMask > 0.01) {
+            vec3 viewDir = normalize(cameraPosition - vPosW);
+            vec3 refl = reflect(-normalize(uSunDir), normalize(vNormalW));
+            float spec = pow(max(dot(refl, viewDir), 0.0), 90.0);
+            dayCol += vec3(1.0, 0.95, 0.8) * spec * oceanMask * lit * 1.4;
+          }
 
           // night side city lights
           float cities = 0.0;
@@ -121,6 +143,7 @@ export class Planet {
       uniforms: {
         uColor: { value: new THREE.Color(def.atmosphere) },
         uSunDir: { value: new THREE.Vector3(1, 0, 0) },
+        uQuality: { value: Graphics.photo ? 1.0 : 0.0 },
       },
       vertexShader: /* glsl */`
         varying vec3 vNormalW;
@@ -137,12 +160,27 @@ export class Planet {
         varying vec3 vPosW;
         uniform vec3 uColor;
         uniform vec3 uSunDir;
+        uniform float uQuality;
         void main() {
           vec3 viewDir = normalize(cameraPosition - vPosW);
           // BackSide: normals face away; use -normal for rim math
-          float rim = pow(1.0 - abs(dot(viewDir, normalize(-vNormalW))), 3.0);
-          float sun = 0.35 + 0.65 * max(dot(normalize(-vNormalW), normalize(uSunDir)), 0.0);
-          gl_FragColor = vec4(uColor * rim * sun * 1.4, rim);
+          vec3 n = normalize(-vNormalW);
+          float rimPow = mix(3.0, 2.3, uQuality); // photo: thicker haze band
+          float rim = pow(1.0 - abs(dot(viewDir, n)), rimPow);
+          float sunDot = dot(n, normalize(uSunDir));
+          float sun = 0.35 + 0.65 * max(sunDot, 0.0);
+
+          vec3 atmoCol = uColor;
+          if (uQuality > 0.5) {
+            // Rayleigh-ish scattering: the day limb cools toward blue-shifted
+            // sky colour, the terminator burns warm like a sunset ring.
+            vec3 daySky = mix(uColor, vec3(0.45, 0.65, 1.0), 0.35);
+            vec3 sunset = vec3(1.0, 0.42, 0.18);
+            float term = smoothstep(0.32, 0.0, abs(sunDot));
+            atmoCol = mix(daySky, sunset, term * 0.85);
+          }
+
+          gl_FragColor = vec4(atmoCol * rim * sun * 1.4, rim);
         }
       `,
     });
@@ -151,6 +189,56 @@ export class Planet {
 
     this.surfMat = surfMat;
     this.atmoMat = atmoMat;
+
+    // Photo tier: rolling cloud deck between surface and atmosphere shell.
+    // Domain-warped fbm drifting on its own clock, lit by the same terminator.
+    this.clouds = null;
+    this.cloudMat = null;
+    if (!def.gas) {
+      const cloudMat = new THREE.ShaderMaterial({
+        transparent: true,
+        depthWrite: false,
+        uniforms: {
+          uSunDir: { value: new THREE.Vector3(1, 0, 0) },
+          uSeed: { value: def.seed * 3.77 },
+          uTime: { value: 0 },
+        },
+        vertexShader: /* glsl */`
+          varying vec3 vNormalW;
+          varying vec3 vNormalO;
+          void main() {
+            vNormalO = normalize(position);
+            vNormalW = normalize(mat3(modelMatrix) * normal);
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: NOISE_GLSL + /* glsl */`
+          varying vec3 vNormalW;
+          varying vec3 vNormalO;
+          uniform vec3 uSunDir;
+          uniform float uSeed;
+          uniform float uTime;
+          void main() {
+            vec3 p = vNormalO;
+            // slow domain warp = weather systems churning, not a static shell
+            vec3 q = p * 3.6 + vec3(uSeed, uTime * 0.004, uTime * 0.0027);
+            float warp = fbm(q * 1.7 + vec3(uTime * 0.006));
+            float c = fbm(q + warp * 0.7);
+            float coverage = smoothstep(0.46, 0.66, c);
+
+            float daylight = clamp(dot(normalize(vNormalW), normalize(uSunDir)), -1.0, 1.0);
+            float lit = smoothstep(-0.12, 0.25, daylight);
+            vec3 dayCol = vec3(1.0) * (0.2 + 0.9 * max(daylight, 0.0));
+            vec3 nightCol = vec3(0.02, 0.025, 0.035);
+            gl_FragColor = vec4(mix(nightCol, dayCol, lit), coverage * 0.85);
+          }
+        `,
+      });
+      this.cloudMat = cloudMat;
+      this.clouds = new THREE.Mesh(new THREE.SphereGeometry(def.radius * 1.018, 48, 48), cloudMat);
+      this.clouds.visible = Graphics.photo;
+      this.group.add(this.clouds);
+    }
 
     this.moons = [];
     if (def.moons) {
@@ -177,11 +265,26 @@ export class Planet {
     }
   }
 
+  setQuality() {
+    const photo = Graphics.photo ? 1.0 : 0.0;
+    this.surfMat.uniforms.uQuality.value = photo;
+    this.atmoMat.uniforms.uQuality.value = photo;
+    if (this.clouds) this.clouds.visible = Graphics.photo;
+  }
+
   update(dt, sunPos) {
     this.surface.rotation.y += this.spinRate * dt;
     const dir = sunPos.clone().sub(this.group.position).normalize();
     this.surfMat.uniforms.uSunDir.value.copy(dir);
     this.atmoMat.uniforms.uSunDir.value.copy(dir);
+    this.surfMat.uniforms.uTime.value += dt;
+
+    if (this.clouds && this.clouds.visible) {
+      // clouds shear against the surface spin so the deck visibly rolls
+      this.clouds.rotation.y += this.spinRate * 0.75 * dt;
+      this.cloudMat.uniforms.uSunDir.value.copy(dir);
+      this.cloudMat.uniforms.uTime.value += dt;
+    }
 
     for (const m of this.moons) {
       m.group.rotation.y += m.orbitSpeed * dt;

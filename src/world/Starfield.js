@@ -10,11 +10,20 @@ export class Starfield {
     const colors = new Float32Array(count * 2 * 3);
     const warpDir = new Float32Array(count * 2);
 
+    // Blackbody tints by stellar class, weighted toward the common cool stars
+    // (M/K dwarfs) with rarer hot blue-white giants — believable sky census.
     const palette = [
-      [1.0, 1.0, 1.0],
-      [0.75, 0.85, 1.0],
-      [1.0, 0.9, 0.75],
-      [1.0, 0.75, 0.6],
+      [1.0, 0.60, 0.40],  // M — orange-red
+      [1.0, 0.60, 0.40],
+      [1.0, 0.60, 0.40],
+      [1.0, 0.77, 0.56],  // K — orange
+      [1.0, 0.77, 0.56],
+      [1.0, 0.92, 0.78],  // G — yellow-white
+      [1.0, 0.92, 0.78],
+      [1.0, 0.98, 0.92],  // F — warm white
+      [1.0, 1.0, 1.0],    // A — white
+      [0.76, 0.84, 1.0],  // B — blue-white
+      [0.62, 0.72, 1.0],  // O — blue
     ];
 
     for (let i = 0; i < count; i++) {

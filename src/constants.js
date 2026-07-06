@@ -7,6 +7,12 @@ export const C = {
   BLOOM_STRENGTH: 0.9,
   BLOOM_RADIUS: 0.5,
   BLOOM_THRESHOLD: 0.85,
+  // SSAO (photo tier). Distances are fractions of the near→far depth range
+  // (far is 120000, so 0.0005 ≈ 60 world units); radius is in world units,
+  // sized for cockpit/station geometry.
+  SSAO_KERNEL_RADIUS: 3,
+  SSAO_MIN_DISTANCE: 0.00001,
+  SSAO_MAX_DISTANCE: 0.0005,
 
   // Flight
   BASE_SPEED: 40,

@@ -14,8 +14,11 @@ export class Station {
     offset.y += 40;
     this.group.position.copy(planetDef.position).add(offset);
 
-    const { map, roughnessMap } = grungeHullTexture('#7a7d85', '#8a5a3a', 0.6, 100 + index);
-    const hullMat = new THREE.MeshStandardMaterial({ map, roughnessMap, metalness: 0.55, roughness: 0.7 });
+    const { map, roughnessMap, normalMap } = grungeHullTexture('#7a7d85', '#8a5a3a', 0.6, 100 + index);
+    const hullMat = new THREE.MeshStandardMaterial({
+      map, roughnessMap, normalMap, normalScale: new THREE.Vector2(0.7, 0.7),
+      metalness: 0.55, roughness: 0.7,
+    });
     const darkMat = new THREE.MeshStandardMaterial({ color: 0x2a2d33, metalness: 0.6, roughness: 0.6 });
 
     // Ring
@@ -106,6 +109,12 @@ export class Station {
     this.dockingPoint = new THREE.Object3D();
     this.dockingPoint.position.set(0, 0, 10);
     this.group.add(this.dockingPoint);
+
+    // Cast/receive the photo-tier sun shadows (spokes across the ring, the
+    // doors shading the docking tunnel).
+    this.group.traverse((o) => {
+      if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; }
+    });
 
     this.group.scale.setScalar(2.2); // stations read better a bit bigger
     this.time = 0;

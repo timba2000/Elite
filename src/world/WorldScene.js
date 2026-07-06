@@ -5,10 +5,11 @@ import { Nebula } from './Nebula.js';
 import { Sun } from './Sun.js';
 import { Planet } from './Planet.js';
 import { Station } from './Station.js';
+import { Graphics } from '../fx/Graphics.js';
 
 // Builds and owns everything in the star system.
 export class WorldScene {
-  constructor(scene) {
+  constructor(scene, renderer) {
     this.scene = scene;
 
     this.nebula = new Nebula();
@@ -20,10 +21,51 @@ export class WorldScene {
     scene.add(new THREE.AmbientLight(0x1a2030, 0.7));
     scene.add(new THREE.HemisphereLight(0x303a50, 0x14100c, 0.5));
 
+    // Photo tier: a sun-tracking directional light whose only job is soft
+    // shadows on ships and stations near the player (an orthographic shadow
+    // box follows the camera — point-light shadows can't span a star system).
+    this.shadowLight = new THREE.DirectionalLight(0xfff2e0, 0.7);
+    this.shadowLight.castShadow = true;
+    this.shadowLight.shadow.mapSize.set(2048, 2048);
+    const sc = this.shadowLight.shadow.camera;
+    sc.near = 1; sc.far = 1000;
+    sc.left = -80; sc.right = 80; sc.top = 80; sc.bottom = -80;
+    this.shadowLight.shadow.bias = -0.0003;
+    this.shadowLight.shadow.normalBias = 1.5; // hulls are thick; kills acne
+    this.shadowLight.visible = Graphics.photo;
+    scene.add(this.shadowLight);
+    scene.add(this.shadowLight.target);
+
+    // One-time PMREM capture of the nebula sky: gives every PBR hull real
+    // reflections (space, not a void) at zero per-frame cost.
+    if (renderer) this.buildEnvironment(renderer);
+
     this.suns = [];
     this.planets = [];
     this.stations = [];
     this.rebuild();
+  }
+
+  buildEnvironment(renderer) {
+    const envScene = new THREE.Scene();
+    const envNebula = new Nebula(100);
+    // base-quality sky only: the photo tier's HDR hero stars would reflect
+    // off smooth panel lines as a storm of specular glints
+    envNebula.mat.uniforms.uQuality.value = 0.0;
+    envScene.add(envNebula.mesh);
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    const rt = pmrem.fromScene(envScene, 0.035, 1, 1000);
+    this.scene.environment = rt.texture;
+    this.scene.environmentIntensity = 0.35;
+    pmrem.dispose();
+    envNebula.mesh.geometry.dispose();
+    envNebula.mat.dispose();
+  }
+
+  setQuality() {
+    this.nebula.setQuality();
+    for (const p of this.planets) p.setQuality();
+    this.shadowLight.visible = Graphics.photo;
   }
 
   rebuild() {
@@ -92,5 +134,13 @@ export class WorldScene {
     const sunPos = this.suns[0]?.group.position || new THREE.Vector3(0, 0, 0);
     for (const p of this.planets) p.update(dt, sunPos);
     for (const s of this.stations) s.update(dt);
+
+    // keep the shadow box centred on the action, lit from the sun's bearing
+    if (this.shadowLight.visible) {
+      const sunDir = sunPos.clone().sub(cameraPos).normalize();
+      this.shadowLight.position.copy(cameraPos).addScaledVector(sunDir, 500);
+      this.shadowLight.target.position.copy(cameraPos);
+      this.shadowLight.target.updateMatrixWorld();
+    }
   }
 }
