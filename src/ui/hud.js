@@ -42,7 +42,6 @@ export class Hud {
       <div class="crosshair"><div class="dot"></div><div class="lock-label"></div></div>
       <div class="hud-prompt"></div>
       <div id="toasts"></div>
-      <div class="offscreen-arrow" style="display:none"></div>
       <div id="combat-indicators"></div>
       <div id="damage-flash"></div>
       <div id="warp-flash"></div>
@@ -82,7 +81,6 @@ export class Hud {
     this.tdist = this.$('.tdist');
     this.promptEl = this.$('.hud-prompt');
     this.toasts = this.$('#toasts');
-    this.arrow = this.$('.offscreen-arrow');
     this.flashEl = this.$('#damage-flash');
     this.warpFlashEl = this.$('#warp-flash');
     this.fadeEl = this.$('#fade-overlay');
@@ -196,7 +194,6 @@ export class Hud {
     }
 
     this.drawRadar(ship, target, pirates, police, pods);
-    this.updateArrow(ship, target, camera);
     this.updateCombatIndicators(ship, camera, pirates, police, lockState, lockTarget);
 
     // damage flash decay
@@ -332,24 +329,6 @@ export class Hud {
     ctx.beginPath();
     ctx.moveTo(cx, cy - 4); ctx.lineTo(cx - 3, cy + 3); ctx.lineTo(cx + 3, cy + 3);
     ctx.closePath(); ctx.fill();
-  }
-
-  updateArrow(ship, target, camera) {
-    if (!target || !camera) { this.arrow.style.display = 'none'; return; }
-    _ndc.copy(target.object.position).project(camera);
-    const onScreen = _ndc.z < 1 && Math.abs(_ndc.x) < 0.95 && Math.abs(_ndc.y) < 0.92;
-    if (onScreen) { this.arrow.style.display = 'none'; return; }
-
-    let dx = _ndc.x, dy = -_ndc.y;
-    if (_ndc.z > 1) { dx = -dx; dy = -dy; }
-    const len = Math.hypot(dx, dy) || 1;
-    dx /= len; dy /= len;
-    const margin = 0.86;
-    const sx = (dx * margin * 0.5 + 0.5) * window.innerWidth;
-    const sy = (dy * margin * 0.5 + 0.5) * window.innerHeight;
-    const ang = (Math.atan2(dy, dx) * 180) / Math.PI + 90;
-    this.arrow.style.display = 'block';
-    this.arrow.style.transform = `translate(${sx}px, ${sy}px) rotate(${ang}deg)`;
   }
 
   updateCombatIndicators(ship, camera, pirates = [], police = [], lockState = 'none', lockTarget = null) {
