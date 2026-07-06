@@ -295,6 +295,23 @@ export class EncounterManager {
     }
   }
 
+  // A dirty cargo scan scrambles interceptors from the station. No remote
+  // confiscation — they only get the goods if they blow you apart first.
+  spawnContrabandBust(station, player) {
+    const galaxy = this.playerData.galaxy ?? 1;
+    const scale = (1 + this.playerData.netWorthFactor() * 0.8) * (1.0 + (galaxy - 1) * 0.35);
+    const notoriety = this.playerData.notoriety || 0;
+    const count = Math.min(4 - this.police.length, 2 + Math.floor(notoriety / 50));
+
+    const stationNormal = new THREE.Vector3(0, 0, 1).applyQuaternion(station.group.quaternion).normalize();
+    for (let i = 0; i < count; i++) {
+      const spawnPos = station.group.position.clone().addScaledVector(stationNormal, 70);
+      _rand.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(40);
+      spawnPos.add(_rand);
+      this.police.push(new Police(this.scene, spawnPos, scale));
+    }
+  }
+
   spawnStationSecurity(station, player) {
     const galaxy = this.playerData.galaxy ?? 1;
     const scale = (1 + this.playerData.netWorthFactor() * 0.8) * (1.0 + (galaxy - 1) * 0.35);

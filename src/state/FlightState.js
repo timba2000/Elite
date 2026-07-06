@@ -18,6 +18,12 @@ const _shake = new THREE.Vector3();
 const _dockPos = new THREE.Vector3();
 const _dockN = new THREE.Vector3();
 const _dockRel = new THREE.Vector3();
+const _stInvQ = new THREE.Quaternion();
+const _stLocal = new THREE.Vector3();
+const _stPrev = new THREE.Vector3();
+const _stSample = new THREE.Vector3();
+const _stHitN = new THREE.Vector3();
+const _stHitP = new THREE.Vector3();
 // camera looks down -Z but ship forward is +Z; rotate 180° about Y to face forward
 const _FLIP_Y = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
 
@@ -327,7 +333,7 @@ export class FlightState {
       ship.updateSystems(dt);
     }
 
-    this.keepOutOfBodies();
+    this.keepOutOfBodies(dt);
 
     // ---------- police contraband scans near stations ----------
     if (this.mode === 'manual') this.updateCargoScan(dt);
@@ -739,6 +745,12 @@ export class FlightState {
     this.mode = 'dead';
     this.deathTimer = 2.4;
     g.ui.hud.toast('SHIP DESTROYED', 'warn');
+
+    // shot down with contraband aboard: the police claim their seizure
+    const narcs = g.playerData.cargo.narcotics || 0;
+    if (narcs > 0 && g.encounters.police.some((p) => p.alive)) {
+      setTimeout(() => g.ui.hud.toast(`CONTRABAND SEIZED — ${narcs}x NARCOTICS CONFISCATED BY POLICE`, 'warn'), 900);
+    }
   }
 
   respawn() {
@@ -898,7 +910,8 @@ export class FlightState {
   }
 
   // Entering a station's approach zone with narcotics risks a police sweep.
-  // The scan resolves a few seconds later; docking first is the escape route.
+  // A dirty scan dispatches interceptors — they have to shoot you down to
+  // seize the cargo. Docking or outrunning them keeps it yours.
   updateCargoScan(dt) {
     const g = this.game;
     let near = null;
@@ -928,18 +941,10 @@ export class FlightState {
       g.ui.hud.toast('SCAN COMPLETE — CARGO CLEAN', 'gold');
       return;
     }
-    pd.removeCargo('narcotics', narcs);
-    const fine = narcs * 840; // 2x base value per unit
-    pd.credits = Math.max(0, pd.credits - fine);
     pd.notoriety = Math.min(100, (pd.notoriety || 0) + 10);
-    g.ui.hud.toast(`CONTRABAND SEIZED — ${narcs}x NARCOTICS CONFISCATED`, 'warn');
-    setTimeout(() => g.ui.hud.toast(`FINE −${fine.toLocaleString()} CR · NOTORIETY +10`, 'warn'), 900);
-
-    const blown = pd.missions.filter((m) => m.type === 'smuggle');
-    if (blown.length) {
-      pd.missions = pd.missions.filter((m) => m.type !== 'smuggle');
-      setTimeout(() => g.ui.hud.toast('SMUGGLING CONTRACT BLOWN — CARGO SEIZED', 'warn'), 1800);
-    }
+    g.ui.hud.toast(`CONTRABAND DETECTED — ${narcs}x NARCOTICS · NOTORIETY +10`, 'warn');
+    setTimeout(() => g.ui.hud.toast('POLICE MOVING TO INTERCEPT — DOCK OR OUTRUN THEM', 'warn'), 900);
+    g.encounters.spawnContrabandBust(near, g.ship);
   }
 
   nearestDockableStation() {
@@ -1067,7 +1072,7 @@ export class FlightState {
   }
 
   // soft push-out so you can't fly inside the sun or planets, with collision damage and supercruise dropout
-  keepOutOfBodies() {
+  keepOutOfBodies(dt) {
     const g = this.game;
     const ship = g.ship;
     const pos = ship.group.position;
@@ -1131,47 +1136,130 @@ export class FlightState {
       }
     }
 
-    // Station collision check
+    // Station collision: per-part shapes matching the visual model, so the
+    // open space in front of the hub and between hub and ring is flyable
     for (const st of g.world.stations) {
-      const d = pos.distanceTo(st.group.position);
-      const collRadius = 38;
-      if (d < collRadius) {
-        // Check if inside the docking tunnel corridor
-        const rel = pos.clone().sub(st.group.position);
-        const invQ = st.group.quaternion.clone().invert();
-        const localRel = rel.clone().applyQuaternion(invQ);
-        
-        const lateralDist = Math.hypot(localRel.x, localRel.y);
-        const insideCorridor = lateralDist < 8.5 && localRel.z > -6.2;
-        
-        if (!insideCorridor) {
-          // Push out and bounce
-          const N = rel.clone().normalize();
-          pos.copy(st.group.position).addScaledVector(N, collRadius + 1);
-          
-          const impactSpeed = -ship.velocity.dot(N);
-          ship.velocity.addScaledVector(N, -2 * ship.velocity.dot(N)).multiplyScalar(0.4);
-          
-          if (this.mode === 'super') {
-            this.mode = 'manual';
-            this.superSpeed = 0;
-            ship.velocity.clampLength(0, ship.stats.maxSpeed);
-            ship.throttle = 0.3;
-            g.sfx.play('superDrop');
-            g.ui.hud.toast('DROPPED OUT — COLLISION WITH STATION', 'warn');
-          }
-          
-          const dmg = Math.max(0, impactSpeed - C.DOCK_SAFE_SPEED) * C.DOCK_BOUNCE_DAMAGE + 8;
-          g.ui.hud.toast('STATION COLLISION!', 'warn');
-          
-          g.ui.hud.damageFlash();
-          const { destroyed, hullHit } = ship.takeDamage(dmg);
-          g.sfx.play(hullHit ? 'hitHull' : 'hitShield');
-          this.shakeT = Math.max(this.shakeT, 0.5);
-          if (destroyed) { this.die(); return; }
+      if (this.collideStation(st, dt)) return; // ship destroyed
+    }
+  }
+
+  // Tests a point (station-local units, group scale divided out) against the
+  // station's parts: hollow hub box, ring torus, four radial spokes. On hit,
+  // writes the push-out position to _stHitP and the surface normal to _stHitN
+  // (both station-local) and returns true.
+  stationHitTest(st, p) {
+    const R = 0.9; // ship hull clearance radius in station-local units
+
+    // Hollow hub: walls out to x ±3.05 / y ±2.25, rear wall base z −3.0,
+    // doors at z 3.1 (front face 3.225); aperture opening 2.25 × 1.45
+    const hx = 3.05 + R, hy = 2.25 + R;
+    const hzMin = -3.0 - R, hzMax = 3.35 + R;
+    if (Math.abs(p.x) < hx && Math.abs(p.y) < hy && p.z > hzMin && p.z < hzMax) {
+      // with clearance at this station, tryDockCapture owns face contact —
+      // it docks a clean entry and bounces the rest with a readable reason
+      if (this.clearance === st && p.z > 1.6) return false;
+      const inAperture = Math.abs(p.x) < 2.25 && Math.abs(p.y) < 1.45;
+      if (inAperture) {
+        if (p.z < -2.6 + R) { // rear wall — bounce back to whichever side the ship is on
+          const front = p.z > -2.8;
+          _stHitN.set(0, 0, front ? 1 : -1);
+          _stHitP.set(p.x, p.y, front ? -2.6 + R + 0.05 : hzMin - 0.05);
+          return true;
         }
+        if (st.doorOpenFactor < 0.9 && p.z < 3.225 + R) { // closed doors
+          _stHitN.set(0, 0, 1);
+          _stHitP.set(p.x, p.y, 3.225 + R + 0.05);
+          return true;
+        }
+        return false; // open tunnel — free space
+      }
+      // solid wall: push out through the nearest box face
+      const dxp = hx - p.x, dxn = p.x + hx;
+      const dyp = hy - p.y, dyn = p.y + hy;
+      const dzp = hzMax - p.z, dzn = p.z - hzMin;
+      const minPen = Math.min(dxp, dxn, dyp, dyn, dzp, dzn);
+      _stHitP.copy(p);
+      if (minPen === dxp)      { _stHitN.set(1, 0, 0);  _stHitP.x = hx + 0.05; }
+      else if (minPen === dxn) { _stHitN.set(-1, 0, 0); _stHitP.x = -hx - 0.05; }
+      else if (minPen === dyp) { _stHitN.set(0, 1, 0);  _stHitP.y = hy + 0.05; }
+      else if (minPen === dyn) { _stHitN.set(0, -1, 0); _stHitP.y = -hy - 0.05; }
+      else if (minPen === dzp) { _stHitN.set(0, 0, 1);  _stHitP.z = hzMax + 0.05; }
+      else                     { _stHitN.set(0, 0, -1); _stHitP.z = hzMin - 0.05; }
+      return true;
+    }
+
+    // Ring torus: centre circle radius 14 in the z=0 plane, tube radius 3.2
+    const rr = Math.hypot(p.x, p.y);
+    const ringDist = Math.hypot(rr - 14, p.z);
+    if (ringDist < 3.2 + R) {
+      const inv = rr > 1e-6 ? 14 / rr : 0;
+      const cx = p.x * inv, cy = p.y * inv; // nearest point on the centre circle
+      _stHitN.set(p.x - cx, p.y - cy, p.z);
+      if (_stHitN.lengthSq() < 1e-9) _stHitN.set(0, 0, 1);
+      _stHitN.normalize();
+      _stHitP.set(cx, cy, 0).addScaledVector(_stHitN, 3.2 + R + 0.05);
+      return true;
+    }
+
+    // Four radial spokes along local ±x/±y between hub and ring, in the ring
+    // plane; a crossing ship is deflected out of the plane
+    if (Math.abs(p.z) < 0.8 + R && rr > 2.8 && rr < 11.2) {
+      if (Math.abs(p.y) < 0.8 + R || Math.abs(p.x) < 0.8 + R) {
+        _stHitN.set(0, 0, p.z >= 0 ? 1 : -1);
+        _stHitP.set(p.x, p.y, _stHitN.z * (0.8 + R + 0.05));
+        return true;
       }
     }
+    return false;
+  }
+
+  // Swept station collision — samples this frame's motion so the thin ring
+  // and hub walls can't be tunnelled through at speed. Returns true if the
+  // ship was destroyed.
+  collideStation(st, dt) {
+    const g = this.game;
+    const ship = g.ship;
+    const pos = ship.group.position;
+    const scale = st.group.scale.x;
+
+    const travel = ship.velocity.length() * dt;
+    // broad phase: ring outer edge is 17.2 local (~38 world) plus margin
+    if (pos.distanceTo(st.group.position) > 18.5 * scale + travel) return false;
+
+    _stInvQ.copy(st.group.quaternion).invert();
+    _stPrev.copy(pos).addScaledVector(ship.velocity, -dt);
+    const steps = Math.min(64, Math.max(1, Math.ceil(travel / 3)));
+    let hit = false;
+    for (let i = 1; i <= steps && !hit; i++) {
+      _stSample.copy(_stPrev).lerp(pos, i / steps);
+      _stLocal.copy(_stSample).sub(st.group.position).applyQuaternion(_stInvQ).divideScalar(scale);
+      hit = this.stationHitTest(st, _stLocal);
+    }
+    if (!hit) return false;
+
+    const N = _stHitN.applyQuaternion(st.group.quaternion).normalize();
+    pos.copy(_stHitP).multiplyScalar(scale).applyQuaternion(st.group.quaternion).add(st.group.position);
+
+    if (this.mode === 'super') {
+      this.mode = 'manual';
+      this.superSpeed = 0;
+      ship.velocity.clampLength(0, ship.stats.maxSpeed);
+      ship.throttle = 0.3;
+      g.sfx.play('superDrop');
+      g.ui.hud.toast('DROPPED OUT — COLLISION WITH STATION', 'warn');
+    }
+
+    const impactSpeed = -ship.velocity.dot(N);
+    ship.velocity.addScaledVector(N, -2 * ship.velocity.dot(N)).multiplyScalar(0.4);
+
+    const dmg = Math.max(0, impactSpeed - C.DOCK_SAFE_SPEED) * C.DOCK_BOUNCE_DAMAGE + 8;
+    g.ui.hud.toast('STATION COLLISION!', 'warn');
+    g.ui.hud.damageFlash();
+    const { destroyed, hullHit } = ship.takeDamage(dmg);
+    g.sfx.play(hullHit ? 'hitHull' : 'hitShield');
+    this.shakeT = Math.max(this.shakeT, 0.5);
+    if (destroyed) { this.die(); return true; }
+    return false;
   }
 
   // ---------- camera ----------
