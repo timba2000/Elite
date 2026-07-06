@@ -25,7 +25,8 @@ export class PlayerData {
     this.level = 1;
     this.skillPoints = 0;
     this.skills = { piloting: 0, gunnery: 0, trade: 0 };
-    this.career = { creditsEarned: 0, piratesKilled: 0, contractsCompleted: 0, distanceFlown: 0 };
+    this.career = { creditsEarned: 0, piratesKilled: 0, contractsCompleted: 0, distanceFlown: 0, combatScore: 0, warlordDefeated: false };
+    this.fines = 0; // outstanding police fines, settled at next docking
     this.visitedStations = [];
     this.shipId = 'trader';
     this.modules = [];
@@ -179,6 +180,7 @@ export class PlayerData {
       skillPoints: this.skillPoints,
       skills: this.skills,
       career: this.career,
+      fines: this.fines,
       visitedStations: this.visitedStations,
       shipId: this.shipId,
       modules: this.modules,
@@ -213,6 +215,11 @@ export class PlayerData {
     p.skillPoints = data.skillPoints ?? 0;
     p.skills = { ...p.skills, ...data.skills };
     p.career = { ...p.career, ...data.career };
+    // pre-combat-rank saves: seed the score from raw kills (1 point each)
+    if (data.career && data.career.combatScore == null) {
+      p.career.combatScore = p.career.piratesKilled || 0;
+    }
+    p.fines = data.fines ?? 0;
     p.visitedStations = Array.isArray(data.visitedStations) ? data.visitedStations : [];
     p.shipId = C.SHIPS[data.shipId] ? data.shipId : 'trader';
     p.modules = Array.isArray(data.modules) ? data.modules.filter((id) => C.MODULES[id]) : [];

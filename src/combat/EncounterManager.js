@@ -173,11 +173,20 @@ export class EncounterManager {
   }
 
   spawnAmbush(player) {
+    // once the pilot is DEADLY, the warlord may come looking for them instead
+    if (!this.playerData.career.warlordDefeated
+        && Progression.combatRank(this.playerData).index >= Progression.WARLORD_RANK
+        && Math.random() < C.WARLORD_CHANCE) {
+      this.spawnWarlord(player);
+      return;
+    }
+
     const galaxy = this.playerData.galaxy ?? 1;
     const scale = (1 + this.playerData.netWorthFactor() * 0.8) * (1.0 + (galaxy - 1) * 0.35);
     const count = 1 + (Math.random() < 0.25 + (galaxy - 1) * 0.2 ? 1 : 0) + Math.floor((galaxy - 1) / 2);
     const fwd = player.forward;
     const netWorth = this.playerData.netWorthFactor();
+    const spawned = [];
 
     for (let i = 0; i < count; i++) {
       _rand.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(500);
@@ -198,7 +207,21 @@ export class EncounterManager {
         else if (netWorth > 0.3 && roll < 0.25) type = 'marauder';
       }
 
-      this.pirates.push(new Pirate(this.scene, _spawnPos, scale, type));
+      const pirate = new Pirate(this.scene, _spawnPos, scale, type);
+      this.pirates.push(pirate);
+      spawned.push(pirate);
+    }
+
+    // two or more pirates fly as a coordinated wing: the heaviest ship leads,
+    // wingmen aim tighter while it lives and break off once it dies
+    if (spawned.length >= 2) {
+      const tier = (p) => (p.type === 'dreadnought' ? 3 : p.type === 'marauder' ? 2 : 1);
+      const leader = spawned.reduce((a, b) => (tier(b) > tier(a) ? b : a));
+      leader.isWingLeader = true;
+      for (const p of spawned) {
+        if (p !== leader) p.wingLeader = leader;
+      }
+      this.events.toast(`PIRATE WING ON SCANNER — ${spawned.length} SHIPS IN FORMATION`, 'warn');
     }
 
     // a wanted contract's target muscles into the ambush
@@ -216,6 +239,34 @@ export class EncounterManager {
     }
 
     this.cooldown = C.ENCOUNTER_COOLDOWN;
+  }
+
+  // The one-off boss: an oversized dreadnought with a marauder escort wing,
+  // reserved for pilots who have earned a DEADLY combat rank.
+  spawnWarlord(player) {
+    const galaxy = this.playerData.galaxy ?? 1;
+    const scale = (1 + this.playerData.netWorthFactor() * 0.8) * (1.0 + (galaxy - 1) * 0.35);
+    const fwd = player.forward;
+
+    _rand.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(300);
+    _spawnPos.copy(player.position).addScaledVector(fwd, 750).add(_rand);
+    const boss = new Pirate(this.scene, _spawnPos, scale * 1.9, 'dreadnought');
+    boss.isWarlord = true;
+    boss.isWingLeader = true;
+    boss.noFlee = true;
+    boss.pirateName = 'THE HARROW';
+    this.pirates.push(boss);
+
+    for (let i = 0; i < 2; i++) {
+      _rand.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(350);
+      _spawnPos.copy(player.position).addScaledVector(fwd, 650).add(_rand);
+      const escort = new Pirate(this.scene, _spawnPos, scale, 'marauder');
+      escort.wingLeader = boss;
+      this.pirates.push(escort);
+    }
+
+    this.events.toast('MASSIVE SIGNATURE — THE HARROW, PIRATE WARLORD, HAS FOUND YOU', 'warn');
+    this.cooldown = C.ENCOUNTER_COOLDOWN * 2;
   }
 
   spawnPoliceAmbush(player) {
@@ -236,14 +287,32 @@ export class EncounterManager {
   }
 
   onPirateKilled(pirate, explosions) {
-    explosions.spawn(pirate.position, 1.4);
-    const bounty = Math.floor(C.PIRATE_BOUNTY_MIN + Math.random() * (C.PIRATE_BOUNTY_MAX - C.PIRATE_BOUNTY_MIN));
+    explosions.spawn(pirate.position, pirate.isWarlord ? 2.6 : 1.4);
+    const bounty = pirate.isWarlord
+      ? C.WARLORD_BOUNTY
+      : Math.floor(C.PIRATE_BOUNTY_MIN + Math.random() * (C.PIRATE_BOUNTY_MAX - C.PIRATE_BOUNTY_MIN));
     this.playerData.credits += bounty;
     this.playerData.career.creditsEarned += bounty;
     this.playerData.career.piratesKilled++;
-    const xp = Progression.XP.kill(pirate.type);
+    const xp = Progression.XP.kill(pirate.type) + (pirate.isWarlord ? C.WARLORD_XP_BONUS : 0);
     Progression.award(this.playerData, xp);
-    this.events.toast(`BOUNTY +${bounty} CR · +${xp} XP`, 'gold');
+    this.events.toast(`BOUNTY +${bounty.toLocaleString()} CR · +${xp} XP`, 'gold');
+
+    // combat rank climbs on weighted kills
+    const prevRank = Progression.combatRank(this.playerData).index;
+    this.playerData.career.combatScore += Progression.combatScoreFor(pirate.type);
+    const rank = Progression.combatRank(this.playerData);
+    if (rank.index > prevRank) {
+      setTimeout(() => this.events.toast(`COMBAT RANK ADVANCED — ${rank.name}`, 'gold'), 900);
+    }
+
+    if (pirate.isWarlord) {
+      this.playerData.career.warlordDefeated = true;
+      setTimeout(() => this.events.toast('THE HARROW IS DEAD — THE SYSTEM BREATHES EASIER', 'gold'), 400);
+    } else if (pirate.isWingLeader
+        && this.pirates.some((p) => p.alive && p.wingLeader === pirate)) {
+      this.events.toast('WING LEADER DOWN — SURVIVORS LOSING THEIR NERVE', 'gold');
+    }
 
     if (pirate.namedMissionId) {
       const m = Missions.onNamedKill(pirate.namedMissionId, this.playerData);
@@ -281,11 +350,22 @@ export class EncounterManager {
     }
   }
 
+  // Friendly fire on system authority: one fine per police ship provoked,
+  // billed at the next docking.
+  onPoliceHit(police) {
+    if (police.finedPlayer) return;
+    police.finedPlayer = true;
+    this.playerData.fines = (this.playerData.fines || 0) + C.FINE_FRIENDLY_FIRE;
+    this.playerData.notoriety = Math.min(100, (this.playerData.notoriety || 0) + 3);
+    this.events.toast(`FRIENDLY FIRE ON POLICE — ${C.FINE_FRIENDLY_FIRE} CR FINE ISSUED`, 'warn');
+  }
+
   onPoliceKilled(police, explosions) {
     explosions.spawn(police.position, 1.6);
     police.dispose();
     this.playerData.notoriety = Math.min(100, (this.playerData.notoriety || 0) + 15);
-    this.events.toast('WARNING — POLICE SHIP DESTROYED! NOTORIETY +15', 'warn');
+    this.playerData.fines = (this.playerData.fines || 0) + C.FINE_POLICE_KILL;
+    this.events.toast(`WARNING — POLICE SHIP DESTROYED! NOTORIETY +15 · ${C.FINE_POLICE_KILL} CR FINE`, 'warn');
 
     if (Math.random() < 0.5) {
       const mesh = buildCargoPod();

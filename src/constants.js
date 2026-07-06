@@ -45,6 +45,11 @@ export const C = {
   ENCOUNTER_COOLDOWN: 60,
   PIRATE_BOUNTY_MIN: 300,
   PIRATE_BOUNTY_MAX: 800,
+  FINE_FRIENDLY_FIRE: 150,   // per police ship provoked
+  FINE_POLICE_KILL: 600,
+  WARLORD_CHANCE: 0.3,       // ambush becomes the warlord event when eligible
+  WARLORD_BOUNTY: 5000,
+  WARLORD_XP_BONUS: 380,     // on top of the dreadnought kill XP
   POD_DROP_CHANCE: 0.3,
   POD_SCOOP_DIST: 15,
   CARGO_EJECT_CHANCE: 0.25,  // per hull hit below 50%
@@ -201,6 +206,8 @@ export const C = {
     ATTACK_DIST: 250,
     BREAK_DIST: 60,
     FLEE_HULL: 0.25,
+    WING_JITTER_MULT: 0.6,  // wingman aim jitter while their leader lives
+    WING_BROKEN_FLEE: 0.6,  // hull fraction wingmen flee at once leader dies
     DESPAWN_DIST: 2200,
   },
 };

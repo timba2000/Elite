@@ -23,6 +23,32 @@ export const Progression = {
     return levels;
   },
 
+  // Combat rank: a ladder separate from level, climbed only by killing
+  // pirates. Score is weighted by tier via combatScoreFor.
+  COMBAT_RANKS: [
+    { name: 'HARMLESS', score: 0 },
+    { name: 'MOSTLY HARMLESS', score: 4 },
+    { name: 'NOVICE', score: 10 },
+    { name: 'COMPETENT', score: 22 },
+    { name: 'DANGEROUS', score: 42 },
+    { name: 'DEADLY', score: 75 },
+    { name: 'ELITE', score: 130 },
+  ],
+  WARLORD_RANK: 5, // DEADLY unlocks the warlord encounter
+
+  combatScoreFor(type) {
+    return type === 'dreadnought' ? 4 : type === 'marauder' ? 2 : 1;
+  },
+
+  combatRank(pd) {
+    const score = pd.career?.combatScore ?? 0;
+    let index = 0;
+    for (let i = 0; i < this.COMBAT_RANKS.length; i++) {
+      if (score >= this.COMBAT_RANKS[i].score) index = i;
+    }
+    return { ...this.COMBAT_RANKS[index], index, next: this.COMBAT_RANKS[index + 1] ?? null };
+  },
+
   // XP awards by source
   XP: {
     tradeProfit: (profit) => Math.round(profit * 0.5),

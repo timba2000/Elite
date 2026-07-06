@@ -82,15 +82,19 @@ new way to earn.
 ## 4. Combat & danger
 
 - [x] **Pirate variety** — light/heavy/leader variants, small wings of 2–3, faction skins
-      — *raider/marauder/dreadnought variants and multi-ship ambushes shipped; faction
-      skins still open*
+      — *raider/marauder/dreadnought variants and coordinated wings shipped: heaviest
+      ship leads, wingmen aim tighter while it lives and break off when it dies;
+      faction skins still open*
 - [x] **Police / system authority** — respond to fights near stations, attack players
       with a criminal status, fines for friendly fire — *notoriety-driven police
       interdictions, station defense response dispatching security ships, and friendly-fire fines shipped*
 - [x] **Escalating interdictions** — cargo value raises interdiction odds (already have
       a base chance); rich traders attract deadlier pirates
 - [x] **Missile lock + countermeasures** — chaff/ECM for a new defensive layer — *chaff launcher module, active X deployment, lock breaking, and visual particles shipped*
-- [ ] **Boss encounter** — a pirate dreadnought event once combat rank is high enough
+- [x] **Boss encounter** — a pirate dreadnought event once combat rank is high enough
+      — *combat rank ladder (HARMLESS → ELITE, weighted kill score) shipped with THE
+      HARROW: a one-off oversized dreadnought + marauder escort wing that hunts
+      DEADLY-ranked pilots, 5,000 CR bounty*
 - [ ] **High-stakes docking** — raise the docking skill ceiling: the station projects a
       lit runway/approach corridor showing the correct glide path and orientation;
       hitting the station above a safe approach speed is instantly fatal, though

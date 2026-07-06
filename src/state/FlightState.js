@@ -583,6 +583,7 @@ export class FlightState {
       // small spark (bigger on a critical hit)
       g.explosions.spawn(hitPos, crit ? 0.5 : 0.15);
       g.sfx.play('hitSpark');
+      if (t.side === 'police' && !killed) g.encounters.onPoliceHit(t.entity);
       if (killed) {
         if (t.side === 'police') {
           g.encounters.onPoliceKilled(t.entity, g.explosions);
@@ -708,6 +709,7 @@ export class FlightState {
     g.sfx.play('hitHull');
 
     const killed = t.takeDamage(missile.damage);
+    if (!killed && t.strobeTimer !== undefined) g.encounters.onPoliceHit(t);
     if (killed) {
       if (t.strobeTimer !== undefined) {
         g.encounters.onPoliceKilled(t, g.explosions);

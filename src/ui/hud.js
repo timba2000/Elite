@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { SYSTEM } from '../world/SystemDef.js';
 import { Missions } from '../missions/Missions.js';
+import { Progression } from '../player/Progression.js';
 
 const _ndc = new THREE.Vector3();
 const _rel = new THREE.Vector3();
@@ -155,7 +156,7 @@ export class Hud {
       this.toast(`LEVEL UP — LEVEL ${lvl} · +1 SKILL POINT`, 'gold');
     }
     this.lastLevel = lvl;
-    this.levelEl.textContent = `LVL ${lvl}${playerData.skillPoints > 0 ? ` · ${playerData.skillPoints} SP` : ''}`;
+    this.levelEl.textContent = `LVL ${lvl}${playerData.skillPoints > 0 ? ` · ${playerData.skillPoints} SP` : ''} · ${Progression.combatRank(playerData).name}`;
     this.cargoEl.textContent = `CARGO ${playerData.cargoUsed()}/${stats.cargoMax}`;
     this.locEl.textContent = `${SYSTEM.name} · GALAXY ${playerData.galaxy ?? 1}`;
 
