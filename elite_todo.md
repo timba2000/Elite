@@ -110,6 +110,12 @@ new way to earn.
       cargo fields, distress beacons (rescue or trap), smuggler dead drops; asteroid
       belts and abandoned stations still open*
 - [ ] **Exploration income** — sell scan data for undiscovered bodies at stations
+- [ ] **Galactic hyperdrive — new galaxies** — the long-game destination: a rare,
+      expensive drive (classic-Elite style, sold only at top-tier stations once the
+      player is rich and ranked) that makes a one-way jump to an entirely new galaxy of
+      procedurally generated systems (§5 procedural seeds); fresh economies, deadlier
+      pirates, and no way back until a new drive is earned — a prestige layer that
+      resets the map but keeps the pilot (§7) and company (§8)
 
 ## 6. Reputation & factions
 
