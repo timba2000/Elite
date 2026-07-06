@@ -21,7 +21,7 @@ export class StationState {
     g.encounters.clearAll();
     g.laserPool.clear();
     if (g.missilePool) g.missilePool.clear();
-    g.ship.missilesAmmo = g.ship.stats.missilesMaxAmmo;
+    // missiles are NOT refilled on docking — restock them on the Repair tab
     g.ship.chaffAmmo = g.ship.stats.chaffMax;
 
     // resolve contracts before saving so payouts/failures land in the save

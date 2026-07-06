@@ -28,8 +28,17 @@ export class PlayerShip {
     this.rebuildMesh();
     this.applyStats();
     this.shield = this.stats.shieldMax;
-    this.missilesAmmo = this.stats.missilesMaxAmmo;
     this.chaffAmmo = this.stats.chaffMax;
+  }
+
+  // missile ammo lives on PlayerData so it survives save/load (null = full load)
+  get missilesAmmo() {
+    const max = this.stats?.missilesMaxAmmo ?? 0;
+    const v = this.playerData.missilesAmmo;
+    return v == null ? max : Math.min(v, max);
+  }
+  set missilesAmmo(v) {
+    this.playerData.missilesAmmo = v;
   }
 
   rebuildMesh() {
