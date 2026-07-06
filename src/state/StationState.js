@@ -43,6 +43,18 @@ export class StationState {
       g.ship.applyStats();
     }
 
+    // outstanding police fines are collected the moment you're on the pad
+    const fines = Math.round(g.playerData.fines || 0);
+    if (fines > 0) {
+      const paid = Math.min(g.playerData.credits, fines);
+      g.playerData.credits -= paid;
+      g.playerData.fines = fines - paid;
+      missionNews.push({ msg: `POLICE FINES SETTLED — −${paid.toLocaleString()} CR`, cls: 'loss' });
+      if (g.playerData.fines > 0) {
+        missionNews.push({ msg: `UNPAID FINES OUTSTANDING — ${g.playerData.fines.toLocaleString()} CR`, cls: 'loss' });
+      }
+    }
+
     const pid = station.planetDef.id;
     if (!g.playerData.visitedStations.includes(pid)) {
       g.playerData.visitedStations.push(pid);

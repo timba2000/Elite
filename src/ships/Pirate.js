@@ -43,7 +43,9 @@ export class Pirate {
     }
 
     this.hull = this.hullMax;
+    this.shieldMax = this.shield;
     this.shieldTimer = 0;
+    this.wingLeader = null; // set by EncounterManager when spawned as a wing
     this.group = this.ship.group;
     this.group.position.copy(position);
     scene.add(this.group);
@@ -66,14 +68,17 @@ export class Pirate {
     this.fireTimer -= dt;
     this.shieldTimer += dt;
     if (this.shieldTimer > C.SHIELD_REGEN_DELAY) {
-      this.shield = Math.min(C.PIRATE.SHIELD, this.shield + 4 * dt);
+      this.shield = Math.min(this.shieldMax, this.shield + 4 * dt);
     }
 
     _toPlayer.copy(player.position).sub(this.group.position);
     const dist = _toPlayer.length();
 
-    // state transitions (named contract targets fight to the death)
-    if (!this.noFlee && this.hull / this.hullMax < C.PIRATE.FLEE_HULL) {
+    // state transitions (named contract targets fight to the death);
+    // wingmen lose their nerve once their leader is gone
+    const fleeHull = this.wingLeader && !this.wingLeader.alive
+      ? C.PIRATE.WING_BROKEN_FLEE : C.PIRATE.FLEE_HULL;
+    if (!this.noFlee && this.hull / this.hullMax < fleeHull) {
       this.state = 'FLEE';
     } else if (this.state === 'PURSUE' && dist < C.PIRATE.ATTACK_DIST) {
       this.state = 'ATTACK';
@@ -118,9 +123,12 @@ export class Pirate {
       const angle = _fwd.angleTo(_aim);
       if (angle < C.PIRATE.AIM_CONE) {
         this.fireTimer = C.PIRATE.FIRE_INTERVAL * (0.85 + Math.random() * 0.3);
-        _aim.x += (Math.random() - 0.5) * C.PIRATE.AIM_JITTER * 2;
-        _aim.y += (Math.random() - 0.5) * C.PIRATE.AIM_JITTER * 2;
-        _aim.z += (Math.random() - 0.5) * C.PIRATE.AIM_JITTER * 2;
+        // coordinated wingmen shoot noticeably straighter
+        const jitter = C.PIRATE.AIM_JITTER
+          * (this.wingLeader && this.wingLeader.alive ? C.PIRATE.WING_JITTER_MULT : 1);
+        _aim.x += (Math.random() - 0.5) * jitter * 2;
+        _aim.y += (Math.random() - 0.5) * jitter * 2;
+        _aim.z += (Math.random() - 0.5) * jitter * 2;
         _aim.normalize();
 
         this.ship.hardpoints.forEach((hp) => {

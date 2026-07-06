@@ -200,13 +200,6 @@ button.amber:hover:not(:disabled) { background: rgba(100, 65, 15, 0.95); box-sha
 }
 #fade-overlay.on { opacity: 1; }
 
-.offscreen-arrow {
-  position: absolute; width: 0; height: 0; left: 0; top: 0;
-  border-left: 7px solid transparent; border-right: 7px solid transparent;
-  border-bottom: 12px solid #ffd27a;
-  filter: drop-shadow(0 0 4px rgba(255,190,90,0.8));
-}
-
 /* ---------- Combat target indicators ---------- */
 #combat-indicators {
   position: absolute; inset: 0; pointer-events: none; z-index: 5;
