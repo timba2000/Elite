@@ -61,6 +61,7 @@ button.amber:hover:not(:disabled) { background: rgba(100, 65, 15, 0.95); box-sha
 .bar { height: 14px; border: 1px solid rgba(120, 220, 255, 0.4); background: rgba(0,0,0,0.5); position: relative; }
 .bar .fill { position: absolute; inset: 1px; transform-origin: left; background: #37d0ff; }
 .bar.hull .fill { background: #ff9a3d; }
+.bar.missiles .fill { background: #ffd27a; }
 .bar.shield .fill { background: #37d0ff; }
 .bar.energy .fill { background: #b06bff; }
 .bar label {

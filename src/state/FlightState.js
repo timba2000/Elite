@@ -838,7 +838,7 @@ export class FlightState {
     g.ship.alive = true;
     g.ship.shield = stats.shieldMax;
     g.ship.energy = C.ENERGY_MAX;
-    g.ship.missilesAmmo = stats.missilesMaxAmmo;
+    // insurance rebuilds the ship, not its ordnance — restock missiles on the Repair tab
     g.ship.velocity.set(0, 0, 0);
     g.ship.group.visible = true;
     g.encounters.clearAll();

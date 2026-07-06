@@ -9,6 +9,7 @@ export class PlayerData {
     this.costBasis = {}; // goodId -> avg credits paid per unit held
     this.upgrades = { engine: 1, weapons: 1, shield: 1, hull: 1, cargo: 1, dockingComputer: 0, missiles: 0, galacticHyperdrive: 0 };
     this.hull = C.UPGRADES.hull.tiers[1].max;
+    this.missilesAmmo = null; // null = full load for the fitted launcher
     this.lastStationId = 'veridia-station';
     this.gameTime = 0;
     this.notoriety = 0;
@@ -166,6 +167,7 @@ export class PlayerData {
       costBasis: this.costBasis,
       upgrades: this.upgrades,
       hull: this.hull,
+      missilesAmmo: this.missilesAmmo,
       lastStationId: this.lastStationId,
       gameTime: this.gameTime,
       notoriety: this.notoriety,
@@ -204,6 +206,7 @@ export class PlayerData {
     p.costBasis = data.costBasis ?? {};
     p.upgrades = { ...p.upgrades, ...data.upgrades };
     p.hull = data.hull ?? p.hull;
+    p.missilesAmmo = data.missilesAmmo ?? null;
     p.lastStationId = data.lastStationId ?? p.lastStationId;
     p.gameTime = data.gameTime ?? 0;
     p.notoriety = data.notoriety ?? 0;

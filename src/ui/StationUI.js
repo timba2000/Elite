@@ -814,6 +814,10 @@ export class StationUI {
     const stats = this.player.getDerivedStats();
     const missing = Math.max(0, Math.round(stats.hullMax - this.player.hull));
     const cost = Math.round(missing * C.REPAIR_COST_PER_POINT * stats.repairMult);
+    const mslMax = stats.missilesMaxAmmo;
+    const mslAmmo = this.player.missilesAmmo == null ? mslMax : Math.min(this.player.missilesAmmo, mslMax);
+    const mslMissing = mslMax - mslAmmo;
+    const mslCost = mslMissing * C.MISSILE_RESTOCK_COST;
     this.body.innerHTML = `
       <div class="repair-box">
         <div>HULL INTEGRITY</div>
@@ -822,6 +826,14 @@ export class StationUI {
         <button id="repair-btn" ${missing > 0 && this.player.credits >= cost ? '' : 'disabled'}>
           ${missing > 0 ? `Repair All — ${cost.toLocaleString()} CR` : 'Hull at full integrity'}
         </button>
+        ${mslMax > 0 ? `
+          <div style="margin-top:28px">MISSILE STORES</div>
+          <div class="bar missiles"><div class="fill" style="transform:scaleX(${mslAmmo / mslMax})"></div></div>
+          <div style="margin:8px 0 16px 0">${mslAmmo} / ${mslMax}</div>
+          <button id="restock-btn" ${mslMissing > 0 && this.player.credits >= mslCost ? '' : 'disabled'}>
+            ${mslMissing > 0 ? `Restock ${mslMissing} Missile${mslMissing > 1 ? 's' : ''} — ${mslCost.toLocaleString()} CR` : 'Missile racks full'}
+          </button>
+        ` : ''}
       </div>
     `;
     const btn = this.body.querySelector('#repair-btn');
@@ -829,6 +841,13 @@ export class StationUI {
       if (this.player.credits < cost) return;
       this.player.credits -= cost;
       this.player.hull = stats.hullMax;
+      this.renderTab();
+    });
+    const restock = this.body.querySelector('#restock-btn');
+    restock?.addEventListener('click', () => {
+      if (this.player.credits < mslCost) return;
+      this.player.credits -= mslCost;
+      this.player.missilesAmmo = mslMax;
       this.renderTab();
     });
   }

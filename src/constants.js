@@ -83,6 +83,7 @@ export const C = {
   START_CREDITS: 500,
   START_CARGO: { food: 4 },
   REPAIR_COST_PER_POINT: 2,
+  MISSILE_RESTOCK_COST: 150, // credits per missile, bought on the station Repair tab
   EXPORT_BIAS: 0.5,
   IMPORT_BIAS: 1.6,
   DRIFT_REVERT: 0.02,
