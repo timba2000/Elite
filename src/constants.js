@@ -31,6 +31,16 @@ export const C = {
   SUPER_REENGAGE_DELAY: 5,   // s with no pirate nearby before re-engage allowed
   TIME_SCALE_SUPER: 20,      // economy time multiplier during supercruise
 
+  // World & exploration
+  SYSTEMS_PER_GALAXY: 4,
+  SYSTEM_JUMP_FUEL: 8,         // fuel commodity units burned per in-galaxy jump
+  SCAN_TIME: 3.0,              // seconds to complete a surface scan
+  SCAN_RANGE_MULT: 12,         // scan reach = body radius * this
+  SCAN_BASE_VALUE: 400,        // credits; bonuses below, scaled by galaxy prices
+  SCAN_GAS_BONUS: 400,
+  SCAN_UNINHABITED_BONUS: 250,
+  POI_DESPAWN_DIST: 3000,      // transient POI scenery cleans up beyond this
+
   // Energy / weapons
   ENERGY_MAX: 100,
   ENERGY_REGEN: 18,          // per second

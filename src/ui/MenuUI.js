@@ -15,7 +15,8 @@ export class MenuUI {
       <button id="btn-gfx" class="clickable">Graphics: ${Graphics.label()}</button>
       <div class="controls">
         <b>MOUSE</b> steer &nbsp; <b>W/S</b> throttle &nbsp; <b>SHIFT</b> boost &nbsp; <b>Q/A</b> roll left &nbsp; <b>D</b> roll right &nbsp; <b>E</b> fire missile when locked<br>
-        <b>SPACE / CLICK</b> fire laser &nbsp; <b>T</b> cycle target &nbsp; <b>X</b> deploy chaff &nbsp; <b>J</b> supercruise &nbsp; <b>F</b> request docking &nbsp; <b>G</b> galactic jump &nbsp; <b>V</b> view &nbsp; <b>M</b> mute &nbsp; <b>ESC</b> pause<br>
+        <b>SPACE / CLICK</b> fire laser &nbsp; <b>T</b> cycle target &nbsp; <b>X</b> deploy chaff &nbsp; <b>J</b> supercruise &nbsp; <b>F</b> request docking &nbsp; <b>V</b> view &nbsp; <b>M</b> mute &nbsp; <b>ESC</b> pause<br>
+        <b>C</b> surface scan &nbsp; <b>N</b> nav computer &nbsp; <b>H</b> hyperspace jump (8 fuel) &nbsp; <b>G</b> galactic jump<br>
         Buy low, sell high. Watch for pirates. Fly into the aperture slowly — or save up for a docking computer.
       </div>
     `;

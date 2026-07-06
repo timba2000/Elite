@@ -13,7 +13,7 @@ import { Market } from './economy/Market.js';
 import { PlayerData } from './player/PlayerData.js';
 import { SaveSystem } from './save/SaveSystem.js';
 import { Hud } from './ui/hud.js';
-import { generateGalaxy } from './world/SystemDef.js';
+import { generateSystem } from './world/SystemDef.js';
 import { StationUI } from './ui/StationUI.js';
 import { MenuUI } from './ui/MenuUI.js';
 import { StateMachine } from './state/StateMachine.js';
@@ -137,7 +137,7 @@ class Game {
   newGame(cheat = false) {
     const pd = new PlayerData();
     if (cheat) pd.credits = 1000000;
-    generateGalaxy(0); // Reset to default Galaxy 1 (Achenar)
+    generateSystem(0, 0); // Reset to default Galaxy 1 (Achenar)
     this.createSession(pd, new Market());
     this.sm.change(this.states.flight, {
       spawnAtStation: this.playerData.lastStationId,
@@ -150,7 +150,7 @@ class Game {
     if (!data) { this.newGame(cheat); return; }
     const pd = PlayerData.deserialize(data.player);
     if (cheat) pd.credits = 1000000;
-    generateGalaxy((pd.galaxy ?? 1) - 1); // Setup correct galaxy system
+    generateSystem((pd.galaxy ?? 1) - 1, pd.system ?? 0); // Setup correct galaxy + system
     this.createSession(
       pd,
       Market.deserialize(data.marketDrift)

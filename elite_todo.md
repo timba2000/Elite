@@ -100,16 +100,20 @@ new way to earn.
 ## 5. World & exploration
 
 - [x] **Second star system + hyperspace jump** — fuel-gated jumps make the fuel
-      commodity strategic; each system gets its own economy character — *shipped as
-      one-way procedural galaxy jumps via the Galactic Hyperdrive; fuel-gated jumps
-      between systems within a galaxy could still add strategy*
+      commodity strategic; each system gets its own economy character — *fully
+      shipped: every galaxy holds four systems; N cycles the nav computer, H burns
+      8 fuel to jump; each system beyond the first leans toward one economy
+      (agrarian belt, mining cluster, tech corridor…) so cross-system routes pay*
 - [x] **Procedural systems** — generate systems from seeds (SystemDef already
       seed-driven per planet) for effectively unlimited exploration
 - [x] **Points of interest** — asteroid belts, derelicts, distress beacons (ambush or
       rescue), abandoned stations — *supercruise signal sources shipped: derelict
-      cargo fields, distress beacons (rescue or trap), smuggler dead drops; asteroid
-      belts and abandoned stations still open*
-- [ ] **Exploration income** — sell scan data for undiscovered bodies at stations
+      cargo fields, distress beacons (rescue or trap), smuggler dead drops, asteroid
+      belts with scoopable ore (sometimes claimed), and abandoned stations with
+      salvage (sometimes squatted)*
+- [x] **Exploration income** — sell scan data for undiscovered bodies at stations
+      — *press C to surface-scan a targeted planet (+XP); sell first-surveyor data
+      at any station's Cartographics desk, gas giants and uninhabited worlds pay more*
 - [ ] **Galactic hyperdrive — new galaxies** — the long-game destination: a rare,
       expensive drive (classic-Elite style, sold only at top-tier stations once the
       player is rich and ranked) that makes a one-way jump to an entirely new galaxy of

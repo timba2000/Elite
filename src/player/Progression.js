@@ -29,6 +29,7 @@ export const Progression = {
     contract: (reward) => Math.round(reward * 0.35),
     kill: (type) => (type === 'dreadnought' ? 120 : type === 'marauder' ? 70 : 40),
     firstVisit: 60,
+    scan: 45, // first surface scan of a body
     closeCall: 150, // survive combat with hull under 25%
   },
 

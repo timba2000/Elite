@@ -20,12 +20,15 @@ export class PlayerData {
     this.spaceMode = 'manual';
     this.spaceTargetId = null;
     this.galaxy = 1;
+    this.system = 0; // system index within the current galaxy
     this.missions = [];
+    this.scans = []; // unsold survey data { key, name, type, system, value }
+    this.scannedBodies = []; // all-time survey keys ("g1s0:veridia")
     this.xp = 0;
     this.level = 1;
     this.skillPoints = 0;
     this.skills = { piloting: 0, gunnery: 0, trade: 0 };
-    this.career = { creditsEarned: 0, piratesKilled: 0, contractsCompleted: 0, distanceFlown: 0 };
+    this.career = { creditsEarned: 0, piratesKilled: 0, contractsCompleted: 0, distanceFlown: 0, scanEarnings: 0 };
     this.visitedStations = [];
     this.shipId = 'trader';
     this.modules = [];
@@ -173,7 +176,10 @@ export class PlayerData {
       spaceMode: this.spaceMode,
       spaceTargetId: this.spaceTargetId,
       galaxy: this.galaxy,
+      system: this.system,
       missions: this.missions,
+      scans: this.scans,
+      scannedBodies: this.scannedBodies,
       xp: this.xp,
       level: this.level,
       skillPoints: this.skillPoints,
@@ -207,7 +213,10 @@ export class PlayerData {
     p.spaceMode = data.spaceMode ?? 'manual';
     p.spaceTargetId = data.spaceTargetId ?? null;
     p.galaxy = data.galaxy ?? 1;
+    p.system = data.system ?? 0;
     p.missions = Array.isArray(data.missions) ? data.missions : [];
+    p.scans = Array.isArray(data.scans) ? data.scans : [];
+    p.scannedBodies = Array.isArray(data.scannedBodies) ? data.scannedBodies : [];
     p.xp = data.xp ?? 0;
     p.level = data.level ?? 1;
     p.skillPoints = data.skillPoints ?? 0;

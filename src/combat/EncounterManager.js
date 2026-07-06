@@ -4,6 +4,8 @@ import { Pirate } from '../ships/Pirate.js';
 import { Police } from '../ships/Police.js';
 import { buildCargoPod } from '../ships/ShipFactory.js';
 import { COMMODITIES } from '../economy/commodities.js';
+import { Station } from '../world/Station.js';
+import { grungeHullTexture } from '../fx/textures.js';
 import { Missions } from '../missions/Missions.js';
 import { Progression } from '../player/Progression.js';
 
@@ -19,6 +21,7 @@ export class EncounterManager {
     this.pirates = [];
     this.police = [];
     this.pods = [];
+    this.debris = []; // transient POI scenery (asteroid belts, dead stations)
     this.cooldown = 0;
     this.rollAccum = 0;
   }
@@ -122,6 +125,16 @@ export class EncounterManager {
       }
     }
     this.pods = this.pods.filter((p) => !p.dead);
+
+    // POI scenery drifts slowly and despawns once the player leaves it behind
+    for (const d of this.debris) {
+      d.group.rotation.y += d.spin * dt;
+      if (d.group.position.distanceTo(player.position) > C.POI_DESPAWN_DIST) {
+        this.scene.remove(d.group);
+        d.dead = true;
+      }
+    }
+    this.debris = this.debris.filter((d) => !d.dead);
   }
 
   dropPod(position, good, qty, opts = {}) {
@@ -169,7 +182,86 @@ export class EncounterManager {
         this.dropPod(around(100, 80), 'narcotics', 1 + Math.floor(Math.random() * 2));
       }
       this.events.toast('SMUGGLER DEAD DROP — UNMARKED CARGO ADRIFT', 'gold');
+    } else if (type === 'belt') {
+      const centre = around(60, 420);
+      const group = this.buildAsteroidBelt();
+      group.position.copy(centre);
+      this.scene.add(group);
+      this.debris.push({ group, spin: 0.02, dead: false });
+      const n = 3 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < n; i++) {
+        _rand.set(Math.random() - 0.5, (Math.random() - 0.5) * 0.3, Math.random() - 0.5).multiplyScalar(320);
+        this.dropPod(centre.clone().add(_rand), 'ore', 1 + Math.floor(Math.random() * 2), { life: 180 });
+      }
+      if (Math.random() < 0.3) {
+        this.pirates.push(new Pirate(this.scene, around(300, 340), 1, 'raider'));
+        this.events.toast('ASTEROID BELT — ORE ADRIFT AMONG THE ROCKS, CLAIM JUMPER ON SITE', 'warn');
+      } else {
+        this.events.toast('ASTEROID BELT — ORE FRAGMENTS ADRIFT AMONG THE ROCKS', 'gold');
+      }
+    } else if (type === 'ghost') {
+      const centre = around(40, 400);
+      const wreck = this.buildGhostStation();
+      wreck.group.position.copy(centre);
+      this.scene.add(wreck.group);
+      this.debris.push({ group: wreck.group, spin: 0.008, dead: false });
+      const goods = ['machinery', 'electronics', 'luxuries', 'medicine'];
+      const n = 3 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < n; i++) {
+        _rand.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(200);
+        this.dropPod(centre.clone().add(_rand), goods[Math.floor(Math.random() * goods.length)], 1 + Math.floor(Math.random() * 2), { life: 180 });
+      }
+      if (Math.random() < 0.4) {
+        const galaxy = this.playerData.galaxy ?? 1;
+        const scale = (1 + this.playerData.netWorthFactor() * 0.8) * (1.0 + (galaxy - 1) * 0.35);
+        for (let i = 0; i < 2; i++) {
+          this.pirates.push(new Pirate(this.scene, around(280, 320), scale, 'raider'));
+        }
+        this.events.toast('ABANDONED STATION — SALVAGE ADRIFT, SQUATTERS OPENING FIRE!', 'warn');
+      } else {
+        this.events.toast('ABANDONED STATION — DEAD HULK, SALVAGE ADRIFT', 'gold');
+      }
     }
+  }
+
+  // A tumbling field of two dozen rocks. Vertex displacement keys off world
+  // position so duplicated seam vertices deform together (no cracks).
+  buildAsteroidBelt() {
+    const group = new THREE.Group();
+    const { map, roughnessMap, normalMap } = grungeHullTexture('#5a5148', '#3a332c', 0.9, Math.floor(Math.random() * 900));
+    const mat = new THREE.MeshStandardMaterial({
+      map, roughnessMap, normalMap, normalScale: new THREE.Vector2(1, 1),
+      metalness: 0.1, roughness: 0.95,
+    });
+    for (let i = 0; i < 24; i++) {
+      const geo = new THREE.IcosahedronGeometry(1, 1);
+      const posAttr = geo.attributes.position;
+      const phase = Math.random() * 100;
+      for (let v = 0; v < posAttr.count; v++) {
+        const x = posAttr.getX(v), y = posAttr.getY(v), z = posAttr.getZ(v);
+        const s = 0.75 + 0.3 * Math.abs(Math.sin(x * 12.9898 + y * 78.233 + z * 37.719 + phase));
+        posAttr.setXYZ(v, x * s, y * s, z * s);
+      }
+      geo.computeVertexNormals();
+      const rock = new THREE.Mesh(geo, mat);
+      rock.position.set((Math.random() - 0.5) * 640, (Math.random() - 0.5) * 160, (Math.random() - 0.5) * 640);
+      rock.scale.setScalar(3 + Math.random() * 11);
+      rock.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+      group.add(rock);
+    }
+    return group;
+  }
+
+  // A Station built from a throwaway def, then gutted: lights out, doors
+  // shut, tumbling. Not registered with the world, so it can't be docked.
+  buildGhostStation() {
+    const def = { id: 'ghost', name: 'DERELICT', position: new THREE.Vector3(1, 0, 0), radius: 1 };
+    const st = new Station(def, Math.floor(Math.random() * 900));
+    st.group.rotation.set(Math.random(), Math.random(), Math.random());
+    st.apertureMat.color.setRGB(0.35, 0.06, 0.04); // dead red emergency glow
+    for (const { mesh } of st.navLights) mesh.visible = false;
+    st.group.traverse((o) => { if (o.isPointLight) o.intensity = 0.25; });
+    return st;
   }
 
   spawnAmbush(player) {
@@ -320,6 +412,8 @@ export class EncounterManager {
     this.police = [];
     for (const pod of this.pods) this.scene.remove(pod.mesh);
     this.pods = [];
+    for (const d of this.debris) this.scene.remove(d.group);
+    this.debris = [];
     this.cooldown = 0;
   }
 }

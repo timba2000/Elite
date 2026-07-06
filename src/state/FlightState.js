@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { C } from '../constants.js';
 import { SaveSystem } from '../save/SaveSystem.js';
-import { SYSTEM, generateGalaxy } from '../world/SystemDef.js';
+import { SYSTEM, generateSystem, systemInfo } from '../world/SystemDef.js';
 import { Market } from '../economy/Market.js';
 import { Missions } from '../missions/Missions.js';
 import { Progression } from '../player/Progression.js';
@@ -48,6 +48,8 @@ export class FlightState {
     this.scan = null;     // active police cargo scan
     this.scanZoneId = null;
     this.stationSecurityCooldown = 0;
+    this.bodyScan = null; // active surface scan { target, t }
+    this.jumpDest = -1;   // system index queued on the nav computer
   }
 
   enter(params = {}) {
@@ -69,6 +71,8 @@ export class FlightState {
     this.scan = null;
     this.scanZoneId = null;
     this.stationSecurityCooldown = 0;
+    this.bodyScan = null;
+    this.jumpDest = -1;
     g.ui.hud.show();
     g.ui.hud.navTargets = g.world.getNavTargets();
     g.ui.stationUI.hide();
@@ -191,7 +195,10 @@ export class FlightState {
     if (this.mode === 'super' && !this.signal && this.hyperdrivePhase === 'idle') {
       if (Math.random() < 0.025 * dt) { // ~2.5% per supercruise second
         const roll = Math.random();
-        const type = roll < 0.4 ? 'derelict' : roll < 0.75 ? 'distress' : 'cache';
+        const type = roll < 0.3 ? 'derelict'
+          : roll < 0.6 ? 'distress'
+          : roll < 0.75 ? 'cache'
+          : roll < 0.88 ? 'belt' : 'ghost';
         this.signal = { type, timeLeft: 14 };
         g.sfx.play('lockBeep');
         g.ui.hud.toast('UNIDENTIFIED SIGNAL DETECTED — DROP OUT (J) TO INVESTIGATE', 'gold');
@@ -219,6 +226,9 @@ export class FlightState {
     if (input.pressed('KeyT') || input.pressed('Tab')) this.cycleTarget();
     if (input.pressed('KeyJ')) this.toggleSupercruise();
     if (input.pressed('KeyG')) this.tryGalacticJump();
+    if (input.pressed('KeyN')) this.cycleJumpDest();
+    if (input.pressed('KeyH')) this.trySystemJump();
+    if (input.pressed('KeyC')) this.tryBodyScan();
     if (input.pressed('KeyV')) {
       this.cameraView = this.cameraView === 'cockpit' ? 'chase' : 'cockpit';
       g.ui.hud.toast(this.cameraView === 'cockpit' ? 'COCKPIT VIEW' : 'EXTERNAL VIEW');
@@ -231,6 +241,22 @@ export class FlightState {
       this.prepareSaveData();
       SaveSystem.save(g.playerData, g.market);
       g.ui.hud.toast('GAME SAVED', 'gold');
+    }
+
+    // ---------- surface scan in progress ----------
+    if (this.bodyScan) {
+      const bs = this.bodyScan;
+      const d = bs.target.object.position.distanceTo(ship.position);
+      if (this.target !== bs.target || d > bs.target.radius * C.SCAN_RANGE_MULT * 1.2) {
+        this.bodyScan = null;
+        g.ui.hud.toast('SURFACE SCAN ABORTED', 'warn');
+      } else {
+        bs.t += dt;
+        if (bs.t >= C.SCAN_TIME) {
+          this.bodyScan = null;
+          this.completeBodyScan(bs.target);
+        }
+      }
     }
 
     // ---------- flight ----------
@@ -270,12 +296,13 @@ export class FlightState {
       if (this.hyperdriveTimer <= 0) {
         this.hyperdrivePhase = 'idle';
         g.playerData.galaxy++;
+        g.playerData.system = 0; // arrive at the new galaxy's first system
         g.playerData.upgrades.galacticHyperdrive = 0; // consume drive
         g.playerData.notoriety = 0; // reset notoriety
         g.playerData.missions = []; // contracts don't span galaxies
 
         // Procedurally generate new unique galaxy
-        generateGalaxy(g.playerData.galaxy - 1);
+        generateSystem(g.playerData.galaxy - 1, 0);
 
         // Regenerate prices/market
         g.market = new Market();
@@ -300,6 +327,43 @@ export class FlightState {
 
         // Enter station state
         g.sm.change(g.states.station, { station });
+      }
+    } else if (this.hyperdrivePhase === 'system_charging') {
+      this.hyperdriveTimer -= dt;
+      this.shakeT = Math.max(this.shakeT, 0.25);
+      ship.updateManual(dt, input);
+      ship.updateSystems(dt);
+
+      if (this.hyperdriveTimer <= 0) {
+        this.hyperdrivePhase = 'idle';
+        const pd = g.playerData;
+        pd.removeCargo('fuel', C.SYSTEM_JUMP_FUEL);
+        pd.system = this.jumpDest;
+        this.jumpDest = -1;
+
+        // regenerate the destination system's worlds, market and meshes
+        generateSystem(pd.galaxy - 1, pd.system);
+        g.market = new Market();
+        g.world.rebuild();
+        g.encounters.clearAll();
+
+        g.ui.hud.warpFlash();
+        g.sfx.play('superEngage');
+
+        // arrive in open space inside the innermost orbit, facing out
+        ship.group.position.set(0, 250, 1900);
+        _m.lookAt(new THREE.Vector3(0, 250, 3200), ship.group.position, _up);
+        ship.group.quaternion.setFromRotationMatrix(_m);
+        ship.velocity.set(0, 0, 0);
+        ship.throttle = 0.4;
+        this.target = null;
+        this.targetIndex = -1;
+        g.ui.hud.navTargets = g.world.getNavTargets();
+        this.updateCamera(1, true);
+
+        g.ui.hud.toast(`ARRIVED — ${SYSTEM.name} · ${SYSTEM.character.toUpperCase()}`, 'gold');
+        this.prepareSaveData();
+        SaveSystem.save(pd, g.market);
       }
     } else if (this.mode === 'manual') {
       ship.updateManual(dt, input);
@@ -338,15 +402,22 @@ export class FlightState {
       dockPrompt = this.updateDocking(dt);
       if (dockPrompt === true) return; // state changed
     }
-    if (typeof dockPrompt === 'string') {
+    if (this.bodyScan) {
+      g.ui.hud.setPrompt(`SCANNING ${this.bodyScan.target.name} — ${Math.round((this.bodyScan.t / C.SCAN_TIME) * 100)}%`);
+    } else if (typeof dockPrompt === 'string') {
       g.ui.hud.setPrompt(dockPrompt);
     } else if (this.mode === 'manual' && this.target && !g.encounters.inCombat) {
       const d = this.target.object.position.distanceTo(ship.position);
-      if (d > this.dropDistance(this.target)) {
-        g.ui.hud.setPrompt(`J — SUPERCRUISE TO ${this.target.name}`);
-      } else g.ui.hud.setPrompt('');
+      const parts = [];
+      if (d > this.dropDistance(this.target)) parts.push(`J — SUPERCRUISE TO ${this.target.name}`);
+      if (this.canScanTarget()) parts.push('C — SURFACE SCAN');
+      g.ui.hud.setPrompt(parts.join('   ·   '));
     } else if (this.mode === 'super' && this.signal) {
       g.ui.hud.setPrompt(`J — INVESTIGATE SIGNAL (${Math.ceil(this.signal.timeLeft)}s)`);
+    } else if (this.mode === 'super' && this.canScanTarget()) {
+      g.ui.hud.setPrompt('C — SURFACE SCAN');
+    } else if (this.mode === 'manual' && this.jumpDest >= 0 && this.hyperdrivePhase === 'idle' && !g.encounters.inCombat) {
+      g.ui.hud.setPrompt(`H — HYPERSPACE JUMP TO ${systemInfo(g.playerData.galaxy - 1, this.jumpDest).name}`);
     } else if (g.encounters.inCombat) {
       g.ui.hud.setPrompt('');
     } else if (!input.pointerLocked && this.mode === 'manual') {
@@ -864,6 +935,107 @@ export class FlightState {
     this.hyperdriveTimer = this.chargeDuration;
     g.sfx.play('hyperCharge');
     g.ui.hud.toast('ENGAGING GALACTIC HYPERDRIVE — STAND BY...', 'gold');
+  }
+
+  // ---------- in-galaxy hyperspace (fuel-gated) ----------
+  cycleJumpDest() {
+    const g = this.game;
+    const pd = g.playerData;
+    const cur = pd.system ?? 0;
+    let next = (this.jumpDest < 0 ? cur : this.jumpDest) + 1;
+    next %= C.SYSTEMS_PER_GALAXY;
+    if (next === cur) next = (next + 1) % C.SYSTEMS_PER_GALAXY;
+    this.jumpDest = next;
+    const info = systemInfo(pd.galaxy - 1, next);
+    const fuel = pd.cargo.fuel || 0;
+    g.sfx.play('lockBeep');
+    g.ui.hud.toast(
+      `NAV — JUMP TARGET: ${info.name} · ${info.character.toUpperCase()} · NEEDS ${C.SYSTEM_JUMP_FUEL} FUEL (HAVE ${fuel})`,
+      fuel >= C.SYSTEM_JUMP_FUEL ? 'gold' : 'warn'
+    );
+  }
+
+  trySystemJump() {
+    const g = this.game;
+    if (this.mode === 'super') {
+      g.ui.hud.toast('DROP OUT OF SUPERCRUISE FIRST', 'warn');
+      return;
+    }
+    if (this.hyperdrivePhase !== 'idle') return;
+    if (this.jumpDest < 0) {
+      g.ui.hud.toast('NO TARGET SYSTEM — PRESS N TO CYCLE THE NAV COMPUTER', 'warn');
+      return;
+    }
+    const fuel = g.playerData.cargo.fuel || 0;
+    if (fuel < C.SYSTEM_JUMP_FUEL) {
+      g.ui.hud.toast(`INSUFFICIENT FUEL — JUMP NEEDS ${C.SYSTEM_JUMP_FUEL} UNITS (HAVE ${fuel})`, 'warn');
+      return;
+    }
+    if (g.encounters.nearestPirateDist(g.ship.position) < C.SUPER_MIN_PIRATE_DIST) {
+      g.ui.hud.toast('CANNOT ENGAGE — HOSTILES NEARBY', 'warn');
+      return;
+    }
+
+    this.hyperdrivePhase = 'system_charging';
+    this.chargeDuration = g.ship.stats.chargeTime;
+    this.hyperdriveTimer = this.chargeDuration;
+    g.sfx.play('hyperCharge');
+    const info = systemInfo(g.playerData.galaxy - 1, this.jumpDest);
+    g.ui.hud.toast(`ENGAGING HYPERSPACE JUMP — ${info.name}`, 'gold');
+  }
+
+  // ---------- surface scanning (exploration income) ----------
+  scanKey(planetId) {
+    const pd = this.game.playerData;
+    return `g${pd.galaxy}s${pd.system ?? 0}:${planetId}`;
+  }
+
+  canScanTarget() {
+    const t = this.target;
+    if (!t || t.type !== 'planet' || this.bodyScan) return false;
+    if (this.game.playerData.scannedBodies.includes(this.scanKey(t.id))) return false;
+    return t.object.position.distanceTo(this.game.ship.position) <= t.radius * C.SCAN_RANGE_MULT;
+  }
+
+  tryBodyScan() {
+    const g = this.game;
+    if (this.bodyScan) return;
+    const t = this.target;
+    if (!t || t.type !== 'planet') {
+      g.ui.hud.toast('TARGET A PLANET TO SCAN — PRESS T', 'warn');
+      return;
+    }
+    if (g.playerData.scannedBodies.includes(this.scanKey(t.id))) {
+      g.ui.hud.toast('ALREADY SURVEYED — DATA ON FILE', '');
+      return;
+    }
+    if (t.object.position.distanceTo(g.ship.position) > t.radius * C.SCAN_RANGE_MULT) {
+      g.ui.hud.toast('OUT OF SCAN RANGE — MOVE CLOSER', 'warn');
+      return;
+    }
+    this.bodyScan = { target: t, t: 0 };
+    g.sfx.play('lockBeep');
+  }
+
+  completeBodyScan(t) {
+    const g = this.game;
+    const pd = g.playerData;
+    const def = SYSTEM.planets.find((p) => p.id === t.id);
+    let value = C.SCAN_BASE_VALUE;
+    if (def?.gas) value += C.SCAN_GAS_BONUS;
+    if (def && !def.inhabited) value += C.SCAN_UNINHABITED_BONUS;
+    value = Math.round(value * (1 + (pd.galaxy - 1) * 0.45));
+    pd.scannedBodies.push(this.scanKey(t.id));
+    pd.scans.push({
+      key: this.scanKey(t.id), name: t.name,
+      type: def?.type ?? 'Unknown', system: SYSTEM.name, value,
+    });
+    const levels = Progression.award(pd, Progression.XP.scan);
+    g.sfx.play('lockBeep');
+    g.ui.hud.toast(
+      `SURVEY COMPLETE — ${t.name} · DATA WORTH ${value.toLocaleString()} CR AT ANY STATION · +${Progression.XP.scan} XP${levels ? ' · LEVEL UP!' : ''}`,
+      'gold'
+    );
   }
 
   updateSupercruise(dt) {

@@ -9,6 +9,8 @@ function pos(orbitRadius, angleDeg, y = 0) {
 
 export const SYSTEM = {
   name: 'ACHENAR',
+  systemIndex: 0,
+  character: 'Core Worlds',
   sunRadius: 300,
   planets: [
     {
@@ -125,9 +127,55 @@ const ORIGINAL_SYSTEM_PLANETS = [
   },
 ];
 
+const NAME_PREFIX = ['VER', 'FER', 'CRU', 'LUM', 'ACH', 'ZON', 'TAR', 'XEN', 'VAL', 'SOL', 'ALPH', 'BET', 'GAM', 'DRA', 'OR', 'SI', 'AN', 'COR', 'KAI', 'HELI', 'CYG', 'VEC', 'LYR', 'PEG', 'VEG', 'ANDR'];
+const NAME_SUFFIX = ['IDIA', 'OX', 'CIBLE', 'EN', 'ON', 'IA', 'OS', 'US', 'AR', 'AX', 'ERA', 'AURA', 'ETIS', 'ION', 'ORE', 'OCTO', 'IS', 'UX', 'YON', 'ITE', 'ATIS', 'OPIA', 'ALIS', 'URUS', 'OOM', 'USIA'];
+
+// Every system beyond a galaxy's first leans toward one economy: its planet
+// mix over-represents the favoured type, so goods it exports are cheap there
+// and cross-system trade routes pay.
+const SYSTEM_CHARACTERS = [
+  { name: 'Agrarian Belt', favor: 'Agricultural World' },
+  { name: 'Mining Cluster', favor: 'Mining Colony' },
+  { name: 'Refinery Complex', favor: 'Refinery World' },
+  { name: 'Tech Corridor', favor: 'Hi-Tech World' },
+  { name: 'Frontier Reach', favor: 'Frontier Outpost' },
+  { name: 'Industrial Heartland', favor: 'Industrial Core' },
+];
+
+function systemSeed(galaxyIndex, systemIndex) {
+  return galaxyIndex * 987.654 + systemIndex * 131.7 + 3.21;
+}
+
+// Name + economy character for any system WITHOUT generating it — the nav
+// computer lists jump destinations before the player commits fuel. Draws the
+// same leading rnd values generateSystem does, so the two always agree.
+export function systemInfo(galaxyIndex, systemIndex) {
+  if (galaxyIndex === 0 && systemIndex === 0) {
+    return { name: 'ACHENAR', character: 'Core Worlds' };
+  }
+  const rnd = makeRnd(systemSeed(galaxyIndex, systemIndex));
+  const draw = () => NAME_PREFIX[Math.floor(rnd() * NAME_PREFIX.length)]
+    + NAME_SUFFIX[Math.floor(rnd() * NAME_SUFFIX.length)];
+  if (systemIndex === 0) {
+    // a galaxy's arrival system keeps the legacy name and a balanced economy
+    return { name: draw() + ' ' + (galaxyIndex + 1), character: 'Balanced Economy' };
+  }
+  const name = draw();
+  const character = SYSTEM_CHARACTERS[Math.floor(rnd() * SYSTEM_CHARACTERS.length)];
+  return { name, character: character.name, favor: character.favor };
+}
+
+// Back-compat wrapper: a galaxy's arrival system is system 0.
 export function generateGalaxy(galaxyIndex) {
-  if (galaxyIndex === 0) {
+  generateSystem(galaxyIndex, 0);
+}
+
+export function generateSystem(galaxyIndex, systemIndex = 0) {
+  SYSTEM.systemIndex = systemIndex;
+
+  if (galaxyIndex === 0 && systemIndex === 0) {
     SYSTEM.name = 'ACHENAR';
+    SYSTEM.character = 'Core Worlds';
     SYSTEM.sunRadius = 300;
     SYSTEM.suns = [
       { radius: 300, position: new THREE.Vector3(0, 0, 0), color: '#ffeedd' }
@@ -136,22 +184,30 @@ export function generateGalaxy(galaxyIndex) {
     return;
   }
 
-  const rnd = makeRnd(galaxyIndex * 987.654 + 3.21);
+  // system 0 of each galaxy draws the exact rnd sequence the old
+  // generateGalaxy did, so pre-jump saves rebuild the same planets
+  const rnd = makeRnd(systemSeed(galaxyIndex, systemIndex));
 
-  const prefix = ['VER', 'FER', 'CRU', 'LUM', 'ACH', 'ZON', 'TAR', 'XEN', 'VAL', 'SOL', 'ALPH', 'BET', 'GAM', 'DRA', 'OR', 'SI', 'AN', 'COR', 'KAI', 'HELI', 'CYG', 'VEC', 'LYR', 'PEG', 'VEG', 'ANDR'];
-  const suffix = ['IDIA', 'OX', 'CIBLE', 'EN', 'ON', 'IA', 'OS', 'US', 'AR', 'AX', 'ERA', 'AURA', 'ETIS', 'ION', 'ORE', 'OCTO', 'IS', 'UX', 'YON', 'ITE', 'ATIS', 'OPIA', 'ALIS', 'URUS', 'OOM', 'USIA'];
-  
   const getRandName = () => {
-    const p = prefix[Math.floor(rnd() * prefix.length)];
-    const s = suffix[Math.floor(rnd() * suffix.length)];
+    const p = NAME_PREFIX[Math.floor(rnd() * NAME_PREFIX.length)];
+    const s = NAME_SUFFIX[Math.floor(rnd() * NAME_SUFFIX.length)];
     return p + s;
   };
 
-  // 1. Galaxy name
-  SYSTEM.name = getRandName() + ' ' + (galaxyIndex + 1);
+  // 1. System name + economy character (must mirror systemInfo's draws)
+  let favor = null;
+  if (systemIndex === 0) {
+    SYSTEM.name = getRandName() + ' ' + (galaxyIndex + 1);
+    SYSTEM.character = 'Balanced Economy';
+  } else {
+    SYSTEM.name = getRandName();
+    const character = SYSTEM_CHARACTERS[Math.floor(rnd() * SYSTEM_CHARACTERS.length)];
+    SYSTEM.character = character.name;
+    favor = character.favor;
+  }
 
   // 2. Suns (potentially multiple)
-  const isBinary = galaxyIndex > 0 && rnd() < 0.45;
+  const isBinary = (galaxyIndex > 0 || systemIndex > 0) && rnd() < 0.45;
   if (isBinary) {
     const color1 = ['#ffa54f', '#ff7f24', '#ff4500', '#ffd27a'][Math.floor(rnd() * 4)];
     const color2 = ['#87cefa', '#00bfff', '#1e90ff', '#e0ffff'][Math.floor(rnd() * 4)];
@@ -205,11 +261,16 @@ export function generateGalaxy(galaxyIndex) {
     'Vast silicate sands that glow under the twin stars.'
   ];
 
+  // a favoured character triples its planet type's odds; system 0 stays flat
+  const typePool = favor
+    ? types.concat(types.filter((t) => t.type === favor), types.filter((t) => t.type === favor))
+    : types;
+
   for (let i = 0; i < numPlanets; i++) {
     const name = getRandName() + (rnd() < 0.2 ? ' PRIME' : rnd() < 0.1 ? ' B' : '');
     const id = name.toLowerCase().replace(/[^a-z0-9]/g, '');
-    
-    const tSpec = types[Math.floor(rnd() * types.length)];
+
+    const tSpec = typePool[Math.floor(rnd() * typePool.length)];
     const dist = 2400 + i * 1800 + rnd() * 700;
     const angle = rnd() * 360;
     const yOffset = (rnd() - 0.5) * 600;

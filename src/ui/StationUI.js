@@ -5,6 +5,7 @@ import { Missions } from '../missions/Missions.js';
 import { Progression } from '../player/Progression.js';
 import { RareGoods } from '../economy/RareGoods.js';
 import { Crew } from '../crew/Crew.js';
+import { SYSTEM } from '../world/SystemDef.js';
 
 // Docked panel: Market / Shipyard / Repair tabs + undock.
 export class StationUI {
@@ -27,6 +28,7 @@ export class StationUI {
     this.barCandidates = Crew.generateCandidates(playerData);
     this.barMsg = null;
     this.missionMsg = null; // accept feedback line
+    this.cartoMsg = null; // scan-data sale feedback line
     this.tab = missionNews.length ? 'missions' : 'market';
     this.lastTrade = null; // { msg, cls } report line for the market tab
     this.selectedGoodId = null;
@@ -49,6 +51,7 @@ export class StationUI {
         <button data-tab="market">Market</button>
         <button data-tab="missions">Missions</button>
         <button data-tab="bar">Bar</button>
+        <button data-tab="carto">Cartographics</button>
         <button data-tab="pilot">Pilot</button>
         <button data-tab="shipyard">Shipyard</button>
         <button data-tab="repair">Repair</button>
@@ -79,7 +82,7 @@ export class StationUI {
 
   renderStatus() {
     const stats = this.player.getDerivedStats();
-    let txt = `${stats.shipName.toUpperCase()}   ·   GALAXY ${this.player.galaxy}   ·   LVL ${this.player.level}   ·   ${this.player.credits.toLocaleString()} CR   ·   CARGO ${this.player.cargoUsed()}/${stats.cargoMax}   ·   HULL ${Math.round(this.player.hull)}/${stats.hullMax}`;
+    let txt = `${stats.shipName.toUpperCase()}   ·   GALAXY ${this.player.galaxy} — ${SYSTEM.name}   ·   LVL ${this.player.level}   ·   ${this.player.credits.toLocaleString()} CR   ·   CARGO ${this.player.cargoUsed()}/${stats.cargoMax}   ·   HULL ${Math.round(this.player.hull)}/${stats.hullMax}`;
     if (this.player.skillPoints > 0) {
       txt += `   ·   ${this.player.skillPoints} SKILL PT${this.player.skillPoints > 1 ? 'S' : ''}`;
     }
@@ -97,6 +100,7 @@ export class StationUI {
     if (this.tab === 'market') this.renderMarket();
     else if (this.tab === 'missions') this.renderMissions();
     else if (this.tab === 'bar') this.renderBar();
+    else if (this.tab === 'carto') this.renderCarto();
     else if (this.tab === 'pilot') this.renderPilot();
     else if (this.tab === 'shipyard') this.renderShipyard();
     else if (this.tab === 'repair') this.renderRepair();
@@ -157,6 +161,59 @@ export class StationUI {
         this.renderTab();
       });
     });
+  }
+
+  // ---------- CARTOGRAPHICS (exploration scan data) ----------
+  renderCarto() {
+    const p = this.player;
+
+    const rows = p.scans.map((s, i) => `
+      <div class="mission-row">
+        <div class="m-name">${s.name}<div class="m-sub">${s.type} · ${s.system}</div></div>
+        <div class="m-detail">First-surveyor data — one buyer, one payout</div>
+        <div class="m-reward">${s.value.toLocaleString()} CR</div>
+        <button data-scan-sell="${i}">Sell</button>
+      </div>`).join('');
+
+    const total = p.scans.reduce((a, s) => a + s.value, 0);
+    const sellAll = p.scans.length > 1 ? `
+      <div class="mission-row">
+        <div class="m-name">Sell entire archive</div>
+        <div class="m-detail">${p.scans.length} surveys aboard</div>
+        <div class="m-reward">${total.toLocaleString()} CR</div>
+        <button data-scan-sell-all="1">Sell All</button>
+      </div>` : '';
+
+    const msg = this.cartoMsg
+      ? `<div class="trade-report ${this.cartoMsg.cls}">${this.cartoMsg.msg}</div>` : '';
+
+    this.body.innerHTML = `
+      <div class="m-section">UNIVERSAL CARTOGRAPHICS — UNSOLD SURVEY DATA</div>
+      ${rows || '<div class="m-detail" style="padding:6px 8px">No survey data aboard. Target a planet in flight (T) and press C to run a surface scan.</div>'}
+      ${sellAll}
+      ${msg}
+      <div class="m-section" style="margin-top:16px">SURVEY RECORD</div>
+      <div class="pilot-stats">
+        <div>BODIES SURVEYED</div><div>${p.scannedBodies.length}</div>
+        <div>SURVEY DATA SOLD</div><div>${Math.round(p.career.scanEarnings || 0).toLocaleString()} CR</div>
+      </div>
+    `;
+
+    const sell = (list) => {
+      if (!list.length) return;
+      const sum = list.reduce((a, s) => a + s.value, 0);
+      p.credits += sum;
+      p.career.creditsEarned += sum;
+      p.career.scanEarnings = (p.career.scanEarnings || 0) + sum;
+      p.scans = p.scans.filter((s) => !list.includes(s));
+      this.cartoMsg = { msg: `SURVEY DATA SOLD — +${sum.toLocaleString()} CR`, cls: 'profit' };
+      this.renderTab();
+    };
+    this.body.querySelectorAll('button[data-scan-sell]').forEach((btn) => {
+      btn.addEventListener('click', () => sell([p.scans[+btn.dataset.scanSell]].filter(Boolean)));
+    });
+    this.body.querySelector('button[data-scan-sell-all]')
+      ?.addEventListener('click', () => sell([...p.scans]));
   }
 
   // market price with Haggler/Negotiator perks applied
