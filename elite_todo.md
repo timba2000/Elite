@@ -131,6 +131,18 @@ new way to earn.
       crimes lower it; high rep = discounts, low rep = docking denied
 - [ ] **2–3 factions** with territory in the system(s); mission choices shift standing;
       hostile factions send hunters after the player
+- [ ] **Notoriety (good ↔ bad)** — one galaxy-wide moral score from **+100 (Angel)** down
+      to **−100 (Hell Rider)**, separate from per-station rep: rep is what a station
+      thinks of you, notoriety is who you *are*. Completing missions nudges it up
+      (+1 to +2), and missions to planets with challenges — hazard runs to Keller's
+      Drift, deliveries through pirate blockades, storm-orbit drops at Thalassa — pay
+      bigger swings (+3 to +5); rescues and pod pickups also count. Piracy, smuggling
+      busts, and killing clean ships drive it negative. High positive notoriety earns
+      police escorts, mission-board priority, and better insurance rates; deep negative
+      unlocks black markets and pirate contacts but draws bounty hunters and docking
+      bans at lawful stations — both extremes are playable, neither is free. Named
+      tiers every 25 points (Angel, Guardian, Citizen, Rogue, Outlaw, Hell Rider) shown
+      on the stats screen (§9)
 
 ## 7. Character progression — levels & skills
 
