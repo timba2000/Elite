@@ -6,10 +6,12 @@ hidden = [".config", "node_modules", "dist"]
 [nix]
 channel = "stable-24_05"
 
+# Reserved VM ("gce"): the presence layer holds persistent WebSockets, which
+# Autoscale would drop on idle/scale-down.
 [deployment]
 build = ["sh", "-c", "npm ci && npm run build"]
 run = ["sh", "-c", "npm run start"]
-deploymentTarget = "autoscale"
+deploymentTarget = "gce"
 
 [[ports]]
 localPort = 5000

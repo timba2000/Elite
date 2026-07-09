@@ -465,3 +465,28 @@ svg.history-chart .chart-text {
 #board-table td.num { text-align: right; }
 #board-table tr.board-self td { color: #ffd27a; }
 #board button { width: 240px; padding: 10px; }
+
+/* ---------- Universe chat (flight HUD) ---------- */
+#chat {
+  position: absolute; left: 18px; bottom: 120px;
+  display: flex; flex-direction: column; gap: 4px;
+  max-width: 420px; pointer-events: none;
+}
+.chat-msg {
+  font-size: 12px; letter-spacing: 0.5px; color: #cfeeff;
+  text-shadow: 0 0 6px rgba(0, 0, 0, 0.9);
+  transition: opacity 1.5s;
+}
+.chat-msg b { color: #ffd27a; font-weight: normal; margin-right: 4px; }
+.chat-msg.chat-fade { opacity: 0.25; }
+#chat-inputrow {
+  display: flex; gap: 8px; align-items: center; margin-top: 4px;
+  pointer-events: auto;
+}
+#chat-inputrow span { font-size: 12px; color: #ffd27a; letter-spacing: 2px; }
+#chat-inputrow input {
+  font-family: inherit; font-size: 12px; letter-spacing: 0.5px;
+  background: rgba(6, 22, 32, 0.92); color: #9fe8ff;
+  border: 1px solid rgba(80, 220, 255, 0.5);
+  padding: 7px 10px; width: 320px; outline: none;
+}

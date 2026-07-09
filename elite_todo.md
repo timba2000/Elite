@@ -293,10 +293,14 @@ single-player always keeps working (every network call fails soft).
       dock and report trades), and a Galactic Rankings leaderboard on the title
       screen (top 20 by credits, combat rank shown, cheat-start commanders
       excluded). Postgres on Replit, JSON-file fallback locally — *shipped*
-- [ ] **Phase 3 — presence** — WebSocket layer: see other commanders' ships in
-      your system in real time (~10 Hz positions, interpolation), name tags,
-      system chat, GALNET event toasts pushed live instead of polled on dock;
-      needs the Replit deployment switched from Autoscale to Reserved VM
+- [x] **Phase 3 — presence** — WebSocket layer (`/ws`): signed-in commanders see
+      each other's ships live in the same system (10 Hz client-authoritative
+      positions, 150 ms interpolation with velocity coasting, real ship meshes
+      with name-tag sprites), join/leave toasts, universe-wide chat (ENTER to
+      talk in flight, rate-limited server-side), docked ships despawn, and the
+      server pushes fresh GALNET headlines each minute to commanders flying in
+      the affected system. Deployment target switched to Reserved VM ("gce") so
+      sockets persist — *shipped*
 - [ ] **Phase 4 — interaction (far future)** — synced pirates, co-op contract
       wings, PvP; requires pulling combat resolution out of FlightState into the
       server — a rewrite, not an increment; deliberately deferred

@@ -49,7 +49,8 @@ export class SharedMarkets {
     if (dt <= 0) return;
     generateSystem(entry.galaxy - 1, entry.system);
     entry.market.update(dt);
-    entry.market.consumeNews(); // server has no toast UI; drop the queue
+    // market.news is left queued: the GALNET push interval (index.js) consumes
+    // it and broadcasts headlines to commanders currently in this system
   }
 
   async persist(key, entry) {

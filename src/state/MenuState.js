@@ -11,6 +11,8 @@ export class MenuState {
 
   enter() {
     const g = this.game;
+    g.presence?.disconnect();
+    g.remoteShips?.clear();
     g.ui.hud.hide();
     g.ui.stationUI.hide();
     g.ui.menuUI.hidePause();

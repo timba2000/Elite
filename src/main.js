@@ -23,6 +23,10 @@ import { DockingState } from './state/DockingState.js';
 import { StationState } from './state/StationState.js';
 import { Sfx } from './audio/Sfx.js';
 import { Graphics } from './fx/Graphics.js';
+import { Net } from './net/Net.js';
+import { Presence } from './net/Presence.js';
+import { RemoteShips } from './ships/RemoteShips.js';
+import { ChatUI } from './ui/ChatUI.js';
 
 class Game {
   constructor() {
@@ -75,6 +79,7 @@ class Game {
       hud: new Hud(uiRoot),
       stationUI: new StationUI(uiRoot),
       menuUI: new MenuUI(uiRoot),
+      chatUI: new ChatUI(uiRoot, this),
     };
     this.ui.hud.sfx = this.sfx;
     // every UI button gets a click blip
@@ -128,6 +133,26 @@ class Game {
     });
     this.states.flight.target = null;
     this.states.flight.targetIndex = -1;
+
+    // realtime presence: live ships + chat, only for signed-in commanders
+    this.presence?.disconnect();
+    this.remoteShips?.clear();
+    this.presence = null;
+    this.remoteShips = null;
+    this.ui.chatUI.onSend = null;
+    if (Net.loggedIn) {
+      this.remoteShips = new RemoteShips(this.scene);
+      this.presence = new Presence({
+        onChat: (from, text) => this.ui.chatUI.addMessage(from, text),
+        onToast: (msg, kind) => this.ui.hud.toast(msg, kind),
+        onPeerGone: (id) => this.remoteShips?.removePeer(id),
+      });
+      this.presence.connect(playerData.galaxy, playerData.system);
+      this.ui.chatUI.onSend = (text) => {
+        this.presence.sendChat(text);
+        this.ui.chatUI.addMessage(Net.name, text); // server echoes to others only
+      };
+    }
   }
 
   rebuildEngineTrail() {

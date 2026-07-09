@@ -132,6 +132,7 @@ export class FlightState {
     this.game.ui.hud.setPrompt('');
     this.game.sfx.setEngine(0, false, false);
     this.game.enemyMissilePool?.clear();
+    this.game.remoteShips?.clear(); // docked or quit: despawn live ships
   }
 
   // ---------- events wired from EncounterManager ----------
@@ -601,6 +602,12 @@ export class FlightState {
       lockState = 'locked';
     } else if (this.lockTimer > 0) {
       lockState = 'locking';
+    }
+
+    // realtime presence: stream our state, render the other commanders
+    if (g.presence && this.mode !== 'dead') {
+      g.presence.flightTick(dt, g, this.mode === 'super');
+      g.remoteShips?.update(g.presence, g.camera);
     }
 
     g.ui.hud.update(dt, {

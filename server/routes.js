@@ -17,9 +17,8 @@ function summarize(blob) {
   };
 }
 
-export function createApi(storage) {
+export function createApi(storage, markets = new SharedMarkets(storage)) {
   const api = express.Router();
-  const markets = new SharedMarkets(storage);
   const auth = requireAuth(storage);
 
   const issueSession = async (player) => {
