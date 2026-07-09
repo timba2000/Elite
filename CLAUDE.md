@@ -1,5 +1,29 @@
 # CLAUDE.md
 
+## About This Project
+
+Elite — a Three.js interstellar trading game with shared-universe multiplayer.
+Live in production at **https://elite-timba2000.replit.app**.
+
+- **Stack:** plain-JS Vite client (`src/`) + Express server (`server/`). No TypeScript.
+  The server imports the game's own `Market`/`SystemDef` modules to run the shared
+  economy; the universe is seed-deterministic so all clients agree.
+- **Hosting:** the game is maintained in production on Replit (Reserved VM
+  deployment, `deploymentTarget = "gce"` in `.replit` — required because the
+  WebSocket presence layer on `/ws` needs persistent connections; do not switch
+  back to Autoscale).
+- **Databases:** Replit hosts both a **dev** and a **prod** PostgreSQL database.
+  The server uses Postgres when `DATABASE_URL` is set; locally it falls back to a
+  JSON file store in `server/data/` (gitignored).
+- **Deploy flow:** push to GitHub `main` (`timba2000/Elite`) → Replit publishes
+  from there.
+- **Commands:** `npm run dev` (Vite client), `npm run start` (server),
+  `npm run build` (production build).
+- **Roadmap:** `elite_todo.md` (§11 covers multiplayer phases; phase 4 PvP/synced
+  combat is deliberately deferred).
+
+## Behavioral Guidelines
+
 Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
 
 **Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
