@@ -1,6 +1,6 @@
 run = "npm run start"
 entrypoint = "server/index.js"
-modules = ["nodejs-20"]
+modules = ["nodejs-20", "postgresql-16"]
 hidden = [".config", "node_modules", "dist"]
 
 [nix]
@@ -16,3 +16,34 @@ deploymentTarget = "gce"
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[[ports]]
+localPort = 5173
+externalPort = 5173
+
+[agent]
+expertMode = true
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node server/index.js"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
