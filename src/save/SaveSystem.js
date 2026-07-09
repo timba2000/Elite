@@ -1,3 +1,5 @@
+import { Net } from '../net/Net.js';
+
 const KEY = 'elite-save-v1';
 
 export const SaveSystem = {
@@ -10,6 +12,7 @@ export const SaveSystem = {
         timestamp: Date.now(),
       };
       localStorage.setItem(KEY, JSON.stringify(blob));
+      Net.cloudSave(blob); // async, fire-and-forget; no-op when signed out
       return true;
     } catch {
       return false;
@@ -26,6 +29,16 @@ export const SaveSystem = {
     } catch {
       return null;
     }
+  },
+
+  // Newer of local and cloud save. Cloud wins ties so a fresh device
+  // (empty localStorage) picks up the commander's progress.
+  async loadBest() {
+    const local = this.load();
+    const cloud = await Net.cloudLoad();
+    if (!cloud || cloud.version !== 1 || !cloud.player) return local;
+    if (!local) return cloud;
+    return (cloud.timestamp ?? 0) >= (local.timestamp ?? 0) ? cloud : local;
   },
 
   exists() {

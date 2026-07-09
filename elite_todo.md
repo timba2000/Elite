@@ -277,6 +277,30 @@ recruit the best ones, and grow from a lone pilot into a small trading company.
       flare, film grain and vignette; Standard keeps the classic bloom-only look and
       Low drops post entirely*
 
+## 11. Multiplayer — the shared universe (hosted on Replit)
+
+The game now ships with its own Express server (`server/`) and deploys to Replit
+from GitHub. Multiplayer arrives in phases, each playable on its own; offline
+single-player always keeps working (every network call fails soft).
+
+- [x] **Phase 1 — hosted game** — Express server serves the built client with a
+      `/api/health` endpoint and Replit deployment config (`.replit`) — *shipped*
+- [x] **Phase 2 — shared universe** — commander accounts (name + PIN, scrypt,
+      bearer sessions), cloud saves (newer of local/cloud wins on Continue, so
+      progress follows the commander across devices), server-authoritative shared
+      economy (the server runs the game's own Market simulation per visited
+      system on wall-clock time; clients adopt shared prices/events/history on
+      dock and report trades), and a Galactic Rankings leaderboard on the title
+      screen (top 20 by credits, combat rank shown, cheat-start commanders
+      excluded). Postgres on Replit, JSON-file fallback locally — *shipped*
+- [ ] **Phase 3 — presence** — WebSocket layer: see other commanders' ships in
+      your system in real time (~10 Hz positions, interpolation), name tags,
+      system chat, GALNET event toasts pushed live instead of polled on dock;
+      needs the Replit deployment switched from Autoscale to Reserved VM
+- [ ] **Phase 4 — interaction (far future)** — synced pirates, co-op contract
+      wings, PvP; requires pulling combat resolution out of FlightState into the
+      server — a rewrite, not an increment; deliberately deferred
+
 ---
 
 ## Suggested build order

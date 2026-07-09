@@ -38,6 +38,7 @@ export class PlayerData {
     this.rares = []; // rare goods in the hold (count toward cargo space)
     this.crew = []; // { name, role, tier, wage }
     this.lastWagePaidAt = 0;
+    this.cheated = false; // cheat-start commanders are hidden from the leaderboard
   }
 
   crewTier(role) {
@@ -196,6 +197,7 @@ export class PlayerData {
       rares: this.rares,
       crew: this.crew,
       lastWagePaidAt: this.lastWagePaidAt,
+      cheated: this.cheated,
     };
   }
 
@@ -239,6 +241,7 @@ export class PlayerData {
     p.rares = Array.isArray(data.rares) ? data.rares : [];
     p.crew = Array.isArray(data.crew) ? data.crew : [];
     p.lastWagePaidAt = data.lastWagePaidAt ?? 0;
+    p.cheated = data.cheated ?? false;
     return p;
   }
 }

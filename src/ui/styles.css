@@ -427,3 +427,41 @@ svg.history-chart .chart-text {
 #pause.visible { display: flex; }
 #pause h2 { letter-spacing: 10px; font-weight: normal; color: #dffaff; margin-bottom: 18px; }
 #pause button { width: 240px; padding: 10px; }
+
+/* ---------- Commander sign-in (title screen) ---------- */
+#cmdr-box {
+  margin-top: 10px; display: flex; flex-direction: column; align-items: center; gap: 8px;
+}
+#cmdr-forms { display: flex; gap: 8px; align-items: center; }
+#cmdr-forms input {
+  font-family: inherit; font-size: 12px; letter-spacing: 1px;
+  background: rgba(6, 22, 32, 0.9); color: #9fe8ff;
+  border: 1px solid rgba(80, 220, 255, 0.5);
+  padding: 9px 10px; width: 170px; outline: none;
+}
+#cmdr-forms input::placeholder { color: rgba(159, 232, 255, 0.45); }
+#cmdr-forms input:focus { border-color: rgba(80, 220, 255, 0.9); }
+#menu #cmdr-forms button { width: auto; padding: 9px 14px; font-size: 12px; }
+#cmdr-signed { display: flex; gap: 12px; align-items: center; }
+#cmdr-signed span { font-size: 12px; letter-spacing: 2px; color: #ffd27a; }
+#menu #cmdr-signed button { width: auto; padding: 8px 14px; font-size: 12px; }
+#cmdr-status { font-size: 11px; letter-spacing: 1px; color: #ff9a7a; min-height: 14px; }
+
+/* ---------- Galactic rankings ---------- */
+#board {
+  position: absolute; inset: 0; display: none;
+  align-items: center; justify-content: center; flex-direction: column; gap: 16px;
+  background: rgba(0, 4, 8, 0.82); z-index: 30;
+}
+#board.visible { display: flex; }
+#board h2 { letter-spacing: 8px; font-weight: normal; color: #dffaff; }
+#board-body { max-height: 60vh; overflow-y: auto; }
+#board-table { border-collapse: collapse; font-size: 13px; letter-spacing: 1px; }
+#board-table th, #board-table td {
+  padding: 7px 16px; text-align: left;
+  border-bottom: 1px solid rgba(80, 220, 255, 0.2);
+}
+#board-table th { color: #ffd27a; font-weight: normal; letter-spacing: 2px; }
+#board-table td.num { text-align: right; }
+#board-table tr.board-self td { color: #ffd27a; }
+#board button { width: 240px; padding: 10px; }

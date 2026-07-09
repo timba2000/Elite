@@ -136,7 +136,7 @@ class Game {
 
   newGame(cheat = false) {
     const pd = new PlayerData();
-    if (cheat) pd.credits = 1000000;
+    if (cheat) { pd.credits = 1000000; pd.cheated = true; }
     generateSystem(0, 0); // Reset to default Galaxy 1 (Achenar)
     this.createSession(pd, new Market());
     this.sm.change(this.states.flight, {
@@ -145,11 +145,11 @@ class Game {
     });
   }
 
-  loadGame(cheat = false) {
-    const data = SaveSystem.load();
+  async loadGame(cheat = false) {
+    const data = await SaveSystem.loadBest();
     if (!data) { this.newGame(cheat); return; }
     const pd = PlayerData.deserialize(data.player);
-    if (cheat) pd.credits = 1000000;
+    if (cheat) { pd.credits = 1000000; pd.cheated = true; }
     generateSystem((pd.galaxy ?? 1) - 1, pd.system ?? 0); // Setup correct galaxy + system
     this.createSession(
       pd,

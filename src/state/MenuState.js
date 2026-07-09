@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { SaveSystem } from '../save/SaveSystem.js';
+import { Net } from '../net/Net.js';
 
 // Title screen with the live system drifting behind it.
 export class MenuState {
@@ -14,13 +15,24 @@ export class MenuState {
     g.ui.stationUI.hide();
     g.ui.menuUI.hidePause();
     g.input.exitPointerLock();
+    const refreshHasSave = () => {
+      g.ui.menuUI.setHasSave(SaveSystem.exists());
+      // a signed-in commander may have a cloud save this device has never seen
+      if (Net.loggedIn && !SaveSystem.exists()) {
+        Net.cloudLoad().then((blob) => {
+          if (blob && g.sm.current === this) g.ui.menuUI.setHasSave(true);
+        });
+      }
+    };
     g.ui.menuUI.show({
       hasSave: SaveSystem.exists(),
       onNew: () => g.newGame(),
       onNewCheat: () => g.newGame(true),
       onContinue: () => g.loadGame(),
       onContinueCheat: () => g.loadGame(true),
+      onSessionChange: refreshHasSave,
     });
+    refreshHasSave();
   }
 
   exit() {

@@ -6,6 +6,7 @@ import { Progression } from '../player/Progression.js';
 import { RareGoods } from '../economy/RareGoods.js';
 import { Crew } from '../crew/Crew.js';
 import { SYSTEM } from '../world/SystemDef.js';
+import { Net } from '../net/Net.js';
 
 // Docked panel: Market / Shipyard / Repair tabs + undock.
 export class StationUI {
@@ -635,6 +636,7 @@ export class StationUI {
       p.credits -= qty * buy;
       p.addCargo(goodId, qty, buy);
       this.market.recordTrade(this.planetDef.id, goodId, qty, true);
+      Net.marketTrade(p.galaxy, p.system, this.planetDef.id, goodId, qty, true);
       this.lastTrade = { msg: `BOUGHT ${qty}x ${name} FOR ${(qty * buy).toLocaleString()} CR`, cls: '' };
       if (goodId === 'narcotics') {
         p.notoriety = Math.min(100, (p.notoriety || 0) + qty * 2.5);
@@ -649,6 +651,7 @@ export class StationUI {
       p.career.creditsEarned += qty * sell;
       p.removeCargo(goodId, qty);
       this.market.recordTrade(this.planetDef.id, goodId, qty, false);
+      Net.marketTrade(p.galaxy, p.system, this.planetDef.id, goodId, qty, false);
       const plText = profit >= 0
         ? `PROFIT +${profit.toLocaleString()} CR`
         : `LOSS −${Math.abs(profit).toLocaleString()} CR`;

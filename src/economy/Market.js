@@ -181,6 +181,31 @@ export class Market {
     return COMMODITIES.find((g) => g.id === goodId).base;
   }
 
+  // Adopt the shared server market for the current system: drift, events and
+  // price history become the galaxy-wide truth. Called on dock when online.
+  adoptShared(state) {
+    if (!state || !state.drift) return;
+    // the server simulates without a player, i.e. at galaxy-1 price scale;
+    // rescale its history to what this player's market screens show
+    const galaxy = (typeof window !== 'undefined' && window.game?.playerData?.galaxy) || 1;
+    const priceScale = 1.0 + (galaxy - 1) * 0.45;
+    for (const p of SYSTEM.planets) {
+      if (!this.drift[p.id]) this.drift[p.id] = {};
+      for (const g of COMMODITIES) {
+        if (typeof state.drift[p.id]?.[g.id] === 'number') {
+          this.drift[p.id][g.id] = state.drift[p.id][g.id];
+        }
+        if (Array.isArray(state.history?.[p.id]?.[g.id]) && state.history[p.id][g.id].length) {
+          this.history[p.id] = this.history[p.id] || {};
+          this.history[p.id][g.id] = state.history[p.id][g.id].map((v) => Math.max(1, Math.round(v * priceScale)));
+        }
+      }
+    }
+    if (Array.isArray(state.events)) {
+      this.events = state.events.filter((e) => SYSTEM.planets.some((p) => p.id === e.planetId));
+    }
+  }
+
   serialize() {
     return { drift: this.drift, events: this.events, history: this.history };
   }

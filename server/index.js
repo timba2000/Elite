@@ -1,18 +1,31 @@
-// Elite game server. Phase 1: serves the built client. Later phases add
-// accounts, the shared galaxy economy, and the realtime presence layer.
+// Elite game server: serves the built client and the shared-universe API
+// (commander accounts, cloud saves, leaderboard, shared galaxy markets).
 import express from 'express';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { createStorage } from './storage.js';
+import { createApi } from './routes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const distDir = path.join(__dirname, '..', 'dist');
 
+const storage = await createStorage();
+console.log(`Storage backend: ${storage.kind}`);
+
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 
 app.get('/api/health', (_req, res) => {
-  res.json({ ok: true, uptime: process.uptime() });
+  res.json({ ok: true, uptime: process.uptime(), storage: storage.kind });
+});
+
+app.use('/api', createApi(storage));
+
+// API errors respond as JSON, never as the SPA fallback page.
+app.use('/api', (err, _req, res, _next) => {
+  console.error(err);
+  res.status(500).json({ error: 'Server error' });
 });
 
 if (!fs.existsSync(path.join(distDir, 'index.html'))) {

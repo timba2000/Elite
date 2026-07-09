@@ -2,6 +2,7 @@ import { SaveSystem } from '../save/SaveSystem.js';
 import { Missions } from '../missions/Missions.js';
 import { Progression } from '../player/Progression.js';
 import { Crew } from '../crew/Crew.js';
+import { Net } from '../net/Net.js';
 
 // Docked: station UI over a slow orbit shot of the station. Autosaves on entry.
 export class StationState {
@@ -64,6 +65,16 @@ export class StationState {
 
     g.playerData.lastStationId = station.id;
     SaveSystem.save(g.playerData, g.market);
+
+    // shared universe: pull the galaxy-wide market for this system, then
+    // refresh whatever station screen is open so prices match everyone else's
+    if (Net.loggedIn) {
+      Net.marketFetch(g.playerData.galaxy, g.playerData.system).then((state) => {
+        if (!state || g.sm.current !== g.states.station) return;
+        g.market.adoptShared(state);
+        g.ui.stationUI.renderTab();
+      });
+    }
 
     if (respawned) {
       // insurance already applied in FlightState.respawn

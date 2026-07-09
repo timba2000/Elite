@@ -1,6 +1,8 @@
 import { Graphics } from '../fx/Graphics.js';
+import { Net } from '../net/Net.js';
+import { Progression } from '../player/Progression.js';
 
-// Title screen + pause overlay.
+// Title screen + pause overlay + commander sign-in + galactic rankings.
 export class MenuUI {
   constructor(uiRoot) {
     this.menu = document.createElement('div');
@@ -13,6 +15,20 @@ export class MenuUI {
       <button id="btn-continue" class="clickable" style="display:none">Continue</button>
       <button id="btn-continue-cheat" class="clickable amber" style="display:none">Continue (Cheat)</button>
       <button id="btn-gfx" class="clickable">Graphics: ${Graphics.label()}</button>
+      <button id="btn-board" class="clickable">Galactic Rankings</button>
+      <div id="cmdr-box">
+        <div id="cmdr-forms">
+          <input id="cmdr-name" maxlength="16" placeholder="COMMANDER NAME" autocomplete="username">
+          <input id="cmdr-pin" type="password" maxlength="64" placeholder="PIN" autocomplete="current-password">
+          <button id="btn-signin" class="clickable">Sign In</button>
+          <button id="btn-register" class="clickable">Register</button>
+        </div>
+        <div id="cmdr-signed" style="display:none">
+          <span id="cmdr-label"></span>
+          <button id="btn-signout" class="clickable">Sign Out</button>
+        </div>
+        <div id="cmdr-status"></div>
+      </div>
       <div class="controls">
         <b>MOUSE</b> steer &nbsp; <b>W/S</b> throttle &nbsp; <b>SHIFT</b> boost &nbsp; <b>Q/A</b> roll left &nbsp; <b>D</b> roll right &nbsp; <b>E</b> fire missile when locked<br>
         <b>SPACE / CLICK</b> fire laser &nbsp; <b>T</b> cycle target &nbsp; <b>X</b> deploy chaff &nbsp; <b>J</b> supercruise &nbsp; <b>F</b> request docking &nbsp; <b>V</b> view &nbsp; <b>M</b> mute &nbsp; <b>ESC</b> pause<br>
@@ -21,6 +37,17 @@ export class MenuUI {
       </div>
     `;
     uiRoot.appendChild(this.menu);
+
+    this.board = document.createElement('div');
+    this.board.id = 'board';
+    this.board.className = 'panel';
+    this.board.innerHTML = `
+      <h2>GALACTIC RANKINGS</h2>
+      <div id="board-body">Contacting GALNET...</div>
+      <button id="btn-board-close" class="clickable">Close</button>
+    `;
+    uiRoot.appendChild(this.board);
+    this.board.querySelector('#btn-board-close').onclick = () => this.hideBoard();
 
     this.pause = document.createElement('div');
     this.pause.id = 'pause';
@@ -44,24 +71,88 @@ export class MenuUI {
     this.menu.querySelector('#btn-gfx').onclick = () => Graphics.cycle();
     this.pause.querySelector('#btn-gfx-pause').onclick = () => Graphics.cycle();
     Graphics.onChange(syncGfxLabels);
+
+    this.menu.querySelector('#btn-board').onclick = () => this.showBoard();
+    this.wireCommanderBox();
   }
 
-  show({ hasSave, onNew, onNewCheat, onContinue, onContinueCheat }) {
+  wireCommanderBox() {
+    const q = (sel) => this.menu.querySelector(sel);
+    const status = q('#cmdr-status');
+    const submit = async (kind) => {
+      const name = q('#cmdr-name').value.trim();
+      const pin = q('#cmdr-pin').value;
+      if (!name || !pin) { status.textContent = 'ENTER NAME AND PIN'; return; }
+      status.textContent = 'CONTACTING GALNET...';
+      const r = kind === 'register' ? await Net.register(name, pin) : await Net.login(name, pin);
+      status.textContent = r.error ? r.error.toUpperCase() : '';
+      this.refreshCommander();
+      if (!r.error) this.onSessionChange?.();
+    };
+    q('#btn-signin').onclick = () => submit('login');
+    q('#btn-register').onclick = () => submit('register');
+    q('#cmdr-pin').addEventListener('keydown', (e) => { if (e.key === 'Enter') submit('login'); });
+    q('#btn-signout').onclick = async () => {
+      await Net.logout();
+      status.textContent = '';
+      this.refreshCommander();
+      this.onSessionChange?.();
+    };
+    this.refreshCommander();
+  }
+
+  refreshCommander() {
+    const q = (sel) => this.menu.querySelector(sel);
+    q('#cmdr-forms').style.display = Net.loggedIn ? 'none' : '';
+    q('#cmdr-signed').style.display = Net.loggedIn ? '' : 'none';
+    if (Net.loggedIn) {
+      q('#cmdr-label').textContent = `CMDR ${Net.name.toUpperCase()} · SHARED UNIVERSE ONLINE`;
+    }
+  }
+
+  async showBoard() {
+    this.board.classList.add('visible');
+    const body = this.board.querySelector('#board-body');
+    body.textContent = 'Contacting GALNET...';
+    const entries = await Net.leaderboard();
+    if (!entries) { body.textContent = 'GALNET UNREACHABLE'; return; }
+    if (!entries.length) { body.textContent = 'NO COMMANDERS REGISTERED YET'; return; }
+    const rows = entries.map((e, i) => {
+      const rank = Progression.combatRank({ career: { combatScore: e.combatScore } }).name;
+      const self = Net.loggedIn && e.name.toLowerCase() === Net.name.toLowerCase();
+      return `<tr class="${self ? 'board-self' : ''}">
+        <td>${i + 1}</td><td>${escapeHtml(e.name.toUpperCase())}</td>
+        <td class="num">${Number(e.credits).toLocaleString()} CR</td>
+        <td class="num">LV ${e.level}</td><td>${rank}</td><td class="num">G${e.galaxy}</td>
+      </tr>`;
+    }).join('');
+    body.innerHTML = `<table id="board-table">
+      <tr><th>#</th><th>COMMANDER</th><th>CREDITS</th><th>LEVEL</th><th>COMBAT</th><th>GALAXY</th></tr>
+      ${rows}</table>`;
+  }
+
+  hideBoard() { this.board.classList.remove('visible'); }
+
+  show({ hasSave, onNew, onNewCheat, onContinue, onContinueCheat, onSessionChange }) {
     this.menu.classList.add('visible');
-    const cont = this.menu.querySelector('#btn-continue');
-    const contCheat = this.menu.querySelector('#btn-continue-cheat');
-    const nCheat = this.menu.querySelector('#btn-new-cheat');
-    
-    cont.style.display = hasSave ? '' : 'none';
-    contCheat.style.display = hasSave ? '' : 'none';
-    
+    this.onSessionChange = onSessionChange;
+    this.setHasSave(hasSave);
     this.menu.querySelector('#btn-new').onclick = onNew;
-    nCheat.onclick = onNewCheat;
-    cont.onclick = onContinue;
-    contCheat.onclick = onContinueCheat;
+    this.menu.querySelector('#btn-new-cheat').onclick = onNewCheat;
+    this.menu.querySelector('#btn-continue').onclick = onContinue;
+    this.menu.querySelector('#btn-continue-cheat').onclick = onContinueCheat;
+    this.refreshCommander();
   }
 
-  hide() { this.menu.classList.remove('visible'); }
+  setHasSave(hasSave) {
+    this.menu.querySelector('#btn-continue').style.display = hasSave ? '' : 'none';
+    this.menu.querySelector('#btn-continue-cheat').style.display = hasSave ? '' : 'none';
+  }
+
+  hide() {
+    this.menu.classList.remove('visible');
+    this.hideBoard();
+  }
 
   showPause({ onResume, onSave, onQuit }) {
     this.pause.classList.add('visible');
@@ -71,4 +162,10 @@ export class MenuUI {
   }
 
   hidePause() { this.pause.classList.remove('visible'); }
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
 }
