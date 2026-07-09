@@ -1,0 +1,16 @@
+run = "npm run start"
+entrypoint = "server/index.js"
+modules = ["nodejs-20"]
+hidden = [".config", "node_modules", "dist"]
+
+[nix]
+channel = "stable-24_05"
+
+[deployment]
+build = ["sh", "-c", "npm ci && npm run build"]
+run = ["sh", "-c", "npm run start"]
+deploymentTarget = "autoscale"
+
+[[ports]]
+localPort = 5000
+externalPort = 80
