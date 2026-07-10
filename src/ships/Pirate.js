@@ -42,6 +42,14 @@ export class Pirate {
       this.turn = C.PIRATE.TURN * (0.9 + Math.random() * 0.2);
     }
 
+    // loadout: dreadnoughts always carry missiles, lighter hulls often do;
+    // plenty of pirates also mount anti-missile ECM of their own
+    this.hasMissiles = this.type === 'dreadnought' || Math.random() < C.PIRATE.MISSILE_CHANCE;
+    this.hasEcm = Math.random() < C.PIRATE.ECM_CHANCE;
+    this.missileTimer = this.missileTimer ?? 8.0 + Math.random() * 8.0;
+    this.missileLock = 0; // seconds of seeker lock accumulated on the player
+    this.lockBeepT = 0;
+
     this.hull = this.hullMax;
     this.shieldMax = this.shield;
     this.shieldTimer = 0;
@@ -138,24 +146,38 @@ export class Pirate {
       }
     }
 
-    // Dreadnought missile fire
-    if (this.alive && this.type === 'dreadnought' && this.state === 'ATTACK' && dist > 180 && dist < 650) {
+    // Missile fire: the seeker needs an audible lock-on run before launch —
+    // the player hears the warning and can chaff the lock or boost away
+    if (this.alive && this.hasMissiles && this.state === 'ATTACK'
+        && dist > C.PIRATE.MISSILE_MIN_DIST && dist < C.PIRATE.MISSILE_MAX_DIST) {
       this.missileTimer -= dt;
       if (this.missileTimer <= 0) {
-        this.missileTimer = 10.0 + Math.random() * 8.0;
         const g = window.game;
-        if (g && g.enemyMissilePool) {
-          const origin = new THREE.Vector3();
-          if (this.ship.group.userData && this.ship.group.userData.mslHp) {
-            this.ship.group.userData.mslHp.getWorldPosition(origin);
-          } else {
-            origin.copy(this.group.position).addScaledVector(_fwd, 4.0);
+        this.missileLock += dt;
+        this.lockBeepT -= dt;
+        if (g && this.lockBeepT <= 0) {
+          this.lockBeepT = 0.34;
+          g.sfx.play('missileLockWarn');
+          if (this.missileLock <= dt) g.ui.hud.toast('HOSTILE MISSILE LOCK — CHAFF (X) OR BOOST!', 'warn');
+        }
+        if (this.missileLock >= C.PIRATE.MISSILE_LOCK_TIME) {
+          this.missileLock = 0;
+          this.missileTimer = 10.0 + Math.random() * 8.0;
+          if (g && g.enemyMissilePool) {
+            const origin = new THREE.Vector3();
+            if (this.ship.group.userData && this.ship.group.userData.mslHp) {
+              this.ship.group.userData.mslHp.getWorldPosition(origin);
+            } else {
+              origin.copy(this.group.position).addScaledVector(_fwd, 4.0);
+            }
+            g.enemyMissilePool.fire(origin, _fwd.clone(), g.ship, C.PIRATE.MISSILE_DAMAGE, this.velocity);
+            g.sfx.play('missileLaunch');
+            g.ui.hud.toast('WARNING — INCOMING HOSTILE MISSILE!', 'warn');
           }
-          g.enemyMissilePool.fire(origin, _fwd.clone(), g.ship, 120, this.velocity);
-          g.sfx.play('missileLaunch');
-          g.ui.hud.toast('WARNING — INCOMING HOSTILE MISSILE!', 'warn');
         }
       }
+    } else {
+      this.missileLock = 0;
     }
   }
 

@@ -143,6 +143,10 @@ export class Sfx {
         this.tone({ type: 'sine', f0: 1100, dur: 0.12, vol: 0.15 });
         this.tone({ type: 'sine', f0: 1100, dur: 0.12, vol: 0.15, delay: 0.08 });
         break;
+      case 'missileLockWarn': // hostile seeker training on us — urgent rising pair
+        this.tone({ type: 'square', f0: 1450, dur: 0.07, vol: 0.11 });
+        this.tone({ type: 'square', f0: 1750, dur: 0.07, vol: 0.1, delay: 0.11 });
+        break;
       case 'toastInfo':
         this.tone({ type: 'sine', f0: 700, dur: 0.06, vol: 0.08 });
         break;

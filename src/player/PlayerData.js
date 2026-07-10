@@ -7,7 +7,7 @@ export class PlayerData {
     this.credits = C.START_CREDITS;
     this.cargo = { ...C.START_CARGO };
     this.costBasis = {}; // goodId -> avg credits paid per unit held
-    this.upgrades = { engine: 1, weapons: 1, shield: 1, hull: 1, cargo: 1, dockingComputer: 0, missiles: 0, galacticHyperdrive: 0 };
+    this.upgrades = { engine: 1, weapons: 1, shield: 1, hull: 1, cargo: 1, dockingComputer: 0, missiles: 0, galacticHyperdrive: 0, precisionHyperdrive: 0 };
     this.hull = C.UPGRADES.hull.tiers[1].max;
     this.missilesAmmo = null; // null = full load for the fitted launcher
     this.lastStationId = 'earth-station';

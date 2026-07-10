@@ -41,6 +41,8 @@ export class FlightState {
     this.cameraView = 'cockpit'; // 'cockpit' | 'chase'
     this.clearance = null;   // station we have docking clearance at
     this.dockBounceT = 0;    // cooldown after bouncing off the hub
+    this.stationStrikes = {};    // station id -> hard impacts this flight
+    this.lockedStationId = null; // station refusing entry after repeated impacts
     this.lockTarget = null;
     this.lockTimer = 0;
     this.locked = false;
@@ -66,6 +68,7 @@ export class FlightState {
     this.shakeT = 0;
     this.setClearance(null);
     this.dockBounceT = 0;
+    this.stationStrikes = {}; // impact strikes are per flight
     this.lockTarget = null;
     this.lockTimer = 0;
     this.locked = false;
@@ -357,18 +360,40 @@ export class FlightState {
         g.ui.hud.warpFlash();
         g.sfx.play('superEngage');
 
-        // arrive in open space inside the innermost orbit, facing out
-        ship.group.position.set(0, 250, 1900);
-        _m.lookAt(new THREE.Vector3(0, 250, 3200), ship.group.position, _up);
-        ship.group.quaternion.setFromRotationMatrix(_m);
-        ship.velocity.set(0, 0, 0);
+        // a standard drive can mis-jump: dumped out scraping the primary's
+        // corona instead of the clean emergence point. Precision drive never does.
+        const misjump = !pd.upgrades.precisionHyperdrive && Math.random() < C.MISJUMP_CHANCE;
+        if (misjump) {
+          const sun = SYSTEM.suns[0];
+          const dir = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
+          ship.group.position.copy(sun.position).addScaledVector(dir, Math.max(sun.radius * 1.5, 470));
+          _m.lookAt(ship.group.position.clone().addScaledVector(dir, 1000), ship.group.position, _up);
+          ship.group.quaternion.setFromRotationMatrix(_m);
+          ship.velocity.copy(dir).multiplyScalar(30);
+        } else {
+          // arrive in open space inside the innermost orbit, facing out
+          ship.group.position.set(0, 250, 1900);
+          _m.lookAt(new THREE.Vector3(0, 250, 3200), ship.group.position, _up);
+          ship.group.quaternion.setFromRotationMatrix(_m);
+          ship.velocity.set(0, 0, 0);
+        }
         ship.throttle = 0.4;
         this.target = null;
         this.targetIndex = -1;
         g.ui.hud.navTargets = g.world.getNavTargets();
         this.updateCamera(1, true);
 
-        g.ui.hud.toast(`ARRIVED — ${SYSTEM.name} · ${SYSTEM.character.toUpperCase()}`, 'gold');
+        if (misjump) {
+          const dmg = C.MISJUMP_DAMAGE_MIN + Math.random() * (C.MISJUMP_DAMAGE_MAX - C.MISJUMP_DAMAGE_MIN);
+          g.ui.hud.toast(`MIS-JUMP — EMERGENCE IMPACT IN THE STAR'S CORONA!`, 'warn');
+          g.ui.hud.damageFlash();
+          const { destroyed, hullHit } = ship.takeDamage(dmg);
+          g.sfx.play(hullHit ? 'hitHull' : 'hitShield');
+          this.shakeT = Math.max(this.shakeT, 0.8);
+          if (destroyed) { this.die(); return; }
+        } else {
+          g.ui.hud.toast(`ARRIVED — ${SYSTEM.name} · ${SYSTEM.character.toUpperCase()}`, 'gold');
+        }
         this.prepareSaveData();
         SaveSystem.save(pd, g.market);
       }
@@ -758,7 +783,15 @@ export class FlightState {
       }
     }
 
-    // 2. Spawn a glittering trail of gold-white chaff particles behind the player ship
+    // 2. Break any seeker locks still training on the player
+    for (const p of g.encounters.pirates) {
+      if (p.missileLock > 0) {
+        p.missileLock = 0;
+        p.missileTimer = Math.max(p.missileTimer, 5);
+      }
+    }
+
+    // 3. Spawn a glittering trail of gold-white chaff particles behind the player ship
     const playerPos = ship.group.position;
     const playerVel = ship.velocity;
     const oppositeDir = ship.forward.multiplyScalar(-1);
@@ -783,6 +816,13 @@ export class FlightState {
 
   handleMissileHit(t, missile) {
     const g = this.game;
+    // pirate anti-missile ECM: their countermeasures can spoof the warhead
+    if (t.hasEcm && Math.random() < 0.5) {
+      g.explosions.spawn(missile.mesh.position, 1.0);
+      g.sfx.play('hitSpark');
+      g.ui.hud.toast('TARGET ECM — MISSILE SPOOFED', 'warn');
+      return;
+    }
     g.explosions.spawn(missile.mesh.position, 1.8);
     g.sfx.play('hitHull');
 
@@ -1143,6 +1183,23 @@ export class FlightState {
     if (st) st.setDockingActive(true);
   }
 
+  // A hard station impact: flat structural damage (fraction of the ship's
+  // pre-upgrade hull integrity) and a strike against this station. Strike
+  // three seals its doors until the pilot docks somewhere else.
+  stationImpact(st) {
+    const g = this.game;
+    const shipDef = C.SHIPS[g.playerData.shipId] ?? C.SHIPS.trader;
+    const dmg = C.UPGRADES.hull.tiers[1].max * shipDef.hullMult * C.STATION_IMPACT_HULL_FRACTION;
+    const strikes = (this.stationStrikes[st.id] ?? 0) + 1;
+    this.stationStrikes[st.id] = strikes;
+    if (strikes > C.STATION_IMPACT_LOCKOUT_HITS && this.lockedStationId !== st.id) {
+      this.lockedStationId = st.id;
+      if (this.clearance === st) this.setClearance(null);
+      g.ui.hud.toast('TRAFFIC CONTROL — DOORS SEALED AFTER REPEATED IMPACTS. DOCK ELSEWHERE FIRST.', 'warn');
+    }
+    return dmg;
+  }
+
   // Returns true if the game state changed, a prompt string while docking is
   // in play, or null when no station is relevant this frame.
   updateDocking(dt) {
@@ -1170,6 +1227,10 @@ export class FlightState {
     const dockStation = this.nearestDockableStation();
     if (!dockStation) return null;
     if (g.input.pressed('KeyF')) {
+      if (dockStation.id === this.lockedStationId) {
+        g.ui.hud.toast('DOCKING DENIED — DOORS SEALED AFTER REPEATED IMPACTS. DOCK ELSEWHERE FIRST.', 'warn');
+        return null;
+      }
       if (g.ship.stats.dockingComputer) {
         g.sm.change(g.states.docking, { station: dockStation });
         return true;
@@ -1242,7 +1303,11 @@ export class FlightState {
 
     g.ui.hud.toast(`DOCKING ABORTED — ${reason}`, 'warn');
 
-    const dmg = Math.max(0, speed - C.DOCK_SAFE_SPEED) * C.DOCK_BOUNCE_DAMAGE;
+    // ramming the hub face above docking speed is a hard impact; a botched
+    // slow approach keeps the old gentle speed-scaled bump
+    const dmg = speed > C.DOCK_MAX_SPEED
+      ? this.stationImpact(st)
+      : Math.max(0, speed - C.DOCK_SAFE_SPEED) * C.DOCK_BOUNCE_DAMAGE;
     if (dmg > 0) {
       g.ui.hud.damageFlash();
       const { destroyed, hullHit } = ship.takeDamage(dmg);
@@ -1433,12 +1498,15 @@ export class FlightState {
     const impactSpeed = -ship.velocity.dot(N);
     ship.velocity.addScaledVector(N, -2 * ship.velocity.dot(N)).multiplyScalar(0.4);
 
-    const dmg = Math.max(0, impactSpeed - C.DOCK_SAFE_SPEED) * C.DOCK_BOUNCE_DAMAGE + 8;
-    g.ui.hud.toast('STATION COLLISION!', 'warn');
+    // a real impact crushes the hull against the superstructure; a slow graze
+    // just scrapes paint
+    const hardHit = impactSpeed > C.DOCK_SAFE_SPEED;
+    const dmg = hardHit ? this.stationImpact(st) : 8;
+    g.ui.hud.toast(hardHit ? 'STATION COLLISION — HULL CRUSHED AGAINST SUPERSTRUCTURE!' : 'STATION COLLISION!', 'warn');
     g.ui.hud.damageFlash();
     const { destroyed, hullHit } = ship.takeDamage(dmg);
     g.sfx.play(hullHit ? 'hitHull' : 'hitShield');
-    this.shakeT = Math.max(this.shakeT, 0.5);
+    this.shakeT = Math.max(this.shakeT, hardHit ? 0.8 : 0.5);
     if (destroyed) { this.die(); return true; }
     return false;
   }

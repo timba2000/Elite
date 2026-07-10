@@ -65,6 +65,10 @@ export class StationState {
     }
 
     g.playerData.lastStationId = station.id;
+    // docking anywhere else lifts a repeated-impacts lockout
+    if (g.states.flight.lockedStationId && g.states.flight.lockedStationId !== station.id) {
+      g.states.flight.lockedStationId = null;
+    }
     SaveSystem.save(g.playerData, g.market);
 
     // shared universe: pull the galaxy-wide market for this system, then

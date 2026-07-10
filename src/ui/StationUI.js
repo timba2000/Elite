@@ -734,6 +734,7 @@ export class StationUI {
       dockingComputer: (t) => t.fitted ? 'Hands-free docking on request' : 'Manual approach only',
       missiles: (t) => t.maxAmmo > 0 ? `${t.maxAmmo} capacity · ${t.damage} DMG` : 'No launcher fitted',
       galacticHyperdrive: (t) => t.fitted ? 'Enables intergalactic jump (G key in space)' : 'Standard hyperdrive only',
+      precisionHyperdrive: (t) => t.fitted ? 'Corrected emergence — no mis-jump risk' : `Uncorrected emergence — ${Math.round(C.MISJUMP_CHANCE * 100)}% mis-jump risk per jump`,
     };
 
     const rows = Object.entries(C.UPGRADES).map(([key, def]) => {

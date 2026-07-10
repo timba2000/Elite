@@ -34,6 +34,9 @@ export const C = {
   // World & exploration
   SYSTEMS_PER_GALAXY: 4,
   SYSTEM_JUMP_FUEL: 8,         // fuel commodity units burned per in-galaxy jump
+  MISJUMP_CHANCE: 0.12,        // uncorrected emergence: chance per in-galaxy jump
+  MISJUMP_DAMAGE_MIN: 45,      // emergence impact damage range
+  MISJUMP_DAMAGE_MAX: 110,
   SCAN_TIME: 3.0,              // seconds to complete a surface scan
   SCAN_RANGE_MULT: 12,         // scan reach = body radius * this
   SCAN_BASE_VALUE: 400,        // credits; bonuses below, scaled by galaxy prices
@@ -78,6 +81,8 @@ export const C = {
   DOCK_INWARD_DOT: 0.6,        // velocity must head this much into the port
   DOCK_SAFE_SPEED: 6,          // failed contact below this speed does no damage
   DOCK_BOUNCE_DAMAGE: 1.2,     // hull damage per m/s above safe speed
+  STATION_IMPACT_HULL_FRACTION: 0.33, // real impact costs this much of pre-upgrade hull
+  STATION_IMPACT_LOCKOUT_HITS: 2,     // impacts tolerated per flight before doors seal
 
   // Economy
   START_CREDITS: 500,
@@ -202,6 +207,13 @@ export const C = {
         { price: 15000, fitted: true },
       ],
     },
+    precisionHyperdrive: {
+      name: 'Precision Hyperdrive',
+      tiers: [
+        { price: 0, fitted: false },
+        { price: 25000, fitted: true },
+      ],
+    },
   },
 
   // Pirates
@@ -220,5 +232,11 @@ export const C = {
     WING_JITTER_MULT: 0.6,  // wingman aim jitter while their leader lives
     WING_BROKEN_FLEE: 0.6,  // hull fraction wingmen flee at once leader dies
     DESPAWN_DIST: 2200,
+    MISSILE_CHANCE: 0.45,   // regular pirates that carry missiles
+    ECM_CHANCE: 0.35,       // pirates mounting anti-missile ECM of their own
+    MISSILE_LOCK_TIME: 2.6, // seconds of audible lock warning before launch
+    MISSILE_DAMAGE: 120,
+    MISSILE_MIN_DIST: 180,  // seeker needs standoff range to arm
+    MISSILE_MAX_DIST: 650,
   },
 };
