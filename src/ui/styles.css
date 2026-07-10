@@ -17,7 +17,7 @@ html, body {
 }
 
 #ui-root > * { pointer-events: none; }
-#ui-root .panel, #ui-root button, #ui-root .clickable { pointer-events: auto; }
+#ui-root .panel, #ui-root button, #ui-root input, #ui-root .clickable { pointer-events: auto; }
 
 /* ---------- shared panel look ---------- */
 .panel {
