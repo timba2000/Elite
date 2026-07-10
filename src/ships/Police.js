@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { C } from '../constants.js';
-import { buildPolice } from './ShipFactory.js';
+import { buildPolice, buildHeavyPolice } from './ShipFactory.js';
 
 const _toPlayer = new THREE.Vector3();
 const _fwd = new THREE.Vector3();
@@ -15,21 +15,33 @@ let policeCounter = 0;
 
 // Galactic Police Interceptor with strobe lights and relentless pursuit logic
 export class Police {
-  constructor(scene, position, scale = 1.2) {
+  constructor(scene, position, scale = 1.2, type = 'interceptor') {
     this.scene = scene;
-    this.ship = buildPolice(++policeCounter);
+    this.type = type;
+    if (type === 'enforcer') {
+      // riot gunship: slow, heavily armored, hits like a wall
+      this.ship = buildHeavyPolice(++policeCounter);
+      this.hullMax = C.PIRATE.HULL * 3.0 * scale;
+      this.shield = C.PIRATE.SHIELD * 2.4 * scale;
+      this.damage = C.PIRATE.DAMAGE * 1.5 * scale;
+      this.speed = C.PIRATE.SPEED * 0.85;
+      this.turn = C.PIRATE.TURN * 0.7;
+    } else {
+      // Police are tougher and faster than standard pirates
+      this.ship = buildPolice(++policeCounter);
+      this.hullMax = C.PIRATE.HULL * 1.5 * scale;
+      this.shield = C.PIRATE.SHIELD * 1.5 * scale;
+      this.damage = C.PIRATE.DAMAGE * 1.25 * scale;
+      this.speed = C.PIRATE.SPEED * 1.15;
+      this.turn = C.PIRATE.TURN * 1.1;
+    }
     this.group = this.ship.group;
     this.group.position.copy(position);
     scene.add(this.group);
 
-    // Police are tougher and faster than standard pirates
-    this.hullMax = C.PIRATE.HULL * 1.5 * scale;
     this.hull = this.hullMax;
-    this.shield = C.PIRATE.SHIELD * 1.5 * scale;
+    this.shieldMax = this.shield;
     this.shieldTimer = 0;
-    this.damage = C.PIRATE.DAMAGE * 1.25 * scale;
-    this.speed = C.PIRATE.SPEED * 1.15;
-    this.turn = C.PIRATE.TURN * 1.1;
 
     this.state = 'PURSUE';
     this.stateTimer = 0;
@@ -60,7 +72,7 @@ export class Police {
     }
 
     if (this.shieldTimer > C.SHIELD_REGEN_DELAY) {
-      this.shield = Math.min(C.PIRATE.SHIELD * 1.5, this.shield + 6 * dt);
+      this.shield = Math.min(this.shieldMax, this.shield + 6 * dt);
     }
 
     _toPlayer.copy(player.position).sub(this.group.position);

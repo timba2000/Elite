@@ -392,14 +392,19 @@ export class EncounterManager {
     const notoriety = this.playerData.notoriety || 0;
     const count = Math.min(4, 1 + Math.floor(notoriety / 35) + (Math.random() < 0.3 ? 1 : 0) + Math.floor((galaxy - 1) / 2));
     const fwd = player.forward;
+    // a 3+ ship response is led by a heavy enforcer gunship
+    const hasEnforcer = count >= 3;
     for (let i = 0; i < count; i++) {
       _rand.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(400);
       _spawnPos.copy(player.position)
         .addScaledVector(fwd, 500 + Math.random() * 200)
         .add(_rand);
-      this.police.push(new Police(this.scene, _spawnPos, scale));
+      this.police.push(new Police(this.scene, _spawnPos, scale,
+        hasEnforcer && i === 0 ? 'enforcer' : 'interceptor'));
     }
-    this.events.toast('POLICE INTERDICTION — CONTRA-BAND SCANNED!', 'warn');
+    this.events.toast(hasEnforcer
+      ? 'POLICE STRIKE WING — HEAVY ENFORCER ON SCANNER!'
+      : 'POLICE INTERDICTION — CONTRA-BAND SCANNED!', 'warn');
     this.cooldown = C.ENCOUNTER_COOLDOWN;
   }
 

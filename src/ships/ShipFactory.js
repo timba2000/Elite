@@ -450,11 +450,15 @@ export function buildCorsair(seed = 1) {
   return { group, nozzles, glowSprites, hardpoints, boundingRadius: 4.6 };
 }
 
+// Authority trim liveries: the hull stays police-white, accents vary by unit.
+const POLICE_TRIM = ['#1f3a60', '#123a3a', '#2a2f38', '#4a1f2a'];
+
 // Sleek police interceptor: white, blue, with alternating flashing strobes on wingtips
 export function buildPolice(seed = 1) {
   const group = new THREE.Group();
 
-  const hullMat = hullMaterial('#d0d3d4', '#1f3a60', 0.15, 80 + seed, 0.65, 0.4); // cleaner white/navy hull
+  const trim = POLICE_TRIM[Math.abs(seed) % POLICE_TRIM.length];
+  const hullMat = hullMaterial('#d0d3d4', trim, 0.15, 80 + seed, 0.65, 0.4); // cleaner white hull
   const darkMat = new THREE.MeshStandardMaterial({ color: 0x111116, metalness: 0.8, roughness: 0.3 });
   const glassMat = new THREE.MeshStandardMaterial({
     color: 0x0a1a2a, metalness: 0.2, roughness: 0.15,
@@ -473,6 +477,21 @@ export function buildPolice(seed = 1) {
   const canopy = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.35, 1.2), glassMat);
   canopy.position.set(0, 0.5, 0.8);
   group.add(canopy);
+
+  // per-unit kit: some cars run a roof lightbar, some a nose stripe
+  if (seed % 2 === 0) {
+    const lightbar = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.12, 0.3), new THREE.MeshStandardMaterial({
+      color: 0x222228, metalness: 0.6, roughness: 0.3,
+      emissive: new THREE.Color(0x66aaff), emissiveIntensity: 1.4,
+    }));
+    lightbar.position.set(0, 0.55, -0.4);
+    group.add(lightbar);
+  }
+  if (seed % 3 === 0) {
+    const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.05, 2.4), darkMat);
+    stripe.position.set(0, 0.46, 1.6);
+    group.add(stripe);
+  }
 
   // Wings
   for (let side = -1; side <= 1; side += 2) {
@@ -516,6 +535,85 @@ export function buildPolice(seed = 1) {
 
   enableShadows(group);
   return { group, nozzles: [nozzle], glowSprites: [glow], hardpoints: [hardpoint], boundingRadius: 3.5 };
+}
+
+// Heavy police enforcer: an armored riot gunship that leads big response wings.
+export function buildHeavyPolice(seed = 1) {
+  const group = new THREE.Group();
+
+  const trim = POLICE_TRIM[Math.abs(seed) % POLICE_TRIM.length];
+  const hullMat = hullMaterial('#c8ccd0', trim, 0.25, 85 + seed, 0.7, 0.4);
+  const armorMat = new THREE.MeshStandardMaterial({ color: 0x1c2c44, metalness: 0.85, roughness: 0.35 });
+  const glassMat = new THREE.MeshStandardMaterial({
+    color: 0x0a1a2a, metalness: 0.2, roughness: 0.15,
+    emissive: new THREE.Color(0x00aaff), emissiveIntensity: 1.0,
+  });
+
+  // slab-sided riot hull
+  const body = new THREE.Mesh(new THREE.BoxGeometry(3.0, 1.6, 6.2), hullMat);
+  group.add(body);
+  const nose = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 1.3, 1.6, 4), hullMat);
+  nose.rotation.x = Math.PI / 2;
+  nose.rotation.y = Math.PI / 4;
+  nose.position.z = 3.8;
+  group.add(nose);
+  const canopy = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.4, 1.5), glassMat);
+  canopy.position.set(0, 1.0, 1.6);
+  group.add(canopy);
+
+  // navy armor cheeks
+  for (let side = -1; side <= 1; side += 2) {
+    const armor = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.3, 4.4), armorMat);
+    armor.position.set(side * 1.85, 0, -0.4);
+    group.add(armor);
+  }
+
+  // full-width roof lightbar with the red/blue strobes mounted on it
+  const lightbar = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.16, 0.4), armorMat);
+  lightbar.position.set(0, 0.95, -0.6);
+  group.add(lightbar);
+  group.userData = group.userData || {};
+  group.userData.strobes = [];
+  for (let side = -1; side <= 1; side += 2) {
+    const strobeMat = new THREE.SpriteMaterial({
+      map: engineGlowTex, blending: THREE.AdditiveBlending, depthWrite: false,
+      transparent: true, color: new THREE.Color(side === -1 ? 0xff0000 : 0x0000ff),
+    });
+    const strobe = new THREE.Sprite(strobeMat);
+    strobe.position.set(side * 0.8, 0.95, -0.6);
+    strobe.scale.setScalar(2.6);
+    group.add(strobe);
+    group.userData.strobes.push(strobe);
+  }
+
+  const nozzles = [];
+  const glowSprites = [];
+  for (let side = -1; side <= 1; side += 2) {
+    const nozzle = new THREE.Object3D();
+    nozzle.position.set(side * 0.9, 0, -3.3);
+    group.add(nozzle);
+    nozzles.push(nozzle);
+    const glowM = new THREE.SpriteMaterial({
+      map: engineGlowTex, blending: THREE.AdditiveBlending, depthWrite: false,
+      transparent: true, color: new THREE.Color(0.2, 0.6, 2.0),
+    });
+    const glow = new THREE.Sprite(glowM);
+    glow.position.set(side * 0.9, 0, -3.3);
+    glow.scale.setScalar(1.4);
+    group.add(glow);
+    glowSprites.push(glow);
+  }
+
+  const hardpoints = [];
+  for (let side = -1; side <= 1; side += 2) {
+    const hp = new THREE.Object3D();
+    hp.position.set(side * 1.2, -0.6, 3.0);
+    group.add(hp);
+    hardpoints.push(hp);
+  }
+
+  enableShadows(group);
+  return { group, nozzles, glowSprites, hardpoints, boundingRadius: 5.4 };
 }
 
 // Glowing cargo pod dropped by destroyed pirates.
