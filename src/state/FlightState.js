@@ -11,6 +11,11 @@ const _camOffset = new THREE.Vector3();
 const _lookAt = new THREE.Vector3();
 const _fwd = new THREE.Vector3();
 const _toTarget = new THREE.Vector3();
+const _aim = new THREE.Vector3();
+const _dir = new THREE.Vector3();
+const _bodyTo = new THREE.Vector3();
+const _lateral = new THREE.Vector3();
+const _origin = new THREE.Vector3();
 const _q = new THREE.Quaternion();
 const _m = new THREE.Matrix4();
 const _up = new THREE.Vector3(0, 1, 0);
@@ -1104,13 +1109,22 @@ export class FlightState {
     const ship = g.ship;
     if (!this.target) { this.mode = 'manual'; return; }
 
-    // align toward target
-    _m.lookAt(this.target.object.position, ship.position, _up);
+    // align toward target — a precision hyperdrive's nav computer bends the
+    // course around any sun or planet blocking the straight line; a standard
+    // drive flies blind and slams into whatever is in the way
+    _aim.copy(this.target.object.position);
+    const hazardDist = g.playerData.upgrades.precisionHyperdrive
+      ? this.deflectAroundBodies(_aim) : Infinity;
+    _m.lookAt(_aim, ship.position, _up);
     _q.setFromRotationMatrix(_m);
     ship.group.quaternion.rotateTowards(_q, 1.4 * dt);
 
     // ramp speed (navigator crew sharpens the ramp)
     this.superSpeed = Math.min(C.SUPER_SPEED, this.superSpeed + C.SUPER_ACCEL * ship.stats.superAccelMult * dt);
+    // while skirting a body, cap speed so the turn rate can hold the arc
+    if (hazardDist < Infinity) {
+      this.superSpeed = Math.min(this.superSpeed, Math.max(300, hazardDist * 1.2));
+    }
     _fwd.set(0, 0, 1).applyQuaternion(ship.group.quaternion);
     ship.velocity.copy(_fwd).multiplyScalar(this.superSpeed);
     ship.group.position.addScaledVector(ship.velocity, dt);
@@ -1128,6 +1142,45 @@ export class FlightState {
       g.sfx.play('superDrop');
       g.ui.hud.toast(`ARRIVED — ${this.target.name}`);
     }
+  }
+
+  // Precision-hyperdrive course correction: if a sun or planet obstructs the
+  // straight line from the ship to `aim`, move `aim` to a point that skirts
+  // the nearest obstruction. Recomputed every frame, so the ship arcs around
+  // the body and re-acquires the destination once the path is clear.
+  // Returns the distance to the obstruction's clearance sphere (Infinity if none).
+  deflectAroundBodies(aim) {
+    const g = this.game;
+    const pos = g.ship.group.position;
+    _dir.copy(aim).sub(pos);
+    const distToTarget = _dir.length();
+    if (distToTarget < 1) return Infinity;
+    _dir.divideScalar(distToTarget);
+
+    let best = null;
+    const consider = (centre, clear) => {
+      if (aim.distanceTo(centre) <= clear) return; // destination inside the zone — auto-drop handles it
+      _bodyTo.copy(centre).sub(pos);
+      const along = _bodyTo.dot(_dir);
+      if (along <= 0 || along >= distToTarget) return; // behind us or beyond the target
+      if (_bodyTo.lengthSq() - along * along >= clear * clear) return; // path already clears it
+      if (!best || along < best.along) best = { centre, clear, along };
+    };
+    // the origin carries keepOutOfBodies' star exclusion zone even when the
+    // suns themselves sit elsewhere (binary systems)
+    consider(_origin, 420 + 150);
+    if (SYSTEM.suns) {
+      for (const s of SYSTEM.suns) consider(s.position, Math.max(s.radius, 420) + 150);
+    }
+    for (const p of g.world.planets) consider(p.group.position, p.radius + 25 + 150);
+    if (!best) return Infinity;
+
+    // steer at the closest-approach point pushed out to the clearance radius
+    _lateral.copy(pos).addScaledVector(_dir, best.along).sub(best.centre);
+    if (_lateral.lengthSq() < 1) _lateral.crossVectors(_dir, _up); // dead-on: pick a side
+    _lateral.setLength(best.clear);
+    aim.copy(best.centre).add(_lateral);
+    return Math.max(0, pos.distanceTo(best.centre) - best.clear);
   }
 
   // Entering a station's approach zone with narcotics risks a police sweep.
