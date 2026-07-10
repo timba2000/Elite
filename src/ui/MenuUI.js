@@ -11,9 +11,7 @@ export class MenuUI {
       <h1>ELITE</h1>
       <div class="subtitle">INTERSTELLAR TRADER</div>
       <button id="btn-new" class="clickable">New Game</button>
-      <button id="btn-new-cheat" class="clickable amber">New Game (Cheat)</button>
       <button id="btn-continue" class="clickable" style="display:none">Continue</button>
-      <button id="btn-continue-cheat" class="clickable amber" style="display:none">Continue (Cheat)</button>
       <button id="btn-gfx" class="clickable">Graphics: ${Graphics.label()}</button>
       <button id="btn-board" class="clickable">Galactic Rankings</button>
       <div id="cmdr-box">
@@ -133,20 +131,17 @@ export class MenuUI {
 
   hideBoard() { this.board.classList.remove('visible'); }
 
-  show({ hasSave, onNew, onNewCheat, onContinue, onContinueCheat, onSessionChange }) {
+  show({ hasSave, onNew, onContinue, onSessionChange }) {
     this.menu.classList.add('visible');
     this.onSessionChange = onSessionChange;
     this.setHasSave(hasSave);
     this.menu.querySelector('#btn-new').onclick = onNew;
-    this.menu.querySelector('#btn-new-cheat').onclick = onNewCheat;
     this.menu.querySelector('#btn-continue').onclick = onContinue;
-    this.menu.querySelector('#btn-continue-cheat').onclick = onContinueCheat;
     this.refreshCommander();
   }
 
   setHasSave(hasSave) {
     this.menu.querySelector('#btn-continue').style.display = hasSave ? '' : 'none';
-    this.menu.querySelector('#btn-continue-cheat').style.display = hasSave ? '' : 'none';
   }
 
   hide() {
