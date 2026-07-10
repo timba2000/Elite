@@ -9,8 +9,34 @@ export class Station {
     this.name = planetDef.name + ' STATION';
 
     this.group = new THREE.Group();
-    // park the station beside its planet, sunward-ish so it's lit
-    const offset = planetDef.position.clone().normalize().multiplyScalar(-(planetDef.radius * 2.8 + 120));
+    // park the station beside its planet, sunward-ish so it's lit. The
+    // standoff is capped for giant planets — 2.8 radii flung gas-giant
+    // stations thousands of units out where nobody could spot them —
+    // then nudged clear of ring annuli and moon orbit paths.
+    let standoff = Math.min(planetDef.radius * 2.8, planetDef.radius + 350) + 120;
+    const clear = 150;
+    const bands = [];
+    if (planetDef.rings) {
+      bands.push([planetDef.radius * planetDef.rings.inner - clear,
+                  planetDef.radius * planetDef.rings.outer + clear]);
+    }
+    for (const m of planetDef.moons || []) {
+      bands.push([m.orbitRadius - m.radius - clear, m.orbitRadius + m.radius + clear]);
+    }
+    bands.sort((a, b) => a[0] - b[0]);
+    const merged = [];
+    for (const b of bands) {
+      if (merged.length && b[0] <= merged[merged.length - 1][1]) {
+        merged[merged.length - 1][1] = Math.max(merged[merged.length - 1][1], b[1]);
+      } else merged.push([...b]);
+    }
+    for (const [lo, hi] of merged) {
+      if (standoff > lo && standoff < hi) {
+        // drop below the band when that still clears the surface, else go above
+        standoff = lo >= planetDef.radius + 100 ? lo : hi;
+      }
+    }
+    const offset = planetDef.position.clone().normalize().multiplyScalar(-standoff);
     offset.y += 40;
     this.group.position.copy(planetDef.position).add(offset);
 
