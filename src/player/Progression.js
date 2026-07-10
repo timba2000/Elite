@@ -2,14 +2,25 @@
 // in PlayerData.getDerivedStats(); this file owns the curve and the copy
 // shown in the station Pilot tab.
 export const Progression = {
-  // XP needed to advance FROM this level (~1.35x per level, soft cap by cost)
+  // XP needed to advance FROM this level (~1.5x per level). Steep on purpose:
+  // late-game trade profits are huge, so the curve has to outgrow the income
+  // or veterans level faster than rookies.
   xpToNext(level) {
-    return Math.round(100 * Math.pow(1.35, level - 1));
+    return Math.round(100 * Math.pow(1.5, level - 1));
   },
 
-  // Add XP, consuming it into levels. Each level grants 1 skill point plus
-  // the flat +1% shield recharge applied in getDerivedStats. Returns levels
-  // gained so callers can announce it.
+  // Skill points thin out as the commander ranks up: one per level early,
+  // even levels only from 8, every third level from 16. Maxing all three
+  // skill tracks (12 points) now takes ~level 21 instead of 13.
+  skillPointsFor(level) {
+    if (level < 8) return 1;
+    if (level < 16) return level % 2 === 0 ? 1 : 0;
+    return level % 3 === 0 ? 1 : 0;
+  },
+
+  // Add XP, consuming it into levels. Levels grant skill points per the
+  // cadence above plus the flat +1% shield recharge applied in
+  // getDerivedStats. Returns levels gained so callers can announce it.
   award(pd, amount) {
     if (amount <= 0) return 0;
     let levels = 0;
@@ -17,7 +28,7 @@ export const Progression = {
     while (pd.xp >= this.xpToNext(pd.level)) {
       pd.xp -= this.xpToNext(pd.level);
       pd.level++;
-      pd.skillPoints++;
+      pd.skillPoints += this.skillPointsFor(pd.level);
       levels++;
     }
     return levels;

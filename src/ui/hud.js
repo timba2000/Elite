@@ -153,7 +153,8 @@ export class Hud {
     this.creditsEl.textContent = `${playerData.credits.toLocaleString()} CR`;
     const lvl = playerData.level ?? 1;
     if (this.lastLevel !== null && lvl > this.lastLevel) {
-      this.toast(`LEVEL UP — LEVEL ${lvl} · +1 SKILL POINT`, 'gold');
+      const pts = Progression.skillPointsFor(lvl);
+      this.toast(`LEVEL UP — LEVEL ${lvl}${pts > 0 ? ' · +1 SKILL POINT' : ''}`, 'gold');
     }
     this.lastLevel = lvl;
     this.levelEl.textContent = `LVL ${lvl}${playerData.skillPoints > 0 ? ` · ${playerData.skillPoints} SP` : ''} · ${Progression.combatRank(playerData).name}`;
