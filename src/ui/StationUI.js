@@ -217,13 +217,16 @@ export class StationUI {
       ?.addEventListener('click', () => sell([...p.scans]));
   }
 
-  // market price with Haggler/Negotiator perks applied
+  // market price with Haggler/Negotiator perks applied. Sell is clamped
+  // below buy so stacked perks can't invert the spread into a same-station
+  // buy/sell money loop.
   priceFor(goodId) {
     const { buy, sell } = this.market.price(this.planetDef.id, goodId);
     const stats = this.player.getDerivedStats();
+    const b = Math.max(1, Math.round(buy * stats.buyMult));
     return {
-      buy: Math.max(1, Math.round(buy * stats.buyMult)),
-      sell: Math.max(1, Math.round(sell * stats.sellMult)),
+      buy: b,
+      sell: Math.max(1, Math.min(Math.round(sell * stats.sellMult), Math.floor(b * 0.97))),
     };
   }
 
