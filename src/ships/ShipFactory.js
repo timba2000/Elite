@@ -37,8 +37,10 @@ export function buildPlayerShip(shipId, opts = {}) {
   }
 }
 
-// The player's trader. `wear` 1 = rust bucket, drops as hull upgrades are bought.
-// cargoTier 1..4 adds/extends side cargo pods. engineTier scales nozzle glow.
+// The player's trader — a battered YT-series-style light freighter: saucer
+// hull, twin forward mandibles, offset cockpit tube, wide rear engine bar.
+// `wear` 1 = rust bucket, drops as hull upgrades are bought.
+// cargoTier 1..4 adds/extends belly cargo pods. engineTier scales nozzle glow.
 export function buildTrader({
   wear = 1, cargoTier = 1, engineTier = 1,
   baseColor = '#8a8d92', rustColor = '#b3552e', scale = 1, seed = 7,
@@ -49,83 +51,127 @@ export function buildTrader({
   const darkMat = new THREE.MeshStandardMaterial({ color: 0x33363c, metalness: 0.6, roughness: 0.5 });
   const glassMat = new THREE.MeshStandardMaterial({
     color: 0x0a1a2a, metalness: 0.2, roughness: 0.15,
-    emissive: new THREE.Color(0x2a7a9a), emissiveIntensity: 0.9,
+    emissive: new THREE.Color(0x2a7a9a), emissiveIntensity: 0.45,
   });
 
-  // Main hull: elongated box
-  const hull = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.6, 6.5), hullMat);
-  group.add(hull);
+  // Saucer hull: flattened sphere
+  const saucer = new THREE.Mesh(new THREE.SphereGeometry(2.9, 28, 18), hullMat);
+  saucer.scale.set(1, 0.36, 1.05);
+  group.add(saucer);
 
-  // Tapered nose
-  const nose = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 1.15, 2.6, 6), hullMat);
-  nose.rotation.x = Math.PI / 2;
-  nose.position.z = 4.4;
-  group.add(nose);
+  // Equator rim band (tube squashed vertically — scale applies pre-rotation)
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(2.78, 0.24, 8, 40), darkMat);
+  rim.scale.set(1, 1.05, 0.5);
+  rim.rotation.x = Math.PI / 2;
+  group.add(rim);
 
-  // Cockpit canopy strip
-  const canopy = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.5, 1.4), glassMat);
-  canopy.position.set(0, 0.85, 2.2);
-  group.add(canopy);
+  // Raised central hub, top and belly
+  const hubTop = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 1.35, 0.55, 20), hullMat);
+  hubTop.position.y = 0.85;
+  group.add(hubTop);
+  const hubBottom = new THREE.Mesh(new THREE.CylinderGeometry(1.25, 0.85, 0.45, 20), hullMat);
+  hubBottom.position.y = -0.85;
+  group.add(hubBottom);
 
-  // Cargo pods on the flanks — more/longer pods with cargo upgrades
-  const podCount = Math.min(cargoTier, 3);
-  const podLen = 2.2 + cargoTier * 0.5;
+  // Twin forward mandibles: tapered square prongs with a gap between them
+  const prongGeo = new THREE.CylinderGeometry(0.3, 0.62, 3.0, 4, 1);
+  prongGeo.rotateY(Math.PI / 4);
+  prongGeo.rotateX(Math.PI / 2);
+  const tipGeo = new THREE.CylinderGeometry(0.24, 0.34, 0.55, 4, 1);
+  tipGeo.rotateY(Math.PI / 4);
+  tipGeo.rotateX(Math.PI / 2);
   for (let side = -1; side <= 1; side += 2) {
-    for (let i = 0; i < podCount; i++) {
-      const pod = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.95, podLen), hullMat);
-      pod.position.set(side * 1.75, -0.25 + (i % 2) * 0.9 - (i > 1 ? 0.9 : 0), -0.6 - (i > 0 ? 0.3 : 0));
-      group.add(pod);
-    }
+    const prong = new THREE.Mesh(prongGeo, hullMat);
+    prong.position.set(side * 0.85, -0.05, 3.3);
+    group.add(prong);
+    const tip = new THREE.Mesh(tipGeo, darkMat);
+    tip.position.set(side * 0.85, -0.05, 4.95);
+    group.add(tip);
   }
 
-  // Dorsal fin
-  const fin = new THREE.Mesh(new THREE.BoxGeometry(0.18, 1.5, 2.0), darkMat);
-  fin.position.set(0, 1.4, -1.8);
-  group.add(fin);
+  // Offset cockpit tube on the starboard flank, glass cone at the tip
+  const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.46, 2.6, 12), hullMat);
+  tube.rotation.x = Math.PI / 2;
+  tube.position.set(1.7, 0.18, 1.6);
+  group.add(tube);
+  const frame = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.42, 0.22, 12), darkMat);
+  frame.rotation.x = Math.PI / 2;
+  frame.position.set(1.7, 0.18, 2.95);
+  group.add(frame);
+  const canopy = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.38, 0.6, 12), glassMat);
+  canopy.rotation.x = Math.PI / 2;
+  canopy.position.set(1.7, 0.18, 3.32);
+  group.add(canopy);
 
-  // Engine block + nozzles
-  const block = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.3, 1.2), darkMat);
-  block.position.z = -3.6;
-  group.add(block);
+  // Radar dish on the port side of the hub
+  const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.4, 8), darkMat);
+  mast.position.set(-1.1, 1.15, -0.4);
+  group.add(mast);
+  const dish = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.08, 0.22, 14), darkMat);
+  dish.rotation.x = -Math.PI / 3;
+  dish.position.set(-1.1, 1.4, -0.35);
+  group.add(dish);
+
+  // Surface greebles: vents and conduit boxes breaking up the disc
+  const greebles = [
+    [0.9, 0.72, 1.1, 0.5, 0.16, 0.7], [-1.5, 0.6, 0.9, 0.6, 0.14, 0.5],
+    [0.2, 0.78, -1.5, 0.9, 0.18, 0.6], [-0.8, 0.66, -1.9, 0.45, 0.15, 0.8],
+    [1.8, 0.5, -1.2, 0.5, 0.14, 0.9],
+  ];
+  for (const [x, y, z, w, h, d] of greebles) {
+    const g = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), darkMat);
+    g.position.set(x, y, z);
+    group.add(g);
+  }
+
+  // Belly cargo pods — more/longer pods with cargo upgrades
+  const podCount = Math.min(cargoTier + 1, 4);
+  const podLen = 1.6 + cargoTier * 0.4;
+  const podGeo = new THREE.CylinderGeometry(0.38, 0.38, podLen, 10);
+  podGeo.rotateX(Math.PI / 2);
+  for (let i = 0; i < podCount; i++) {
+    const pod = new THREE.Mesh(podGeo, hullMat);
+    pod.position.set((i - (podCount - 1) / 2) * 0.85, -1.0, -0.4);
+    group.add(pod);
+  }
+
+  // Rear engine housing + wide glow bar (row of sprites reads as one slit)
+  const housing = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.6, 0.9), darkMat);
+  housing.position.set(0, 0, -2.8);
+  group.add(housing);
 
   const nozzles = [];
   const glowSprites = [];
-  const nozzleGeo = new THREE.CylinderGeometry(0.42, 0.55, 0.9, 10);
-  for (let side = -1; side <= 1; side += 2) {
-    const noz = new THREE.Mesh(nozzleGeo, darkMat);
-    noz.rotation.x = Math.PI / 2;
-    noz.position.set(side * 0.75, 0, -4.3);
-    group.add(noz);
-
+  for (const x of [-0.85, 0, 0.85]) {
     const glowMat = new THREE.SpriteMaterial({
       map: engineGlowTex, blending: THREE.AdditiveBlending,
       depthWrite: false, transparent: true,
       color: new THREE.Color(1.2 + engineTier * 0.3, 1.5 + engineTier * 0.4, 3.0),
     });
     const glow = new THREE.Sprite(glowMat);
-    glow.position.set(side * 0.75, 0, -4.8);
+    glow.position.set(x, 0, -3.3);
     glow.scale.setScalar(0.1);
     group.add(glow);
 
     const marker = new THREE.Object3D();
-    marker.position.set(side * 0.75, 0, -4.8);
+    marker.position.set(x, 0, -3.3);
     group.add(marker);
     nozzles.push(marker);
     glowSprites.push(glow);
   }
 
-  // Laser hardpoints under the nose
+  // Laser hardpoints at the mandible tips
   const hardpoints = [];
   for (let side = -1; side <= 1; side += 2) {
     const hp = new THREE.Object3D();
-    hp.position.set(side * 0.9, -0.5, 3.4);
+    hp.position.set(side * 0.85, -0.15, 4.6);
     group.add(hp);
     hardpoints.push(hp);
   }
 
   group.scale.setScalar(scale);
   enableShadows(group);
-  return { group, nozzles, glowSprites, hardpoints, boundingRadius: 4.5 * scale };
+  return { group, nozzles, glowSprites, hardpoints, boundingRadius: 4.6 * scale };
 }
 
 // The Fer-de-Lance: a civilian gun platform — sleek wedge, twin cannon.
