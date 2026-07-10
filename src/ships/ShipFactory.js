@@ -241,13 +241,25 @@ export function buildInterceptor({ wear = 1, engineTier = 1 } = {}) {
 }
 
 // Pirate raider: angular, aggressive, dark red/black.
+// Scavenged pirate paint jobs — picked by hull seed so no two ships match.
+const PIRATE_PAINT = [
+  { base: '#3a3235', rust: '#7a1f1f', glow: [3.0, 0.8, 0.5] }, // ash & blood
+  { base: '#2d3a2f', rust: '#6a8a1f', glow: [1.8, 2.6, 0.5] }, // swamp raider
+  { base: '#3a2d40', rust: '#7a3a8a', glow: [2.4, 0.8, 2.8] }, // void purple
+  { base: '#3f3a30', rust: '#b8861f', glow: [3.0, 1.8, 0.3] }, // rust & brass
+  { base: '#2e343c', rust: '#1f6a8a', glow: [0.6, 1.8, 3.0] }, // cold steel
+  { base: '#40302a', rust: '#c94f1f', glow: [3.2, 1.2, 0.2] }, // ember
+];
+const paintFor = (seed) => PIRATE_PAINT[Math.abs(seed) % PIRATE_PAINT.length];
+
 export function buildPirate(seed = 1) {
   const group = new THREE.Group();
 
-  const hullMat = hullMaterial('#3a3235', '#7a1f1f', 0.8, 40 + seed, 0.6, 0.6);
+  const paint = paintFor(seed);
+  const hullMat = hullMaterial(paint.base, paint.rust, 0.8, 40 + seed, 0.6, 0.6);
   const accentMat = new THREE.MeshStandardMaterial({
     color: 0x1a1418, metalness: 0.7, roughness: 0.4,
-    emissive: new THREE.Color(0x8a1010), emissiveIntensity: 0.4,
+    emissive: new THREE.Color(paint.rust), emissiveIntensity: 0.35,
   });
 
   // Fuselage: flattened wedge
@@ -272,10 +284,27 @@ export function buildPirate(seed = 1) {
     group.add(tip);
   }
 
+  // scavenged extras bolted on by seed so silhouettes differ within a wing
+  if (seed % 3 === 0) {
+    const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.4, 4), accentMat);
+    antenna.position.set(0.3, 0.9, -0.6);
+    group.add(antenna);
+  }
+  if (seed % 4 === 1) {
+    const pod = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 1.8), accentMat);
+    pod.position.set(0, -0.7, -0.2);
+    group.add(pod);
+  }
+  if (seed % 5 === 2) {
+    const plate = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.15, 2.0), accentMat);
+    plate.position.set(-0.5, 0.55, 0.4);
+    group.add(plate);
+  }
+
   // Engine glow
   const glowMat = new THREE.SpriteMaterial({
     map: engineGlowTex, blending: THREE.AdditiveBlending, depthWrite: false,
-    transparent: true, color: new THREE.Color(3.0, 0.8, 0.5),
+    transparent: true, color: new THREE.Color(...paint.glow),
   });
   const glow = new THREE.Sprite(glowMat);
   glow.position.z = -2.6;
@@ -292,6 +321,133 @@ export function buildPirate(seed = 1) {
 
   enableShadows(group);
   return { group, nozzles: [nozzle], glowSprites: [glow], hardpoints: [hardpoint], boundingRadius: 3.5 };
+}
+
+// Cutthroat interceptor: a forward-swept needle dart built for the kill run.
+export function buildCutthroat(seed = 1) {
+  const group = new THREE.Group();
+  const paint = paintFor(seed);
+  const hullMat = hullMaterial('#22242c', paint.rust, 0.7, 45 + seed, 0.7, 0.45);
+  const finMat = new THREE.MeshStandardMaterial({
+    color: 0x14161c, metalness: 0.8, roughness: 0.35,
+    emissive: new THREE.Color(paint.rust), emissiveIntensity: 0.3,
+  });
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.65, 5.6), hullMat);
+  group.add(body);
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.45, 2.2, 6), hullMat);
+  nose.rotation.x = Math.PI / 2;
+  nose.position.z = 3.9;
+  group.add(nose);
+
+  // blade fins swept FORWARD, opposite every other hull in the game
+  for (let side = -1; side <= 1; side += 2) {
+    const wing = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.1, 1.1), finMat);
+    wing.position.set(side * 1.4, 0, 0.6);
+    wing.rotation.y = -side * 0.55;
+    group.add(wing);
+  }
+  const tail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.2, 1.3), finMat);
+  tail.position.set(0, 0.55, -2.2);
+  group.add(tail);
+
+  // single overdriven engine, hot blue-white
+  const glowMat = new THREE.SpriteMaterial({
+    map: engineGlowTex, blending: THREE.AdditiveBlending, depthWrite: false,
+    transparent: true, color: new THREE.Color(1.6, 2.2, 3.2),
+  });
+  const glow = new THREE.Sprite(glowMat);
+  glow.position.z = -3.1;
+  glow.scale.setScalar(1.6);
+  group.add(glow);
+  const nozzle = new THREE.Object3D();
+  nozzle.position.z = -3.1;
+  group.add(nozzle);
+
+  const hardpoint = new THREE.Object3D();
+  hardpoint.position.set(0, -0.3, 3.4);
+  group.add(hardpoint);
+
+  const mslHp = new THREE.Object3D();
+  mslHp.position.set(0, -0.45, 1.0);
+  group.add(mslHp);
+  group.userData = { mslHp };
+
+  enableShadows(group);
+  return { group, nozzles: [nozzle], glowSprites: [glow], hardpoints: [hardpoint], boundingRadius: 3.4 };
+}
+
+// Corsair ace: gull-winged black-and-gold duellist with its guns on show.
+export function buildCorsair(seed = 1) {
+  const group = new THREE.Group();
+  const hullMat = hullMaterial('#1d1a16', '#c9a227', 0.5, 55 + seed, 0.75, 0.35);
+  const goldMat = new THREE.MeshStandardMaterial({ color: 0x8a6a1f, metalness: 0.9, roughness: 0.25 });
+  const glassMat = new THREE.MeshStandardMaterial({
+    color: 0x1a0505, metalness: 0.3, roughness: 0.12,
+    emissive: new THREE.Color(0xff3322), emissiveIntensity: 1.0,
+  });
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(2.0, 1.0, 5.0), hullMat);
+  group.add(body);
+  const nose = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.9, 1.8, 4), hullMat);
+  nose.rotation.x = Math.PI / 2;
+  nose.rotation.y = Math.PI / 4;
+  nose.position.z = 3.3;
+  group.add(nose);
+  const canopy = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.35, 1.3), glassMat);
+  canopy.position.set(0, 0.65, 1.1);
+  group.add(canopy);
+
+  // gull wings: inner panel drops, gold outer blade levels out, barrels forward
+  for (let side = -1; side <= 1; side += 2) {
+    const inner = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.12, 1.8), hullMat);
+    inner.position.set(side * 1.5, -0.35, -0.4);
+    inner.rotation.z = side * 0.5;
+    group.add(inner);
+    const outer = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.1, 1.4), goldMat);
+    outer.position.set(side * 2.7, -0.72, -0.5);
+    group.add(outer);
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 1.6, 6), goldMat);
+    barrel.rotation.x = Math.PI / 2;
+    barrel.position.set(side * 2.2, -0.6, 1.4);
+    group.add(barrel);
+  }
+  // twin canted tail fins
+  for (let side = -1; side <= 1; side += 2) {
+    const fin = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.0, 1.2), goldMat);
+    fin.position.set(side * 0.8, 0.6, -2.1);
+    fin.rotation.z = -side * 0.35;
+    group.add(fin);
+  }
+
+  const nozzles = [];
+  const glowSprites = [];
+  for (let side = -1; side <= 1; side += 2) {
+    const nozzle = new THREE.Object3D();
+    nozzle.position.set(side * 0.55, 0, -2.7);
+    group.add(nozzle);
+    nozzles.push(nozzle);
+    const glowM = new THREE.SpriteMaterial({
+      map: engineGlowTex, blending: THREE.AdditiveBlending, depthWrite: false,
+      transparent: true, color: new THREE.Color(3.0, 2.2, 0.4),
+    });
+    const glow = new THREE.Sprite(glowM);
+    glow.position.set(side * 0.55, 0, -2.7);
+    glow.scale.setScalar(1.1);
+    group.add(glow);
+    glowSprites.push(glow);
+  }
+
+  const hardpoints = [];
+  for (let side = -1; side <= 1; side += 2) {
+    const hp = new THREE.Object3D();
+    hp.position.set(side * 2.2, -0.6, 2.2);
+    group.add(hp);
+    hardpoints.push(hp);
+  }
+
+  enableShadows(group);
+  return { group, nozzles, glowSprites, hardpoints, boundingRadius: 4.6 };
 }
 
 // Sleek police interceptor: white, blue, with alternating flashing strobes on wingtips
@@ -374,7 +530,8 @@ export function buildCargoPod() {
 
 export function buildMediumPirate(seed = 1) {
   const group = new THREE.Group();
-  const hullMat = hullMaterial('#4d4232', '#9c5a1f', 0.85, 50 + seed, 0.6, 0.5);
+  const paint = paintFor(seed + 2); // offset so a wing's hulls don't all match
+  const hullMat = hullMaterial(paint.base, paint.rust, 0.85, 50 + seed, 0.6, 0.5);
   const glassMat = new THREE.MeshStandardMaterial({
     color: 0x0a1a2a, metalness: 0.2, roughness: 0.15,
     emissive: new THREE.Color(0xdca12a), emissiveIntensity: 0.8,
@@ -397,7 +554,7 @@ export function buildMediumPirate(seed = 1) {
 
     const glowM = new THREE.SpriteMaterial({
       map: engineGlowTex, blending: THREE.AdditiveBlending, depthWrite: false,
-      transparent: true, color: new THREE.Color(3.0, 1.5, 0.2),
+      transparent: true, color: new THREE.Color(...paint.glow),
     });
     const glow = new THREE.Sprite(glowM);
     glow.position.set(side * 0.7, 0, -2.8);
@@ -420,7 +577,10 @@ export function buildMediumPirate(seed = 1) {
 
 export function buildHeavyPirate(seed = 1) {
   const group = new THREE.Group();
-  const hullMat = hullMaterial('#2f363f', '#7e2d2d', 0.9, 60 + seed, 0.75, 0.45);
+  // dreadnoughts keep their menacing dark hull and red engines; only the
+  // rust streaking varies so each one still reads instantly as the big threat
+  const paint = paintFor(seed + 4);
+  const hullMat = hullMaterial('#2f363f', paint.rust, 0.9, 60 + seed, 0.75, 0.45);
   const darkMat = new THREE.MeshStandardMaterial({ color: 0x121519, metalness: 0.85, roughness: 0.3 });
   const glassMat = new THREE.MeshStandardMaterial({
     color: 0x1f0505, metalness: 0.4, roughness: 0.1,

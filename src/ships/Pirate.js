@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { C } from '../constants.js';
-import { buildPirate, buildMediumPirate, buildHeavyPirate } from './ShipFactory.js';
+import { buildPirate, buildMediumPirate, buildHeavyPirate, buildCutthroat, buildCorsair } from './ShipFactory.js';
 
 const _toPlayer = new THREE.Vector3();
 const _fwd = new THREE.Vector3();
@@ -35,7 +35,7 @@ export class Pirate {
       this.turn = C.PIRATE.TURN * 0.8;
     } else if (this.type === 'cutthroat') {
       // glass-cannon interceptor: fast, hits hard, folds quickly
-      this.ship = buildPirate(++pirateCounter);
+      this.ship = buildCutthroat(++pirateCounter);
       this.hullMax = C.PIRATE.HULL * 0.7 * scale;
       this.shield = C.PIRATE.SHIELD * 0.8 * scale;
       this.damage = C.PIRATE.DAMAGE * 1.3 * scale;
@@ -44,7 +44,7 @@ export class Pirate {
       this.aimJitterMult = 0.7;
     } else if (this.type === 'corsair') {
       // veteran ace: durable, unnervingly accurate, always carries ECM
-      this.ship = buildMediumPirate(++pirateCounter);
+      this.ship = buildCorsair(++pirateCounter);
       this.hullMax = C.PIRATE.HULL * 2.2 * scale;
       this.shield = C.PIRATE.SHIELD * 2.0 * scale;
       this.damage = C.PIRATE.DAMAGE * 1.3 * scale;
