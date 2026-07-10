@@ -43,11 +43,12 @@ export class EncounterManager {
     return d;
   }
 
-  // called each frame; rolls interdiction only while in supercruise
-  update(dt, player, laserPool, inSupercruise) {
+  // called each frame; rolls interdiction in supercruise, ambushes in normal
+  // space at a lower rate (never inside a station's safe radius)
+  update(dt, player, laserPool, inSupercruise, nearStation = false) {
     this.cooldown = Math.max(0, this.cooldown - dt);
 
-    if (inSupercruise && this.cooldown <= 0) {
+    if (this.cooldown <= 0 && !nearStation) {
       this.rollAccum += dt;
       while (this.rollAccum >= 1) {
         this.rollAccum -= 1;
@@ -56,11 +57,14 @@ export class EncounterManager {
         const policeChance = notoriety * 0.0035;
         // a wanted target is actively hunting the player
         const namedFactor = this.playerData.missions.some((m) => m.named) ? 2 : 1;
-        if (notoriety > 5 && Math.random() < policeChance) {
+        // police cargo scans only happen at supercruise checkpoints
+        if (inSupercruise && notoriety > 5 && Math.random() < policeChance) {
           this.spawnPoliceAmbush(player);
           this.events.onInterdiction();
           break;
-        } else if (Math.random() < C.INTERDICTION_CHANCE * cargoFactor * namedFactor * this.playerData.getDerivedStats().interdictionMult) {
+        }
+        const base = inSupercruise ? C.INTERDICTION_CHANCE : C.INTERDICTION_CHANCE_NORMAL;
+        if (Math.random() < base * cargoFactor * namedFactor * this.playerData.getDerivedStats().interdictionMult) {
           this.spawnAmbush(player);
           this.events.onInterdiction();
           break;

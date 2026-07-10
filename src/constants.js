@@ -55,6 +55,8 @@ export const C = {
   // Combat
   SHIELD_REGEN_DELAY: 4,
   INTERDICTION_CHANCE: 0.035, // per supercruise second, base
+  INTERDICTION_CHANCE_NORMAL: 0.008, // per normal-space second, base
+  STATION_SAFE_RADIUS: 600,  // no pirate ambushes this close to a station
   ENCOUNTER_COOLDOWN: 60,
   PIRATE_BOUNTY_MIN: 300,
   PIRATE_BOUNTY_MAX: 800,

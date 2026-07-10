@@ -146,13 +146,16 @@ export class FlightState {
   // ---------- events wired from EncounterManager ----------
   onInterdiction() {
     const g = this.game;
-    if (this.mode === 'super') {
+    const wasSuper = this.mode === 'super';
+    if (wasSuper) {
       this.mode = 'manual';
       this.superSpeed = 0;
       g.ship.velocity.clampLength(0, g.ship.stats.maxSpeed);
     }
     this.shakeT = 0.8;
-    g.ui.hud.toast('WARNING — INTERDICTION! PIRATES ON SCANNER', 'warn');
+    g.ui.hud.toast(
+      wasSuper ? 'WARNING — INTERDICTION! PIRATES ON SCANNER'
+               : 'WARNING — AMBUSH! PIRATES ON SCANNER', 'warn');
   }
 
   // ---------- pause ----------
@@ -464,7 +467,10 @@ export class FlightState {
     }
 
     // ---------- combat ----------
-    g.encounters.update(dt, ship, g.laserPool, this.mode === 'super');
+    const nearStation = g.world.stations.some(
+      (s) => s.group.position.distanceTo(ship.position) < C.STATION_SAFE_RADIUS
+    );
+    g.encounters.update(dt, ship, g.laserPool, this.mode === 'super', nearStation);
 
     // close-call XP: surviving combat with the hull nearly gone
     const inCombat = g.encounters.inCombat;
