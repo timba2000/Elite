@@ -272,7 +272,7 @@ export class EncounterManager {
   }
 
   spawnAmbush(player) {
-    // once the pilot is DEADLY, the warlord may come looking for them instead
+    // once the pilot is DANGEROUS, the warlord may come looking for them instead
     if (!this.playerData.career.warlordDefeated
         && Progression.combatRank(this.playerData).index >= Progression.WARLORD_RANK
         && Math.random() < C.WARLORD_CHANCE) {
@@ -359,7 +359,7 @@ export class EncounterManager {
   }
 
   // The one-off boss: an oversized dreadnought with a marauder escort wing,
-  // reserved for pilots who have earned a DEADLY combat rank.
+  // reserved for pilots who have earned a DANGEROUS combat rank.
   spawnWarlord(player) {
     const galaxy = this.playerData.galaxy ?? 1;
     const scale = (1 + this.playerData.netWorthFactor() * 0.8) * (1.0 + (galaxy - 1) * 0.35);

@@ -68,8 +68,8 @@ export const C = {
   LIEUTENANT_BOUNTY_MULT: 2.5,
   FINE_FRIENDLY_FIRE: 150,   // per police ship provoked
   FINE_POLICE_KILL: 600,
-  WARLORD_CHANCE: 0.3,       // ambush becomes the warlord event when eligible
-  WARLORD_BOUNTY: 5000,
+  WARLORD_CHANCE: 0.5,       // ambush becomes the warlord event when eligible
+  WARLORD_BOUNTY: 12000,
   WARLORD_XP_BONUS: 380,     // on top of the dreadnought kill XP
   POD_DROP_CHANCE: 0.3,
   POD_SCOOP_DIST: 15,

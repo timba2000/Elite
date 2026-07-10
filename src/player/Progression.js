@@ -45,7 +45,7 @@ export const Progression = {
     { name: 'DEADLY', score: 75 },
     { name: 'ELITE', score: 130 },
   ],
-  WARLORD_RANK: 5, // DEADLY unlocks the warlord encounter
+  WARLORD_RANK: 4, // DANGEROUS unlocks the warlord encounter
 
   combatScoreFor(type) {
     return { dreadnought: 4, corsair: 3, marauder: 2, cutthroat: 2 }[type] ?? 1;
