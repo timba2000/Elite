@@ -210,6 +210,21 @@ export const Missions = {
     return done;
   },
 
+  // Cargo contracts targeting this planet that can't redeem — and the shortfall.
+  incompleteHere(planetId, pd) {
+    return pd.missions
+      .filter((m) => CARGO_TYPES.includes(m.type) && m.armed && m.targetId === planetId
+        && (pd.cargo[m.good] || 0) < m.qty)
+      .map((m) => ({ m, missing: m.qty - (pd.cargo[m.good] || 0) }));
+  },
+
+  // Units of a good still owed to active cargo contracts (protected from sale).
+  reservedFor(goodId, pd) {
+    return pd.missions
+      .filter((m) => CARGO_TYPES.includes(m.type) && m.good === goodId)
+      .reduce((sum, m) => sum + m.qty, 0);
+  },
+
   // Named target destroyed: complete its wanted contract directly.
   onNamedKill(missionId, pd) {
     const m = pd.missions.find((x) => x.id === missionId);

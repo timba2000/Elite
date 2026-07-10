@@ -644,10 +644,23 @@ export class StationUI {
       if (goodId === 'narcotics') {
         p.notoriety = Math.min(100, (p.notoriety || 0) + qty * 2.5);
       }
+      // topping up a short contract redeems it on the spot
+      for (const m of Missions.onDock(this.planetDef.id, p)) {
+        this.lastTrade = { msg: `CONTRACT COMPLETE — ${m.qty}x ${m.goodName.toUpperCase()} DELIVERED · +${m.reward.toLocaleString()} CR · +${m.xp} XP`, cls: 'profit' };
+      }
     } else {
       const held = p.cargo[goodId] || 0;
-      qty = qtyStr === 'max' ? held : Math.min(+qtyStr, held);
-      if (qty <= 0) return;
+      // cargo owed to active contracts can't be sold out from under them
+      const reserved = Missions.reservedFor(goodId, p);
+      const sellable = Math.max(0, held - reserved);
+      qty = qtyStr === 'max' ? sellable : Math.min(+qtyStr, sellable);
+      if (qty <= 0) {
+        if (held > 0 && reserved > 0) {
+          this.lastTrade = { msg: `${Math.min(held, reserved)}x ${name} RESERVED FOR CONTRACT — CANNOT SELL`, cls: 'loss' };
+          this.renderTab();
+        }
+        return;
+      }
       const basis = p.getCostBasis(goodId);
       const profit = Math.round((sell - basis) * qty);
       p.credits += qty * sell;

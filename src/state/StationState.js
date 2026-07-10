@@ -36,6 +36,11 @@ export class StationState {
     for (const m of Missions.onDock(station.planetDef.id, g.playerData)) {
       missionNews.push({ msg: `CONTRACT COMPLETE — ${m.qty}x ${m.goodName.toUpperCase()} DELIVERED · +${m.reward.toLocaleString()} CR · +${m.xp} XP`, cls: 'profit' });
     }
+    // arrived at the right planet but short on goods: say so instead of
+    // leaving the contract silently unresolved
+    for (const { m, missing } of Missions.incompleteHere(station.planetDef.id, g.playerData)) {
+      missionNews.push({ msg: `CONTRACT INCOMPLETE — SHORT ${missing}x ${m.goodName.toUpperCase()} · BUY THE MISSING UNITS HERE TO COMPLETE`, cls: 'loss' });
+    }
 
     const wages = Crew.chargeWages(g.playerData);
     if (wages.charged > 0) {

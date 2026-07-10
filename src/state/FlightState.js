@@ -717,7 +717,14 @@ export class FlightState {
         }
         if (g.playerData.hull < stats.hullMax * 0.5 && Math.random() < C.CARGO_EJECT_CHANCE) {
           const lost = g.playerData.ejectRandomCargo();
-          if (lost) g.ui.hud.toast(`CARGO HATCH BREACH — LOST 1x ${lost.toUpperCase()}`, 'warn');
+          if (lost) {
+            const pd = g.playerData;
+            const shortsContract = pd.missions.some((m) => m.good === lost && m.qty
+              && (pd.cargo[lost] || 0) < m.qty);
+            g.ui.hud.toast(shortsContract
+              ? `CARGO HATCH BREACH — LOST 1x ${lost.toUpperCase()} · CONTRACT CARGO NOW SHORT!`
+              : `CARGO HATCH BREACH — LOST 1x ${lost.toUpperCase()}`, 'warn');
+          }
         }
       }
       if (destroyed) this.die();
