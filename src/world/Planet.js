@@ -39,6 +39,16 @@ export class Planet {
     this.radius = def.radius;
     this.spinRate = def.gas ? 0.02 : 0.008;
 
+    // Giant-storm anchor (Great Red Spot etc.) as an object-space unit vector,
+    // so the spot rides the surface as the planet spins.
+    const spot = def.stormSpot;
+    const spotPos = spot
+      ? new THREE.Vector3(
+          Math.cos(spot.lat) * Math.cos(spot.lon),
+          Math.sin(spot.lat),
+          Math.cos(spot.lat) * Math.sin(spot.lon))
+      : new THREE.Vector3(0, 0, 0);
+
     const surfMat = new THREE.ShaderMaterial({
       uniforms: {
         uSunDir: { value: new THREE.Vector3(1, 0, 0) },
@@ -50,6 +60,11 @@ export class Planet {
         uCity: { value: def.inhabited ? 1.0 : 0.0 },
         uTime: { value: 0 },
         uQuality: { value: Graphics.photo ? 1.0 : 0.0 },
+        uOceanLevel: { value: def.oceanLevel ?? 0.43 },
+        uSpot: { value: spot ? 1.0 : 0.0 },
+        uSpotColor: { value: new THREE.Color(spot?.color ?? '#000000') },
+        uSpotPos: { value: spotPos },
+        uSpotSize: { value: spot?.size ?? 0.2 },
       },
       vertexShader: /* glsl */`
         varying vec3 vNormalW;
@@ -76,6 +91,11 @@ export class Planet {
         uniform float uCity;
         uniform float uTime;
         uniform float uQuality;
+        uniform float uOceanLevel;
+        uniform float uSpot;
+        uniform vec3 uSpotColor;
+        uniform vec3 uSpotPos;
+        uniform float uSpotSize;
 
         void main() {
           vec3 p = vNormalO;
@@ -91,13 +111,22 @@ export class Planet {
             float t = fract(p.y * 3.5 + bands * 0.6 + swirl * 0.2);
             col = mix(uOcean, uLand, smoothstep(0.2, 0.5, t));
             col = mix(col, uHigh, smoothstep(0.75, 0.95, bands));
+            if (uSpot > 0.5) {
+              // anchored anticyclone, oval (wider than tall), ragged noisy edge
+              vec3 d = p - uSpotPos;
+              float dist = length(d * vec3(1.0, 2.4, 1.0));
+              float edge = fbm(p * 6.0 + vec3(uSeed * 4.1)) * 0.08;
+              float storm = 1.0 - smoothstep(uSpotSize * 0.45, uSpotSize + edge, dist);
+              col = mix(col, uSpotColor * (0.85 + swirl * 0.3), storm);
+            }
           } else {
             float terrain = fbm(p * 3.5 + vec3(uSeed));
             float detail = fbm(p * 9.0 + vec3(uSeed * 2.7));
             float h = terrain * 0.75 + detail * 0.25;
-            oceanMask = 1.0 - smoothstep(0.40, 0.46, h);
-            col = mix(uOcean, uLand, smoothstep(0.42, 0.55, h));
-            col = mix(col, uHigh, smoothstep(0.62, 0.78, h));
+            float L = uOceanLevel;
+            oceanMask = 1.0 - smoothstep(L - 0.03, L + 0.03, h);
+            col = mix(uOcean, uLand, smoothstep(L - 0.01, L + 0.12, h));
+            col = mix(col, uHigh, smoothstep(L + 0.19, L + 0.35, h));
             // polar caps
             float pole = smoothstep(0.78, 0.92, abs(p.y) + detail * 0.08);
             col = mix(col, vec3(0.92, 0.95, 1.0), pole);
@@ -194,7 +223,7 @@ export class Planet {
     // Domain-warped fbm drifting on its own clock, lit by the same terminator.
     this.clouds = null;
     this.cloudMat = null;
-    if (!def.gas) {
+    if (!def.gas && def.clouds !== false) {
       const cloudMat = new THREE.ShaderMaterial({
         transparent: true,
         depthWrite: false,
@@ -238,6 +267,53 @@ export class Planet {
       this.clouds = new THREE.Mesh(new THREE.SphereGeometry(def.radius * 1.018, 48, 48), cloudMat);
       this.clouds.visible = Graphics.photo;
       this.group.add(this.clouds);
+    }
+
+    // Ring system: flat annulus with procedural ringlets, broad density
+    // variation and a Cassini-style division. Doesn't spin with the surface.
+    this.rings = null;
+    if (def.rings) {
+      const r = def.rings;
+      const ringMat = new THREE.ShaderMaterial({
+        side: THREE.DoubleSide,
+        transparent: true,
+        depthWrite: false,
+        uniforms: {
+          uColor: { value: new THREE.Color(r.color) },
+          uInner: { value: def.radius * r.inner },
+          uOuter: { value: def.radius * r.outer },
+          uOpacity: { value: r.opacity ?? 0.8 },
+          uSeed: { value: def.seed * 5.13 },
+        },
+        vertexShader: /* glsl */`
+          varying vec2 vPos;
+          void main() {
+            vPos = position.xy;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: NOISE_GLSL + /* glsl */`
+          varying vec2 vPos;
+          uniform vec3 uColor;
+          uniform float uInner;
+          uniform float uOuter;
+          uniform float uOpacity;
+          uniform float uSeed;
+          void main() {
+            float t = (length(vPos) - uInner) / (uOuter - uInner);
+            float ringlets = 0.55 + 0.45 * noise(vec3(t * 60.0, uSeed, 0.0));
+            float broad = fbm(vec3(t * 6.0, uSeed * 1.7, 0.0));
+            float gap = 1.0 - 0.85 * smoothstep(0.66, 0.70, t) * (1.0 - smoothstep(0.74, 0.78, t));
+            float edge = smoothstep(0.0, 0.06, t) * (1.0 - smoothstep(0.94, 1.0, t));
+            float a = uOpacity * edge * gap * ringlets * (0.5 + 0.5 * broad);
+            gl_FragColor = vec4(uColor * (0.7 + 0.5 * broad), a);
+          }
+        `,
+      });
+      const geo = new THREE.RingGeometry(def.radius * r.inner, def.radius * r.outer, 128, 1);
+      this.rings = new THREE.Mesh(geo, ringMat);
+      this.rings.rotation.x = Math.PI / 2 + (r.tilt ?? 0);
+      this.group.add(this.rings);
     }
 
     this.moons = [];

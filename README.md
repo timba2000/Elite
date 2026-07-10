@@ -1,7 +1,7 @@
 # ELITE — Interstellar Trader
 
 A browser-based 3D space trading game. You own a run-down, beat-up trading ship.
-Hop between the six worlds of the Achenar system buying low and selling high,
+Hop between the nine worlds of the Sol system buying low and selling high,
 dock at rotating stations, upgrade your rust bucket into something respectable —
 and fight off the pirates who want your cargo.
 

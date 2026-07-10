@@ -162,7 +162,7 @@ class Game {
   newGame(cheat = false) {
     const pd = new PlayerData();
     if (cheat) { pd.credits = 1000000; pd.cheated = true; }
-    generateSystem(0, 0); // Reset to default Galaxy 1 (Achenar)
+    generateSystem(0, 0); // Reset to default Galaxy 1 (Sol)
     this.createSession(pd, new Market());
     this.sm.change(this.states.flight, {
       spawnAtStation: this.playerData.lastStationId,
