@@ -358,7 +358,7 @@ export class StationUI {
       } else if (o.type === 'supply') {
         detail = `Source anywhere · <span style="color: #ffd27a; font-weight: bold;">DELIVER HERE: ${o.targetName.toUpperCase()}</span> · ${Missions.fmtTime(o.timeLeft)} limit · no penalty`;
       } else if (o.named) {
-        detail = `A ${o.shipType} that will come hunting YOU · fights to the death · no time limit`;
+        detail = `A ${o.elite ? 'veteran ' : ''}${o.shipType} that will come hunting YOU · fights to the death · no time limit`;
       } else {
         detail = 'Destroy them anywhere in the system · no time limit';
       }

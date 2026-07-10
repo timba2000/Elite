@@ -33,6 +33,24 @@ export class Pirate {
       this.damage = C.PIRATE.DAMAGE * 1.15 * scale;
       this.speed = C.PIRATE.SPEED * 0.85;
       this.turn = C.PIRATE.TURN * 0.8;
+    } else if (this.type === 'cutthroat') {
+      // glass-cannon interceptor: fast, hits hard, folds quickly
+      this.ship = buildPirate(++pirateCounter);
+      this.hullMax = C.PIRATE.HULL * 0.7 * scale;
+      this.shield = C.PIRATE.SHIELD * 0.8 * scale;
+      this.damage = C.PIRATE.DAMAGE * 1.3 * scale;
+      this.speed = C.PIRATE.SPEED * 1.35;
+      this.turn = C.PIRATE.TURN * 1.3;
+      this.aimJitterMult = 0.7;
+    } else if (this.type === 'corsair') {
+      // veteran ace: durable, unnervingly accurate, always carries ECM
+      this.ship = buildMediumPirate(++pirateCounter);
+      this.hullMax = C.PIRATE.HULL * 2.2 * scale;
+      this.shield = C.PIRATE.SHIELD * 2.0 * scale;
+      this.damage = C.PIRATE.DAMAGE * 1.3 * scale;
+      this.speed = C.PIRATE.SPEED * 1.05;
+      this.turn = C.PIRATE.TURN * 1.05;
+      this.aimJitterMult = 0.55;
     } else {
       this.ship = buildPirate(++pirateCounter);
       this.hullMax = C.PIRATE.HULL * scale;
@@ -42,10 +60,12 @@ export class Pirate {
       this.turn = C.PIRATE.TURN * (0.9 + Math.random() * 0.2);
     }
 
-    // loadout: dreadnoughts always carry missiles, lighter hulls often do;
-    // plenty of pirates also mount anti-missile ECM of their own
-    this.hasMissiles = this.type === 'dreadnought' || Math.random() < C.PIRATE.MISSILE_CHANCE;
-    this.hasEcm = Math.random() < C.PIRATE.ECM_CHANCE;
+    // loadout: dreadnoughts and cutthroats always carry missiles, lighter
+    // hulls often do; plenty of pirates also mount anti-missile ECM
+    this.hasMissiles = this.type === 'dreadnought' || this.type === 'cutthroat'
+      || Math.random() < C.PIRATE.MISSILE_CHANCE;
+    this.hasEcm = this.type === 'corsair' || Math.random() < C.PIRATE.ECM_CHANCE;
+    this.aimJitterMult = this.aimJitterMult ?? 1;
     this.missileTimer = this.missileTimer ?? 8.0 + Math.random() * 8.0;
     this.missileLock = 0; // seconds of seeker lock accumulated on the player
     this.lockBeepT = 0;
@@ -131,8 +151,8 @@ export class Pirate {
       const angle = _fwd.angleTo(_aim);
       if (angle < C.PIRATE.AIM_CONE) {
         this.fireTimer = C.PIRATE.FIRE_INTERVAL * (0.85 + Math.random() * 0.3);
-        // coordinated wingmen shoot noticeably straighter
-        const jitter = C.PIRATE.AIM_JITTER
+        // coordinated wingmen shoot noticeably straighter; aces do too
+        const jitter = C.PIRATE.AIM_JITTER * this.aimJitterMult
           * (this.wingLeader && this.wingLeader.alive ? C.PIRATE.WING_JITTER_MULT : 1);
         _aim.x += (Math.random() - 0.5) * jitter * 2;
         _aim.y += (Math.random() - 0.5) * jitter * 2;

@@ -296,14 +296,20 @@ export class EncounterManager {
       let type = 'raider';
       const roll = Math.random();
       if (galaxy >= 3) {
-        if (roll < 0.3) type = 'dreadnought';
-        else if (roll < 0.75) type = 'marauder';
+        if (roll < 0.22) type = 'dreadnought';
+        else if (roll < 0.4) type = 'corsair';
+        else if (roll < 0.65) type = 'marauder';
+        else if (roll < 0.82) type = 'cutthroat';
       } else if (galaxy === 2) {
-        if (roll < 0.15) type = 'dreadnought';
-        else if (roll < 0.5) type = 'marauder';
+        if (roll < 0.12) type = 'dreadnought';
+        else if (roll < 0.24) type = 'corsair';
+        else if (roll < 0.48) type = 'marauder';
+        else if (roll < 0.66) type = 'cutthroat';
       } else {
         if (netWorth > 0.6 && roll < 0.05) type = 'dreadnought';
-        else if (netWorth > 0.3 && roll < 0.25) type = 'marauder';
+        else if (netWorth > 0.4 && roll < 0.13) type = 'corsair';
+        else if (netWorth > 0.3 && roll < 0.3) type = 'marauder';
+        else if (netWorth > 0.15 && roll < 0.45) type = 'cutthroat';
       }
 
       const pirate = new Pirate(this.scene, _spawnPos, scale, type);
@@ -314,13 +320,25 @@ export class EncounterManager {
     // two or more pirates fly as a coordinated wing: the heaviest ship leads,
     // wingmen aim tighter while it lives and break off once it dies
     if (spawned.length >= 2) {
-      const tier = (p) => (p.type === 'dreadnought' ? 3 : p.type === 'marauder' ? 2 : 1);
+      const tier = (p) => ({ dreadnought: 4, corsair: 3, marauder: 2, cutthroat: 2 }[p.type] ?? 1);
       const leader = spawned.reduce((a, b) => (tier(b) > tier(a) ? b : a));
       leader.isWingLeader = true;
       for (const p of spawned) {
         if (p !== leader) p.wingLeader = leader;
       }
-      this.events.toast(`PIRATE WING ON SCANNER — ${spawned.length} SHIPS IN FORMATION`, 'warn');
+      // sometimes the leader is a named wanted pirate — a walking bounty
+      if (Math.random() < C.LIEUTENANT_CHANCE) {
+        leader.pirateName = Missions.randomPirateName();
+        leader.isLieutenant = true;
+        leader.noFlee = true;
+        leader.hullMax *= 1.3;
+        leader.hull = leader.hullMax;
+        leader.shieldMax *= 1.3;
+        leader.shield = leader.shieldMax;
+        this.events.toast(`WANTED PIRATE — ${leader.pirateName} LEADS THE WING`, 'warn');
+      } else {
+        this.events.toast(`PIRATE WING ON SCANNER — ${spawned.length} SHIPS IN FORMATION`, 'warn');
+      }
     }
 
     // a wanted contract's target muscles into the ambush
@@ -329,7 +347,7 @@ export class EncounterManager {
     if (wanted) {
       _rand.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(400);
       _spawnPos.copy(player.position).addScaledVector(fwd, 700).add(_rand);
-      const boss = new Pirate(this.scene, _spawnPos, scale * 1.25, wanted.shipType);
+      const boss = new Pirate(this.scene, _spawnPos, scale * (wanted.elite ? 1.6 : 1.25), wanted.shipType);
       boss.namedMissionId = wanted.id;
       boss.pirateName = wanted.named;
       boss.noFlee = true;
@@ -387,9 +405,18 @@ export class EncounterManager {
 
   onPirateKilled(pirate, explosions) {
     explosions.spawn(pirate.position, pirate.isWarlord ? 2.6 : 1.4);
-    const bounty = pirate.isWarlord
-      ? C.WARLORD_BOUNTY
-      : Math.floor(C.PIRATE_BOUNTY_MIN + Math.random() * (C.PIRATE_BOUNTY_MAX - C.PIRATE_BOUNTY_MIN));
+    let bounty;
+    if (pirate.isWarlord) {
+      bounty = C.WARLORD_BOUNTY;
+    } else {
+      // bounties pay by hull class and scale with the galaxy like trade does
+      const gscale = 1 + ((this.playerData.galaxy ?? 1) - 1) * 0.45;
+      bounty = (C.PIRATE_BOUNTY_MIN + Math.random() * (C.PIRATE_BOUNTY_MAX - C.PIRATE_BOUNTY_MIN))
+        * (C.PIRATE_BOUNTY_TYPE[pirate.type] ?? 1) * gscale;
+      if (pirate.isWingLeader) bounty *= C.WING_LEADER_BOUNTY_MULT;
+      if (pirate.isLieutenant) bounty *= C.LIEUTENANT_BOUNTY_MULT;
+      bounty = Math.floor(bounty);
+    }
     this.playerData.credits += bounty;
     this.playerData.career.creditsEarned += bounty;
     this.playerData.career.piratesKilled++;
@@ -408,6 +435,8 @@ export class EncounterManager {
     if (pirate.isWarlord) {
       this.playerData.career.warlordDefeated = true;
       setTimeout(() => this.events.toast('THE HARROW IS DEAD — THE SYSTEM BREATHES EASIER', 'gold'), 400);
+    } else if (pirate.isLieutenant) {
+      setTimeout(() => this.events.toast(`${pirate.pirateName} ELIMINATED — WANTED BOUNTY CLAIMED`, 'gold'), 400);
     } else if (pirate.isWingLeader
         && this.pirates.some((p) => p.alive && p.wingLeader === pirate)) {
       this.events.toast('WING LEADER DOWN — SURVIVORS LOSING THEIR NERVE', 'gold');

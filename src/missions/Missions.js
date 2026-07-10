@@ -117,20 +117,43 @@ export const Missions = {
 
     // a wanted poster — one named target, Gunnery 2 required
     if (Math.random() < 0.5) {
-      const shipType = Math.random() < 0.35 ? 'dreadnought' : 'marauder';
+      const roll = Math.random();
+      const shipType = roll < 0.3 ? 'dreadnought' : roll < 0.6 ? 'corsair' : 'marauder';
+      const pay = { dreadnought: 3200, corsair: 2600, marauder: 1900 }[shipType];
       offers.push({
         id: makeId(), type: 'hunt',
-        named: `${pick(PIRATE_FIRST)} ${pick(PIRATE_LAST)}`, shipType,
+        named: this.randomPirateName(), shipType,
         kills: 1, killsDone: 0,
         originName: planetDef.name,
-        reward: Math.round((shipType === 'dreadnought' ? 3200 : 1900) * s),
+        reward: Math.round(pay * s),
         penalty: 0,
         timeLeft: null,
         armed: true,
         requires: { skill: 'gunnery', tier: 2 },
       });
     }
+
+    // high-value posters for proven hunters: COMPETENT combat rank unlocks
+    // oversized elite targets that pay serious money, Gunnery 3 required
+    if (Progression.combatRank(pd).index >= 3 && Math.random() < 0.4) {
+      const shipType = Math.random() < 0.5 ? 'dreadnought' : 'corsair';
+      offers.push({
+        id: makeId(), type: 'hunt',
+        named: this.randomPirateName(), shipType, elite: true,
+        kills: 1, killsDone: 0,
+        originName: planetDef.name,
+        reward: Math.round((shipType === 'dreadnought' ? 6500 : 5200) * s),
+        penalty: 0,
+        timeLeft: null,
+        armed: true,
+        requires: { skill: 'gunnery', tier: 3 },
+      });
+    }
     return offers;
+  },
+
+  randomPirateName() {
+    return `${pick(PIRATE_FIRST)} ${pick(PIRATE_LAST)}`;
   },
 
   lockedReason(offer, pd) {

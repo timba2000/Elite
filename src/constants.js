@@ -61,6 +61,11 @@ export const C = {
   ENCOUNTER_COOLDOWN: 60,
   PIRATE_BOUNTY_MIN: 300,
   PIRATE_BOUNTY_MAX: 800,
+  // bounty multiplier by hull class — bigger game pays better
+  PIRATE_BOUNTY_TYPE: { raider: 1, cutthroat: 2.0, marauder: 2.2, corsair: 3.2, dreadnought: 4.5 },
+  WING_LEADER_BOUNTY_MULT: 1.5,
+  LIEUTENANT_CHANCE: 0.12,       // wing leader is a named wanted pirate
+  LIEUTENANT_BOUNTY_MULT: 2.5,
   FINE_FRIENDLY_FIRE: 150,   // per police ship provoked
   FINE_POLICE_KILL: 600,
   WARLORD_CHANCE: 0.3,       // ambush becomes the warlord event when eligible
