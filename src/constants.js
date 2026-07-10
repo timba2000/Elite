@@ -54,7 +54,7 @@ export const C = {
 
   // Combat
   SHIELD_REGEN_DELAY: 4,
-  INTERDICTION_CHANCE: 0.02, // per supercruise second, base
+  INTERDICTION_CHANCE: 0.035, // per supercruise second, base
   ENCOUNTER_COOLDOWN: 60,
   PIRATE_BOUNTY_MIN: 300,
   PIRATE_BOUNTY_MAX: 800,
