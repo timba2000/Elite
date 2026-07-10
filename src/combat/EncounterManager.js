@@ -54,18 +54,21 @@ export class EncounterManager {
         this.rollAccum -= 1;
         const cargoFactor = 1 + 1.5 * Math.min(1, this.playerData.cargoValue() / 3000);
         const notoriety = this.playerData.notoriety || 0;
-        const policeChance = notoriety * 0.0035;
         // a wanted target is actively hunting the player
         const namedFactor = this.playerData.missions.some((m) => m.named) ? 2 : 1;
-        // police cargo scans only happen at supercruise checkpoints
-        if (inSupercruise && notoriety > 5 && Math.random() < policeChance) {
-          this.spawnPoliceAmbush(player);
-          this.events.onInterdiction();
-          break;
-        }
+        // pirates roll first so police pressure at high notoriety can never
+        // starve pirate encounters (kill contracts stay completable)
         const base = inSupercruise ? C.INTERDICTION_CHANCE : C.INTERDICTION_CHANCE_NORMAL;
         if (Math.random() < base * cargoFactor * namedFactor * this.playerData.getDerivedStats().interdictionMult) {
           this.spawnAmbush(player);
+          this.events.onInterdiction();
+          break;
+        }
+        // police cargo scans only happen at supercruise checkpoints, capped
+        // so max notoriety doesn't monopolise every encounter slot
+        const policeChance = Math.min(notoriety * 0.0035, C.POLICE_AMBUSH_CAP);
+        if (inSupercruise && notoriety > 5 && Math.random() < policeChance) {
+          this.spawnPoliceAmbush(player);
           this.events.onInterdiction();
           break;
         }
