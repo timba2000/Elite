@@ -81,7 +81,7 @@ export const C = {
   DOCK_DURATION: 4.0,          // autodock glide (docking computer)
   DOCK_TRACTOR_DURATION: 1.6,  // short tractor pull after a manual capture
   DOCK_CLEARANCE_RANGE: 260,   // clearance expires beyond this distance
-  DOCK_MAX_SPEED: 16,          // contact above this bounces you off the hub
+  DOCK_MAX_SPEED: 12,          // contact above this bounces you off the hub
   DOCK_FACE_DIST: 3,           // axial distance from hub face that triggers capture
   DOCK_FACE_RADIUS: 12,        // lateral radius of the hub face contact zone
   DOCK_LATERAL_TOL: 6,         // must be this close to the aperture axis to enter

@@ -62,16 +62,17 @@ export class Station {
       this.group.add(spoke);
     }
 
-    // Hollow Rectangular Hub: composed of 4 thick walls and a rear wall to make a docking tunnel
-    const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.8, 4.5, 6.0), hullMat);
-    leftWall.position.set(-2.65, 0, 0);
-    const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.8, 4.5, 6.0), hullMat);
-    rightWall.position.set(2.65, 0, 0);
-    const topWall = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.8, 6.0), hullMat);
-    topWall.position.set(0, 1.85, 0);
-    const bottomWall = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.8, 6.0), hullMat);
-    bottomWall.position.set(0, -1.85, 0);
-    const rearWall = new THREE.Mesh(new THREE.BoxGeometry(4.5, 2.9, 0.4), hullMat);
+    // Hollow Rectangular Hub: a wide flat letterbox slot like the classic
+    // Coriolis docking bay — opening 5.2 × 1.8 (≈3:1), walls 0.8 thick.
+    const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.8, 3.4, 6.0), hullMat);
+    leftWall.position.set(-3.0, 0, 0);
+    const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.8, 3.4, 6.0), hullMat);
+    rightWall.position.set(3.0, 0, 0);
+    const topWall = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.8, 6.0), hullMat);
+    topWall.position.set(0, 1.3, 0);
+    const bottomWall = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.8, 6.0), hullMat);
+    bottomWall.position.set(0, -1.3, 0);
+    const rearWall = new THREE.Mesh(new THREE.BoxGeometry(5.2, 1.8, 0.4), hullMat);
     rearWall.position.set(0, 0, -2.8);
 
     this.group.add(leftWall);
@@ -84,14 +85,14 @@ export class Station {
     this.apertureMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.2, 2.2, 2.8) });
     this.apertureLocalZ = 3.05;
 
-    const rimL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.9, 0.1), this.apertureMat);
-    rimL.position.set(-2.25, 0, 3.01);
-    const rimR = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.9, 0.1), this.apertureMat);
-    rimR.position.set(2.25, 0, 3.01);
-    const rimT = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.12, 0.1), this.apertureMat);
-    rimT.position.set(0, 1.45, 3.01);
-    const rimB = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.12, 0.1), this.apertureMat);
-    rimB.position.set(0, -1.45, 3.01);
+    const rimL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.92, 0.1), this.apertureMat);
+    rimL.position.set(-2.6, 0, 3.01);
+    const rimR = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.92, 0.1), this.apertureMat);
+    rimR.position.set(2.6, 0, 3.01);
+    const rimT = new THREE.Mesh(new THREE.BoxGeometry(5.32, 0.12, 0.1), this.apertureMat);
+    rimT.position.set(0, 0.9, 3.01);
+    const rimB = new THREE.Mesh(new THREE.BoxGeometry(5.32, 0.12, 0.1), this.apertureMat);
+    rimB.position.set(0, -0.9, 3.01);
 
     this.group.add(rimL);
     this.group.add(rimR);
@@ -100,19 +101,77 @@ export class Station {
 
     // Two rectangular metal doors blocking the aperture (slide behind left/right walls)
     const doorMat = new THREE.MeshStandardMaterial({ color: 0x3a3d45, metalness: 0.7, roughness: 0.4 });
-    this.leftDoor = new THREE.Mesh(new THREE.BoxGeometry(2.35, 2.9, 0.25), doorMat);
-    this.rightDoor = new THREE.Mesh(new THREE.BoxGeometry(2.35, 2.9, 0.25), doorMat);
-    this.leftDoor.position.set(-1.175, 0, 3.1);
-    this.rightDoor.position.set(1.175, 0, 3.1);
+    this.leftDoor = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.8, 0.25), doorMat);
+    this.rightDoor = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.8, 0.25), doorMat);
+    this.leftDoor.position.set(-1.3, 0, 3.1);
+    this.rightDoor.position.set(1.3, 0, 3.1);
     this.group.add(this.leftDoor);
     this.group.add(this.rightDoor);
     this.doorOpenFactor = 0;
+
+    // Hazard chevrons on the door faces so the closed slot reads at range
+    const chevronMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.6, 1.1, 0.1) });
+    for (const side of [-1, 1]) {
+      const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.18, 1.5, 0.05), chevronMat);
+      stripe.position.set(side * 0.35, 0, 0.14);
+      stripe.rotation.z = side * 0.5;
+      (side < 0 ? this.leftDoor : this.rightDoor).add(stripe);
+    }
+
+    // Tunnel guide-light strips along the interior floor and ceiling
+    this.tunnelMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.2, 1.8, 0.6) });
+    for (const x of [-1.7, 0, 1.7]) {
+      for (const y of [-0.86, 0.86]) {
+        const strip = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.05, 5.2), this.tunnelMat);
+        strip.position.set(x, y, 0.2);
+        this.group.add(strip);
+      }
+    }
+
+    // Warm hangar glow on the rear wall, and a bay light that swells as the
+    // doors open so the tunnel interior reads through the slot
+    const hangarPanel = new THREE.Mesh(
+      new THREE.BoxGeometry(4.6, 1.4, 0.05),
+      new THREE.MeshBasicMaterial({ color: new THREE.Color(1.4, 0.9, 0.4) })
+    );
+    hangarPanel.position.set(0, 0, -2.55);
+    this.group.add(hangarPanel);
+    this.bayLight = new THREE.PointLight(0xffcf90, 0.3, 40, 1.2);
+    this.bayLight.position.set(0, 0, -1);
+    this.group.add(this.bayLight);
+
+    // Approach beacons: two rows flanking the corridor out from the slot,
+    // strobing in sequence toward the doors once clearance is granted
+    this.approachLights = [];
+    const beaconGeo = new THREE.BoxGeometry(0.35, 0.35, 0.35);
+    for (let i = 0; i < 5; i++) {
+      const z = 6 + i * 3.5;
+      for (const x of [-3.6, 3.6]) {
+        const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.8, 1.8, 2.2) });
+        const b = new THREE.Mesh(beaconGeo, mat);
+        b.position.set(x, 0, z);
+        this.group.add(b);
+        this.approachLights.push({ mesh: b, z });
+      }
+    }
 
     // Antenna
     const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.3, 10, 6), darkMat);
     antenna.position.z = -7;
     antenna.rotation.x = Math.PI / 2;
     this.group.add(antenna);
+
+    // Lit habitat windows dotted around the ring's front face
+    const windowGeo = new THREE.BoxGeometry(0.45, 0.22, 0.06);
+    for (let i = 0; i < 24; i++) {
+      const a = (i / 24) * Math.PI * 2 + 0.13;
+      const warm = 0.7 + ((i * 37) % 10) / 18; // deterministic per-window variance
+      const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(warm, warm * 0.82, warm * 0.5) });
+      const w = new THREE.Mesh(windowGeo, mat);
+      w.position.set(Math.cos(a) * 14, Math.sin(a) * 14, 3.05);
+      w.rotation.z = a + Math.PI / 2;
+      this.group.add(w);
+    }
 
     // Blinking nav lights around the ring
     this.navLights = [];
@@ -163,7 +222,9 @@ export class Station {
 
   update(dt) {
     this.time += dt;
-    this.group.rotation.z += 0.06 * dt;
+    // Spin fast enough that a manual approach has to actively match roll,
+    // like the original Elite Coriolis stations.
+    this.group.rotation.z += 0.15 * dt;
     for (const { mesh, phase } of this.navLights) {
       const on = Math.sin(this.time * 3 + phase) > 0.4;
       mesh.visible = on;
@@ -173,10 +234,23 @@ export class Station {
       this.apertureMat.color.setRGB(0.3, p, 0.9);
     }
 
-    // Animate sliding doors
+    // Approach beacons strobe in sequence toward the slot during clearance;
+    // otherwise they sit as a dim steady corridor marker
+    for (const { mesh, z } of this.approachLights) {
+      if (this.dockingActive) {
+        mesh.visible = Math.sin(this.time * 5 + z * 0.9) > 0.3;
+        mesh.material.color.setRGB(1.8, 1.8, 2.2);
+      } else {
+        mesh.visible = true;
+        mesh.material.color.setRGB(0.5, 0.5, 0.7);
+      }
+    }
+
+    // Animate sliding doors; the bay light swells as they open
     const targetOpen = this.dockingActive ? 1.0 : 0.0;
     this.doorOpenFactor = THREE.MathUtils.lerp(this.doorOpenFactor, targetOpen, 3.5 * dt);
-    this.leftDoor.position.x = -1.175 - (2.25 * this.doorOpenFactor);
-    this.rightDoor.position.x = 1.175 + (2.25 * this.doorOpenFactor);
+    this.leftDoor.position.x = -1.3 - (2.7 * this.doorOpenFactor);
+    this.rightDoor.position.x = 1.3 + (2.7 * this.doorOpenFactor);
+    this.bayLight.intensity = 0.3 + 2.4 * this.doorOpenFactor;
   }
 }

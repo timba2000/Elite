@@ -1337,14 +1337,15 @@ export class FlightState {
     const localY = Math.abs(_dockRel.dot(stationY));
 
     const scale = st.group.scale.x; // 2.2
-    const limitX = 2.15 * scale;
-    const limitY = 1.35 * scale;
+    // letterbox slot: wide horizontal margin, tight vertical margin
+    const limitX = 2.35 * scale;
+    const limitY = 0.62 * scale;
 
     const doorsClosed = st.doorOpenFactor < 0.9;
     const tooFast = speed > C.DOCK_MAX_SPEED;
     const offCentre = localX > limitX || localY > limitY;
     const misaligned = nose < C.DOCK_ALIGN_DOT || inward < C.DOCK_INWARD_DOT;
-    const rollMisaligned = rollDot < 0.92;
+    const rollMisaligned = rollDot < 0.95;
 
     if (!doorsClosed && !tooFast && !offCentre && !misaligned && !rollMisaligned) {
       this.setClearance(null);
@@ -1462,15 +1463,15 @@ export class FlightState {
   stationHitTest(st, p) {
     const R = 0.9; // ship hull clearance radius in station-local units
 
-    // Hollow hub: walls out to x ±3.05 / y ±2.25, rear wall base z −3.0,
-    // doors at z 3.1 (front face 3.225); aperture opening 2.25 × 1.45
-    const hx = 3.05 + R, hy = 2.25 + R;
+    // Hollow hub: walls out to x ±3.4 / y ±1.7, rear wall base z −3.0,
+    // doors at z 3.1 (front face 3.225); letterbox opening 2.6 × 0.9
+    const hx = 3.4 + R, hy = 1.7 + R;
     const hzMin = -3.0 - R, hzMax = 3.35 + R;
     if (Math.abs(p.x) < hx && Math.abs(p.y) < hy && p.z > hzMin && p.z < hzMax) {
       // with clearance at this station, tryDockCapture owns face contact —
       // it docks a clean entry and bounces the rest with a readable reason
       if (this.clearance === st && p.z > 1.6) return false;
-      const inAperture = Math.abs(p.x) < 2.25 && Math.abs(p.y) < 1.45;
+      const inAperture = Math.abs(p.x) < 2.6 && Math.abs(p.y) < 0.9;
       if (inAperture) {
         if (p.z < -2.6 + R) { // rear wall — bounce back to whichever side the ship is on
           const front = p.z > -2.8;
