@@ -51,11 +51,14 @@ export class PostFX {
 
   // Feed the cinematic pass the sun's screen position each frame; rays and
   // flare fade out as the sun leaves the view or slips behind the camera.
+  // `sunHidden` kills the pass entirely for indoor shots (docked hangar) —
+  // the pass has no depth test, so the flare would burn through the walls.
   update(dt, sunWorldPos, sunColor) {
     if (!this.cine.enabled) return;
     this.time += dt;
     const u = this.cine.uniforms;
     u.uTime.value = this.time;
+    if (this.sunHidden) { u.uSunVis.value = 0; return; }
 
     _sunView.copy(sunWorldPos).applyMatrix4(this.camera.matrixWorldInverse);
     if (_sunView.z >= 0) { // behind the camera (view looks down -Z)

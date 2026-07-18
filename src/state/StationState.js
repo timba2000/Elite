@@ -3,12 +3,15 @@ import { Missions } from '../missions/Missions.js';
 import { Progression } from '../player/Progression.js';
 import { Crew } from '../crew/Crew.js';
 import { Net } from '../net/Net.js';
+import { DockingBay } from '../world/DockingBay.js';
 
-// Docked: station UI over a slow orbit shot of the station. Autosaves on entry.
+// Docked: station UI over a slow pan around the hangar interior — the
+// player's ship on the pad, visiting ships, dock crew. Autosaves on entry.
 export class StationState {
   constructor(game) {
     this.game = game;
     this.angle = 0;
+    this.bay = null; // hangar interior, built lazily on first dock
   }
 
   enter({ station, respawned }) {
@@ -21,6 +24,9 @@ export class StationState {
     g.input.exitPointerLock();
     g.ui.hud.hide();
     g.encounters.clearAll();
+    if (!this.bay) this.bay = new DockingBay(g.scene);
+    this.bay.show(station, g.playerData);
+    g.postfx.sunHidden = true; // no sun flare indoors
     g.laserPool.clear();
     if (g.missilePool) g.missilePool.clear();
     // missiles are NOT refilled on docking — restock them on the Repair tab
@@ -103,6 +109,7 @@ export class StationState {
         if (key === 'shield') g.ship.shield = g.ship.stats.shieldMax;
         if (key === 'missiles') g.ship.missilesAmmo = g.ship.stats.missilesMaxAmmo;
         if (key === 'module') g.ship.chaffAmmo = g.ship.stats.chaffMax;
+        this.bay.refreshPlayerShip(g.playerData); // new hull/pods show on the pad
       },
       onSkill: () => g.ship.applyStats(),
     }, missionNews);
@@ -110,19 +117,23 @@ export class StationState {
 
   exit() {
     this.game.ui.stationUI.hide();
+    this.bay?.hide();
+    this.game.postfx.sunHidden = false;
     this.game.ship.group.visible = true;
   }
 
   update(dt) {
     const g = this.game;
-    this.angle += dt * 0.06;
-    const sp = this.station.group.position;
+    // slow drift around the parked ship, gentle bob so the shot breathes
+    this.angle += dt * 0.045;
+    this.bay.update(dt);
+    const fp = this.bay.focus;
     g.camera.position.set(
-      sp.x + Math.cos(this.angle) * 130,
-      sp.y + 35,
-      sp.z + Math.sin(this.angle) * 130
+      fp.x + Math.cos(this.angle) * 26,
+      fp.y + 6 + Math.sin(this.angle * 2.7) * 1.5,
+      fp.z + Math.sin(this.angle) * 26
     );
-    g.camera.lookAt(sp.x, sp.y, sp.z);
+    g.camera.lookAt(fp.x, fp.y + 1, fp.z);
     g.world.update(dt, g.camera.position);
     g.particles.update(dt);
     g.explosions.update(dt);
