@@ -46,6 +46,8 @@ export class FlightState {
     this.cameraView = 'cockpit'; // 'cockpit' | 'chase'
     this.clearance = null;   // station we have docking clearance at
     this.dockBounceT = 0;    // cooldown after bouncing off the hub
+    this.stationDmgT = 0;    // cooldown between station knock damage events
+    this.sunHeatToastT = 0;  // corona heat warning throttle
     this.stationStrikes = {};    // station id -> hard impacts this flight
     this.lockedStationId = null; // station refusing entry after repeated impacts
     this.lockTarget = null;
@@ -377,7 +379,9 @@ export class FlightState {
           ship.group.position.copy(sun.position).addScaledVector(dir, Math.max(sun.radius * 1.5, 470));
           _m.lookAt(ship.group.position.clone().addScaledVector(dir, 1000), ship.group.position, _up);
           ship.group.quaternion.setFromRotationMatrix(_m);
-          ship.velocity.copy(dir).multiplyScalar(30);
+          // violent ejection outward — fast enough that a pilot who reacts
+          // clears the corona heat zone with a sliver of hull left
+          ship.velocity.copy(dir).multiplyScalar(45);
         } else {
           // arrive in open space inside the innermost orbit, facing out
           ship.group.position.set(0, 250, 1900);
@@ -392,12 +396,18 @@ export class FlightState {
         this.updateCamera(1, true);
 
         if (misjump) {
-          const dmg = C.MISJUMP_DAMAGE_MIN + Math.random() * (C.MISJUMP_DAMAGE_MAX - C.MISJUMP_DAMAGE_MIN);
-          g.ui.hud.toast(`MIS-JUMP — EMERGENCE IMPACT IN THE STAR'S CORONA!`, 'warn');
+          // emergence in a star's corona is existential: shields flash-boil
+          // to nothing and the hull takes a huge fraction of its maximum —
+          // then the corona heat zone keeps cooking until the pilot pulls away
+          const frac = C.MISJUMP_HULL_FRACTION_MIN
+            + Math.random() * (C.MISJUMP_HULL_FRACTION_MAX - C.MISJUMP_HULL_FRACTION_MIN);
+          const dmg = ship.stats.hullMax * frac;
+          ship.shield = 0;
+          g.ui.hud.toast(`MIS-JUMP — EMERGENCE IN THE STAR'S CORONA — HULL BURNING, PULL AWAY!`, 'warn');
           g.ui.hud.damageFlash();
-          const { destroyed, hullHit } = ship.takeDamage(dmg);
-          g.sfx.play(hullHit ? 'hitHull' : 'hitShield');
-          this.shakeT = Math.max(this.shakeT, 0.8);
+          const { destroyed } = ship.takeHullDamage(dmg);
+          g.sfx.play('hitHull');
+          this.shakeT = Math.max(this.shakeT, 1.2);
           if (destroyed) { this.die(); return; }
         } else {
           g.ui.hud.toast(`ARRIVED — ${SYSTEM.name} · ${SYSTEM.character.toUpperCase()}`, 'gold');
@@ -1371,14 +1381,15 @@ export class FlightState {
     g.ui.hud.toast(`DOCKING ABORTED — ${reason}`, 'warn');
 
     // ramming the hub face above docking speed is a hard impact; a botched
-    // slow approach keeps the old gentle speed-scaled bump
+    // slow approach keeps the old gentle speed-scaled bump. Either way it's
+    // structural — station knocks bypass shields and dent the hull directly.
     const dmg = speed > C.DOCK_MAX_SPEED
       ? this.stationImpact(st)
       : Math.max(0, speed - C.DOCK_SAFE_SPEED) * C.DOCK_BOUNCE_DAMAGE;
     if (dmg > 0) {
       g.ui.hud.damageFlash();
-      const { destroyed, hullHit } = ship.takeDamage(dmg);
-      g.sfx.play(hullHit ? 'hitHull' : 'hitShield');
+      const { destroyed } = ship.takeHullDamage(dmg);
+      g.sfx.play('hitHull');
       if (destroyed) { this.die(); return true; }
     }
     return false;
@@ -1392,6 +1403,7 @@ export class FlightState {
     const sunMin = 420;
 
     if (this.mode === 'dead') return;
+    this.stationDmgT = Math.max(0, (this.stationDmgT ?? 0) - dt);
 
     if (pos.length() < sunMin) {
       if (this.mode === 'super') {
@@ -1409,14 +1421,30 @@ export class FlightState {
       const impactSpeed = -ship.velocity.dot(N);
       ship.velocity.addScaledVector(N, -2 * ship.velocity.dot(N)).multiplyScalar(0.4);
 
-      const dmg = Math.max(0, impactSpeed - C.DOCK_SAFE_SPEED) * C.DOCK_BOUNCE_DAMAGE + 5;
-      if (dmg > 0) {
+      // slamming into the star itself is structural — straight to the hull
+      const dmg = Math.max(0, impactSpeed - C.DOCK_SAFE_SPEED) * C.DOCK_BOUNCE_DAMAGE + 15;
+      g.ui.hud.damageFlash();
+      const { destroyed } = ship.takeHullDamage(dmg);
+      g.sfx.play('hitHull');
+      this.shakeT = Math.max(this.shakeT, 0.7);
+      if (destroyed) { this.die(); return; }
+    }
+
+    // corona heat zone: the closer to the star, the faster the hull cooks.
+    // Heat bypasses shields entirely — only distance helps.
+    const sunDist = pos.length();
+    if (sunDist < C.SUN_HEAT_RADIUS) {
+      const t = THREE.MathUtils.clamp(1 - (sunDist - sunMin) / (C.SUN_HEAT_RADIUS - sunMin), 0, 1);
+      const dps = C.SUN_HEAT_DPS_MIN + (C.SUN_HEAT_DPS_MAX - C.SUN_HEAT_DPS_MIN) * t;
+      this.sunHeatToastT = (this.sunHeatToastT ?? 0) - dt;
+      if (this.sunHeatToastT <= 0) {
+        this.sunHeatToastT = 3;
+        g.ui.hud.toast('STELLAR CORONA — HULL TEMPERATURE CRITICAL — PULL AWAY!', 'warn');
         g.ui.hud.damageFlash();
-        const { destroyed, hullHit } = ship.takeDamage(dmg);
-        g.sfx.play(hullHit ? 'hitHull' : 'hitShield');
-        this.shakeT = Math.max(this.shakeT, 0.5);
-        if (destroyed) { this.die(); return; }
       }
+      const { destroyed } = ship.takeHullDamage(dps * dt);
+      this.shakeT = Math.max(this.shakeT, 0.15);
+      if (destroyed) { this.die(); return; }
     }
 
     for (const p of g.world.planets) {
@@ -1566,13 +1594,17 @@ export class FlightState {
     ship.velocity.addScaledVector(N, -2 * ship.velocity.dot(N)).multiplyScalar(0.4);
 
     // a real impact crushes the hull against the superstructure; a slow graze
-    // just scrapes paint
+    // scrapes it. Both are structural — shields can't help, the hull pays.
+    // A short cooldown makes each KNOCK one damage event, not damage per
+    // contact frame while grinding along the rotating structure.
+    if (this.stationDmgT > 0) return false;
+    this.stationDmgT = 0.45;
     const hardHit = impactSpeed > C.DOCK_SAFE_SPEED;
-    const dmg = hardHit ? this.stationImpact(st) : 8;
-    g.ui.hud.toast(hardHit ? 'STATION COLLISION — HULL CRUSHED AGAINST SUPERSTRUCTURE!' : 'STATION COLLISION!', 'warn');
+    const dmg = hardHit ? this.stationImpact(st) : Math.max(3, impactSpeed * 1.5);
+    g.ui.hud.toast(hardHit ? 'STATION COLLISION — HULL CRUSHED AGAINST SUPERSTRUCTURE!' : 'STATION COLLISION — HULL SCRAPED!', 'warn');
     g.ui.hud.damageFlash();
-    const { destroyed, hullHit } = ship.takeDamage(dmg);
-    g.sfx.play(hullHit ? 'hitHull' : 'hitShield');
+    const { destroyed } = ship.takeHullDamage(dmg);
+    g.sfx.play('hitHull');
     this.shakeT = Math.max(this.shakeT, hardHit ? 0.8 : 0.5);
     if (destroyed) { this.die(); return true; }
     return false;

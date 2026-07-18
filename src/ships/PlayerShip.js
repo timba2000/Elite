@@ -139,4 +139,14 @@ export class PlayerShip {
     if (destroyed) this.alive = false;
     return { destroyed, hullHit };
   }
+
+  // Structural damage from physical impacts (station collisions): shields
+  // can't stop the hull grinding against superstructure, so this skips them.
+  takeHullDamage(dmg) {
+    this.shieldTimer = 0;
+    this.playerData.hull -= dmg;
+    const destroyed = this.playerData.hull <= 0;
+    if (destroyed) this.alive = false;
+    return { destroyed, hullHit: true };
+  }
 }

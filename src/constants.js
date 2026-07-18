@@ -35,8 +35,11 @@ export const C = {
   SYSTEMS_PER_GALAXY: 4,
   SYSTEM_JUMP_FUEL: 8,         // fuel commodity units burned per in-galaxy jump
   MISJUMP_CHANCE: 0.12,        // uncorrected emergence: chance per in-galaxy jump
-  MISJUMP_DAMAGE_MIN: 45,      // emergence impact damage range
-  MISJUMP_DAMAGE_MAX: 110,
+  MISJUMP_HULL_FRACTION_MIN: 0.5,  // emergence impact burns this fraction of max hull
+  MISJUMP_HULL_FRACTION_MAX: 0.75, // (shields flash-boil to zero on top)
+  SUN_HEAT_RADIUS: 520,        // corona heat zone: hull cooks inside this
+  SUN_HEAT_DPS_MIN: 2,         // hull damage/s at the heat zone edge
+  SUN_HEAT_DPS_MAX: 16,        // hull damage/s scraping the star itself
   SCAN_TIME: 3.0,              // seconds to complete a surface scan
   SCAN_RANGE_MULT: 12,         // scan reach = body radius * this
   SCAN_BASE_VALUE: 400,        // credits; bonuses below, scaled by galaxy prices
