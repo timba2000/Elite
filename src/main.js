@@ -216,4 +216,5 @@ window.empireDebug = {
   heat(n) { window.game.playerData.empireHeat = n; },
   patrol() { window.game.encounters.spawnEmpirePatrol(window.game.ship); },
   vader() { window.game.encounters.spawnVader(window.game.ship); },
+  deathstar() { window.game.encounters.spawnDeathStar(window.game.ship); },
 };

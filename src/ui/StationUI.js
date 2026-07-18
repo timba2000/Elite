@@ -322,7 +322,9 @@ export class StationUI {
       let status;
       let action = '';
       if (m.type === 'hunt') {
-        status = m.vader
+        status = m.deathstar
+          ? 'The battle station will find you in open space — fly with torpedoes loaded'
+          : m.vader
           ? 'Lord Vader hunts YOU — he strikes when Empire attention peaks'
           : m.capital
           ? 'Star Destroyers blockade the spacelanes at high Empire attention'
@@ -357,7 +359,9 @@ export class StationUI {
 
     const offerRows = this.offers.map((o) => {
       let detail;
-      if (o.vader) {
+      if (o.deathstar) {
+        detail = 'Ray-shielded — only a proton torpedo (missile launcher required) into the thermal exhaust port · beat the superlaser countdown';
+      } else if (o.vader) {
         detail = "The Republic's final ask — face his TIE Advanced when he comes for you";
       } else if (o.capital) {
         detail = 'Destroy an Imperial Star Destroyer · they blockade at high Empire attention';
@@ -430,6 +434,7 @@ export class StationUI {
   }
 
   missionTitle(m) {
+    if (m.deathstar) return 'Battle of Yavin — destroy the DEATH STAR';
     if (m.vader) return 'Republic priority — defeat DARTH VADER';
     if (m.capital) return 'Republic strike — destroy a Star Destroyer';
     if (m.empire) return `Republic strike — destroy ${m.kills} TIE fighters`;

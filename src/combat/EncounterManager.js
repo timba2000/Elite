@@ -3,6 +3,7 @@ import { C } from '../constants.js';
 import { Pirate } from '../ships/Pirate.js';
 import { Police } from '../ships/Police.js';
 import { Empire } from '../ships/Empire.js';
+import { DeathStar } from '../ships/DeathStar.js';
 import { buildCargoPod } from '../ships/ShipFactory.js';
 import { COMMODITIES } from '../economy/commodities.js';
 import { Station } from '../world/Station.js';
@@ -22,6 +23,7 @@ export class EncounterManager {
     this.pirates = [];
     this.police = [];
     this.empire = [];
+    this.deathStar = null;
     this.pods = [];
     this.debris = []; // transient POI scenery (asteroid belts, dead stations)
     this.cooldown = 0;
@@ -119,6 +121,16 @@ export class EncounterManager {
       }
     }
     this.empire = this.empire.filter((p) => p.alive);
+
+    // the Death Star: static menace; running far enough abandons the attempt
+    if (this.deathStar && this.deathStar.alive) {
+      this.deathStar.update(dt, player, laserPool);
+      if (this.deathStar.position.distanceTo(player.position) > C.DEATHSTAR.FLEE_DIST) {
+        this.deathStar.dispose();
+        this.deathStar = null;
+        this.events.toast('YOU HAVE FLED THE DEATH STAR — THE REPUBLIC AWAITS ANOTHER ATTEMPT', 'warn');
+      }
+    }
 
     // cargo pods: bob, spin, scoop
     for (const pod of this.pods) {
@@ -502,9 +514,11 @@ export class EncounterManager {
     this.cooldown = C.ENCOUNTER_COOLDOWN;
   }
 
-  // A Star Destroyer's hangar launch: one TIE at the carrier, on its wing.
+  // A carrier hangar launch (Star Destroyer or Death Star): one TIE just off
+  // the hull, on the carrier's wing.
   spawnEmpireEscort(sd) {
-    _rand.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(60);
+    _rand.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize()
+      .multiplyScalar(sd.boundingRadius + 25);
     _spawnPos.copy(sd.position).add(_rand);
     const tie = new Empire(this.scene, _spawnPos, 1, 'tie');
     tie.wingLeader = sd;
@@ -530,6 +544,65 @@ export class EncounterManager {
 
     this.events.toast("PRIORITY SIGNAL — LORD VADER'S TIE ADVANCED ON INTERCEPT", 'warn');
     this.cooldown = C.ENCOUNTER_COOLDOWN * 2;
+  }
+
+  // The Battle of Yavin: the station drops out of hyperspace ahead of the
+  // player. Spawned by FlightState while a Death Star contract is active.
+  spawnDeathStar(player) {
+    _rand.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(400);
+    _spawnPos.copy(player.position).addScaledVector(player.forward, C.DEATHSTAR.SPAWN_DIST).add(_rand);
+    this.deathStar = new DeathStar(this.scene, _spawnPos);
+    this.events.toast("THAT'S NO MOON — THE DEATH STAR HAS FOUND YOU", 'warn');
+    setTimeout(() => this.events.toast(
+      'RAY-SHIELDED HULL — PUT A PROTON TORPEDO (MISSILE, E) INTO THE THERMAL EXHAUST PORT', 'gold'), 1600);
+    setTimeout(() => this.events.toast(
+      `SUPERLASER CHARGING — ${Math.round(C.DEATHSTAR.SUPERLASER_TIME / 60)} MINUTES TO FIRE`, 'warn'), 3200);
+    this.cooldown = C.ENCOUNTER_COOLDOWN * 2;
+  }
+
+  onDeathStarDestroyed(explosions) {
+    const ds = this.deathStar;
+    if (!ds) return;
+    const pd = this.playerData;
+    ds.alive = false;
+    ds.port.alive = false;
+    this.deathStar = null;
+
+    // rolling chain of blasts along the hull, then the killing flash
+    const centre = ds.position.clone();
+    const R = ds.boundingRadius;
+    for (let i = 0; i < 10; i++) {
+      setTimeout(() => {
+        _rand.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize().multiplyScalar(R * 0.9);
+        explosions.spawn(centre.clone().add(_rand), 3 + Math.random() * 2);
+      }, i * 220);
+    }
+    setTimeout(() => {
+      explosions.spawn(centre, 9);
+      ds.dispose();
+    }, 2400);
+
+    pd.career.deathStarDestroyed = true;
+    pd.empireHeat = 0;
+    Progression.award(pd, C.DEATHSTAR.XP);
+    const prevRank = Progression.combatRank(pd).index;
+    pd.career.combatScore += C.DEATHSTAR.COMBAT_SCORE;
+    const rank = Progression.combatRank(pd);
+
+    const m = Missions.onDeathStarKill(pd);
+    if (m) {
+      this.events.toast(`BATTLE OF YAVIN WON — +${m.reward.toLocaleString()} CR · +${C.DEATHSTAR.XP} XP`, 'gold');
+    } else {
+      const gscale = 1 + ((pd.galaxy ?? 1) - 1) * 0.45;
+      const bounty = Math.floor(C.DEATHSTAR.FALLBACK_BOUNTY * gscale);
+      pd.credits += bounty;
+      pd.career.creditsEarned += bounty;
+      this.events.toast(`THE DEATH STAR IS DESTROYED — +${bounty.toLocaleString()} CR · +${C.DEATHSTAR.XP} XP`, 'gold');
+    }
+    setTimeout(() => this.events.toast('GALNET — THE DEATH STAR IS GONE. A NEW HOPE FOR THE GALAXY.', 'gold'), 2800);
+    if (rank.index > prevRank) {
+      setTimeout(() => this.events.toast(`COMBAT RANK ADVANCED — ${rank.name}`, 'gold'), 3600);
+    }
   }
 
   onEmpireKilled(ship, explosions) {
@@ -729,6 +802,10 @@ export class EncounterManager {
     this.police = [];
     for (const p of this.empire) p.dispose();
     this.empire = [];
+    if (this.deathStar) {
+      this.deathStar.dispose();
+      this.deathStar = null;
+    }
     for (const pod of this.pods) this.scene.remove(pod.mesh);
     this.pods = [];
     for (const d of this.debris) this.scene.remove(d.group);

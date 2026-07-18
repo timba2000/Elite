@@ -837,6 +837,73 @@ export function buildStarDestroyer(seed = 1) {
   return { group, nozzles, glowSprites, hardpoints, boundingRadius: 48 };
 }
 
+// The Death Star: a moon-sized sphere with the superlaser dish, an
+// equatorial trench, and the thermal exhaust port that kills it.
+export function buildDeathStar(seed = 1) {
+  const group = new THREE.Group();
+  const R = 260;
+  const hullMat = hullMaterial('#9aa0a8', '#565b64', 0.35, 300 + seed, 0.6, 0.6);
+  const darkMat = new THREE.MeshStandardMaterial({ color: 0x2c3038, metalness: 0.7, roughness: 0.5 });
+
+  const sphere = new THREE.Mesh(new THREE.SphereGeometry(R, 48, 32), hullMat);
+  group.add(sphere);
+
+  // superlaser dish: an inset darker bowl in the northern hemisphere (+Z-ish)
+  const dishDir = new THREE.Vector3(0.55, 0.55, 0.63).normalize();
+  const dish = new THREE.Mesh(new THREE.CylinderGeometry(88, 62, 14, 28), darkMat);
+  dish.position.copy(dishDir).multiplyScalar(R - 8);
+  dish.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dishDir);
+  group.add(dish);
+  const emitter = new THREE.Mesh(new THREE.SphereGeometry(8, 12, 10), new THREE.MeshStandardMaterial({
+    color: 0x0a1a0a, emissive: new THREE.Color(0x2aff55), emissiveIntensity: 1.4,
+  }));
+  emitter.position.copy(dishDir).multiplyScalar(R + 2);
+  group.add(emitter);
+  // charge glow, scaled up by the DeathStar entity as the superlaser charges
+  const dishGlowMat = new THREE.SpriteMaterial({
+    map: engineGlowTex, blending: THREE.AdditiveBlending, depthWrite: false,
+    transparent: true, color: new THREE.Color(0.8, 3.0, 0.9),
+  });
+  const dishGlow = new THREE.Sprite(dishGlowMat);
+  dishGlow.position.copy(dishDir).multiplyScalar(R + 6);
+  dishGlow.scale.setScalar(0.01);
+  group.add(dishGlow);
+
+  // equatorial trench
+  const trench = new THREE.Mesh(new THREE.TorusGeometry(R + 1, 6, 8, 96), darkMat);
+  trench.rotation.x = Math.PI / 2;
+  group.add(trench);
+
+  // surface greebles — towers and blocks breaking up the sphere
+  const turrets = [];
+  for (let i = 0; i < 36; i++) {
+    const dir = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
+    const g = new THREE.Mesh(new THREE.BoxGeometry(6 + Math.random() * 14, 4 + Math.random() * 8, 6 + Math.random() * 14), darkMat);
+    g.position.copy(dir).multiplyScalar(R);
+    g.lookAt(0, 0, 0);
+    group.add(g);
+    if (turrets.length < 10) {
+      const t = new THREE.Object3D();
+      t.position.copy(dir).multiplyScalar(R + 10);
+      group.add(t);
+      turrets.push(t);
+    }
+  }
+
+  // thermal exhaust port: on the trench, marked by a small emissive ring
+  const port = new THREE.Object3D();
+  port.position.set(0, 0, R + 2);
+  group.add(port);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(8, 1.4, 6, 18), new THREE.MeshStandardMaterial({
+    color: 0x1a1208, emissive: new THREE.Color(0xffaa33), emissiveIntensity: 1.6,
+  }));
+  ring.position.set(0, 0, R + 2);
+  group.add(ring);
+
+  enableShadows(group);
+  return { group, port, dishGlow, turrets, boundingRadius: R + 8 };
+}
+
 // Glowing cargo pod dropped by destroyed pirates.
 export function buildCargoPod() {
   const mat = new THREE.MeshStandardMaterial({

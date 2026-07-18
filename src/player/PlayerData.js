@@ -30,7 +30,7 @@ export class PlayerData {
     this.level = 1;
     this.skillPoints = 0;
     this.skills = { piloting: 0, gunnery: 0, trade: 0 };
-    this.career = { creditsEarned: 0, piratesKilled: 0, contractsCompleted: 0, distanceFlown: 0, scanEarnings: 0, combatScore: 0, warlordDefeated: false, empireKills: 0, vaderDefeated: false, republicMissionsCompleted: 0, empireFirstContact: false };
+    this.career = { creditsEarned: 0, piratesKilled: 0, contractsCompleted: 0, distanceFlown: 0, scanEarnings: 0, combatScore: 0, warlordDefeated: false, empireKills: 0, vaderDefeated: false, republicMissionsCompleted: 0, empireFirstContact: false, deathStarDestroyed: false };
     this.fines = 0; // outstanding police fines, settled at next docking
     this.visitedStations = [];
     this.shipId = 'trader';

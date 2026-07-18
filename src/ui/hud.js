@@ -116,7 +116,7 @@ export class Hud {
     this.fadeEl.classList.toggle('on', on);
   }
 
-  update(dt, { ship, playerData, stats, target, mode, camera, pirates, police = [], empire = [], pods, lockState = 'none', lockTarget = null }) {
+  update(dt, { ship, playerData, stats, target, mode, camera, pirates, police = [], empire = [], deathStar = null, pods, lockState = 'none', lockTarget = null }) {
     // bars
     this.bars.hull.style.transform = `scaleX(${Math.max(0, playerData.hull / stats.hullMax)})`;
     this.bars.shield.style.transform = `scaleX(${stats.shieldMax > 0 ? ship.shield / stats.shieldMax : 0})`;
@@ -209,7 +209,7 @@ export class Hud {
       this.tdist.textContent = '';
     }
 
-    this.drawRadar(ship, target, pirates, police, empire, pods);
+    this.drawRadar(ship, target, pirates, police, empire, pods, deathStar);
     this.updateCombatIndicators(ship, camera, pirates, police, empire, lockState, lockTarget);
 
     // damage flash decay
@@ -296,7 +296,7 @@ export class Hud {
     ctx.shadowBlur = 0;
   }
 
-  drawRadar(ship, target, pirates = [], police = [], empire = [], pods = []) {
+  drawRadar(ship, target, pirates = [], police = [], empire = [], pods = [], deathStar = null) {
     const ctx = this.rctx;
     const S = 128, cx = S / 2, cy = S / 2, R = 58;
     ctx.clearRect(0, 0, S, S);
@@ -339,6 +339,7 @@ export class Hud {
     for (const p of pirates) blip(p.position, '#ff5040', 3);
     for (const p of police) blip(p.position, '#00aaff', 3);
     for (const p of empire) blip(p.position, '#d8e0ff', p.type === 'stardestroyer' ? 4.5 : 3);
+    if (deathStar?.alive) blip(deathStar.position, '#d8e0ff', 6.5, true);
     for (const pod of pods) blip(pod.mesh.position, '#ffd27a', 2);
 
     // player marker

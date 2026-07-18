@@ -278,4 +278,22 @@ export const C = {
   },
   EMPIRE_BOUNTY: { tie: 250, interceptor: 520, stardestroyer: 6500, vader: 20000 }, // Republic pays, × galaxy scale
   VADER_XP_BONUS: 500,
+
+  // The Death Star — one-time endgame event, unlocked by defeating Vader.
+  // Lasers are useless; only a missile into the exhaust port kills it.
+  DEATHSTAR: {
+    RADIUS: 260,
+    SPAWN_DIST: 2600,
+    TURRET_DAMAGE: 12,
+    TURRET_INTERVAL: 1.0,     // seconds between turbolaser volleys
+    TURRET_RANGE: 900,        // measured from the surface
+    TIE_INTERVAL: 15,         // seconds between hangar launches
+    MAX_TIES: 4,
+    SUPERLASER_TIME: 180,     // seconds until the superlaser fires
+    FLEE_DIST: 6000,          // run this far and the attempt is abandoned
+    PORT_LOCK_RANGE: 500,     // exhaust port only locks inside this
+    XP: 1000,
+    COMBAT_SCORE: 10,
+    FALLBACK_BOUNTY: 50000,   // paid only if no Battle of Yavin contract is active
+  },
 };

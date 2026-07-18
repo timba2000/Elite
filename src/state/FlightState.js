@@ -90,6 +90,8 @@ export class FlightState {
     this.bodyScan = null;
     this.jumpDest = -1;
     this.lastHeatTier = null; // seeded on the first update tick
+    this.dsAttempted = false; // one Death Star engagement per flight
+    this.dsToastT = 0;        // throttles the ray-shield hint
     g.ui.hud.show();
     g.ui.hud.navTargets = g.world.getNavTargets();
     g.ui.stationUI.hide();
@@ -501,6 +503,22 @@ export class FlightState {
     );
     g.encounters.update(dt, ship, g.laserPool, this.mode === 'super', nearStation);
 
+    // ---------- the Death Star ----------
+    // A Battle of Yavin contract summons the station once per flight.
+    if (!this.dsAttempted && !g.encounters.deathStar && !nearStation
+        && g.playerData.missions.some((m) => m.deathstar)) {
+      this.dsAttempted = true;
+      g.encounters.spawnDeathStar(ship);
+    }
+    this.dsToastT = Math.max(0, this.dsToastT - dt);
+    const deathStar = g.encounters.deathStar;
+    if (deathStar?.superlaserFired) {
+      g.ui.hud.toast('THE SUPERLASER FIRES — YOUR SHIP IS VAPORIZED', 'warn');
+      g.explosions.spawn(ship.position, 4);
+      this.die();
+      return;
+    }
+
     // close-call XP: surviving combat with the hull nearly gone
     const inCombat = g.encounters.inCombat;
     if (this.wasInCombat && !inCombat && this.mode !== 'dead'
@@ -521,6 +539,11 @@ export class FlightState {
       ...g.encounters.empire.map((p) => ({
         entity: p, position: p.position, radius: p.boundingRadius, side: 'empire',
       })),
+      // the exhaust port must precede the station body so close shots hit it
+      ...(deathStar ? [
+        { entity: deathStar.port, position: deathStar.port.position, radius: deathStar.port.boundingRadius, side: 'empire' },
+        { entity: deathStar, position: deathStar.position, radius: deathStar.boundingRadius, side: 'empire' },
+      ] : []),
     ];
     g.laserPool.update(dt, targets, (t, bolt, hitPos) => this.handleHit(t, bolt, hitPos));
 
@@ -577,6 +600,11 @@ export class FlightState {
       if (ship.missilesAmmo > 0) {
         // Search for active NPC ships in crosshair sights
         const hostiles = g.encounters.pirates.concat(g.encounters.police, g.encounters.empire).filter((p) => p.alive);
+        // the exhaust port is a torpedo target, but only up close — the run
+        const dsPort = g.encounters.deathStar?.port;
+        if (dsPort?.alive && dsPort.position.distanceTo(ship.position) < C.DEATHSTAR.PORT_LOCK_RANGE) {
+          hostiles.push(dsPort);
+        }
         let bestHostile = null;
         let minNdcDist = Infinity;
 
@@ -684,7 +712,9 @@ export class FlightState {
       ship, playerData: g.playerData, stats: ship.stats,
       target: this.target, mode: this.mode, camera: g.camera,
       pirates: g.encounters.pirates, police: g.encounters.police,
-      empire: g.encounters.empire, pods: g.encounters.pods,
+      empire: deathStar && deathStar.port.alive
+        ? [...g.encounters.empire, deathStar.port] : g.encounters.empire,
+      deathStar, pods: g.encounters.pods,
       lockState, lockTarget: this.lockTarget,
     });
   }
@@ -723,6 +753,19 @@ export class FlightState {
 
   handleHit(t, bolt, hitPos) {
     const g = this.game;
+    // Death Star surfaces: lasers are useless — the ray-shielded port and the
+    // armored hull both soak the bolt and remind the pilot what works
+    if (t.entity.isExhaustPort || t.entity.isDeathStar) {
+      g.explosions.spawn(hitPos, 0.25);
+      g.sfx.play('hitSpark');
+      if (this.dsToastT <= 0) {
+        this.dsToastT = 4;
+        g.ui.hud.toast(t.entity.isExhaustPort
+          ? 'PORT IS RAY-SHIELDED — ONLY A PROTON TORPEDO (E) CAN PENETRATE'
+          : 'TURBOLASER ARMOR — LASERS ARE USELESS. HIT THE EXHAUST PORT.', 'warn');
+      }
+      return;
+    }
     if (t.side === 'pirate' || t.side === 'police' || t.side === 'empire') {
       let dmg = bolt.damage;
       const critChance = g.ship.stats.critChance;
@@ -871,6 +914,14 @@ export class FlightState {
 
   handleMissileHit(t, missile) {
     const g = this.game;
+    // the proton torpedo finds the exhaust port: the Death Star dies
+    if (t.isExhaustPort) {
+      g.explosions.spawn(missile.mesh.position, 2.5);
+      g.sfx.play('hitHull');
+      t.takeDamage(missile.damage);
+      g.encounters.onDeathStarDestroyed(g.explosions);
+      return;
+    }
     // pirate anti-missile ECM: their countermeasures can spoof the warhead
     if (t.hasEcm && Math.random() < 0.5) {
       g.explosions.spawn(missile.mesh.position, 1.0);
@@ -1476,7 +1527,12 @@ export class FlightState {
       if (destroyed) { this.die(); return; }
     }
 
-    for (const p of g.world.planets) {
+    // the Death Star hull is as solid as any moon
+    const ds = g.encounters?.deathStar;
+    const bodies = ds && ds.alive
+      ? [...g.world.planets, { radius: ds.boundingRadius, group: ds.group, def: { name: 'THE DEATH STAR' } }]
+      : g.world.planets;
+    for (const p of bodies) {
       const min = p.radius + 25;
       const d = pos.distanceTo(p.group.position);
       if (d < min) {

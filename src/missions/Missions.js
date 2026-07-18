@@ -226,6 +226,20 @@ export const Missions = {
           armed: true,
         });
       }
+      // the Battle of Yavin: with Vader beaten, Republic intel finds the
+      // Empire's battle station — the campaign's final contract
+      if (pd.career.vaderDefeated && !pd.career.deathStarDestroyed
+          && !pd.missions.some((m) => m.deathstar)) {
+        offers.push({
+          id: makeId(), type: 'hunt', deathstar: true, heat: 0,
+          kills: 1, killsDone: 0,
+          originName: planetDef.name,
+          reward: Math.round(100000 * s),
+          penalty: 0,
+          timeLeft: null,
+          armed: true,
+        });
+      }
     }
     return offers;
   },
@@ -322,7 +336,7 @@ export const Missions = {
     const completed = [];
     const progress = [];
     pd.missions = pd.missions.filter((m) => {
-      if (m.type !== 'hunt' || m.named || m.empire) return true;
+      if (m.type !== 'hunt' || m.named || m.empire || m.deathstar) return true;
       m.killsDone++;
       if (m.killsDone >= m.kills) {
         this.payout(m, pd);
@@ -354,6 +368,15 @@ export const Missions = {
       return true;
     });
     return { completed, progress };
+  },
+
+  // The Death Star is down: settle the Battle of Yavin contract.
+  onDeathStarKill(pd) {
+    const m = pd.missions.find((x) => x.deathstar);
+    if (!m) return null;
+    this.payout(m, pd);
+    pd.missions = pd.missions.filter((x) => x.id !== m.id);
+    return m;
   },
 
   // Advance deadlines with real flight seconds. Returns expired missions.
@@ -388,6 +411,7 @@ export const Missions = {
 
   hudLine(m) {
     if (m.type === 'hunt') {
+      if (m.deathstar) return 'DESTROY THE DEATH STAR';
       if (m.vader) return 'DEFEAT DARTH VADER';
       if (m.capital) return 'DESTROY A STAR DESTROYER';
       if (m.empire) return `DESTROY TIES ${m.killsDone}/${m.kills}`;
