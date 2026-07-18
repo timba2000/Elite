@@ -183,6 +183,25 @@ export const Missions = {
           requires: { skill: 'gunnery', tier: 1 },
         });
       }
+      // counter-intelligence: run a sliced datacore to a Republic cell and
+      // they scrub your file from Imperial records — the one way to work
+      // earned Empire attention back down
+      if (heat >= 35 && others.length && Math.random() < 0.6) {
+        const target = pick(others);
+        const good = COMMODITIES.find((g) => g.id === 'electronics');
+        const qty = 1 + Math.floor(Math.random() * 2);
+        const dist = planetDef.position.distanceTo(target.position);
+        offers.push({
+          id: makeId(), type: 'deliver', republic: true, counterIntel: true, heat: -12,
+          good: good.id, goodName: good.name, qty,
+          targetId: target.id, targetName: target.name,
+          originName: planetDef.name,
+          reward: Math.round((good.base * qty * 0.9 + dist * 0.05) * s),
+          penalty: Math.round(good.base * qty * 0.8 * s),
+          timeLeft: Math.round(90 + dist / 70),
+          armed: true,
+        });
+      }
       if (heat >= 60 && Math.random() < 0.4) {
         offers.push({
           id: makeId(), type: 'hunt', empire: true, capital: true, heat: 10,
@@ -260,7 +279,7 @@ export const Missions = {
     pd.career.contractsCompleted++;
     if (m.republic || m.empire) {
       pd.career.republicMissionsCompleted = (pd.career.republicMissionsCompleted || 0) + 1;
-      if (m.heat) pd.empireHeat = Math.min(100, (pd.empireHeat || 0) + m.heat);
+      if (m.heat) pd.empireHeat = Math.max(0, Math.min(100, (pd.empireHeat || 0) + m.heat));
     }
     m.xp = Progression.XP.contract(m.reward);
     Progression.award(pd, m.xp);

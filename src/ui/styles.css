@@ -339,6 +339,8 @@ table.market td { padding: 5px 8px; border-bottom: 1px solid rgba(80,220,255,0.1
 table.market td.num { text-align: right; }
 table.market .cheap { color: #7dff9a; }
 table.market .dear { color: #ff8a7a; }
+.mission-row .cheap { color: #7dff9a; }
+.mission-row .dear { color: #ff8a7a; }
 table.market .dim { color: rgba(159,232,255,0.35); }
 
 .trade-report {

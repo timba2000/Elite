@@ -363,6 +363,8 @@ export class StationUI {
         detail = 'Destroy an Imperial Star Destroyer · they blockade at high Empire attention';
       } else if (o.empire) {
         detail = 'Destroy Imperial fighters anywhere in the system · no time limit';
+      } else if (o.counterIntel) {
+        detail = `The Republic scrubs your file from Imperial records · <span style="color: #7dff9a; font-weight: bold;">TAKE TO: ${o.targetName.toUpperCase()}</span> · ${Missions.fmtTime(o.timeLeft)} limit`;
       } else if (o.type === 'deliver') {
         detail = `Cargo supplied on accept (${o.qty} units) · <span style="color: #7dff9a; font-weight: bold;">TAKE TO: ${o.targetName.toUpperCase()}</span> · ${Missions.fmtTime(o.timeLeft)} limit · ${o.penalty.toLocaleString()} CR penalty`;
       } else if (o.type === 'smuggle') {
@@ -374,7 +376,11 @@ export class StationUI {
       } else {
         detail = 'Destroy them anywhere in the system · no time limit';
       }
-      if (o.heat) detail += ` · <span class="dear">EMPIRE ATTENTION +${o.heat}</span>`;
+      if (o.heat) {
+        detail += o.heat > 0
+          ? ` · <span class="dear">EMPIRE ATTENTION +${o.heat}</span>`
+          : ` · <span class="cheap">EMPIRE ATTENTION −${-o.heat}</span>`;
+      }
       const locked = Missions.lockedReason(o, p);
       if (locked) detail += ` · <span class="dear">${locked}</span>`;
       return `
@@ -427,6 +433,7 @@ export class StationUI {
     if (m.vader) return 'Republic priority — defeat DARTH VADER';
     if (m.capital) return 'Republic strike — destroy a Star Destroyer';
     if (m.empire) return `Republic strike — destroy ${m.kills} TIE fighters`;
+    if (m.counterIntel) return `Republic counter-intel — sliced datacore to ${m.targetName}`;
     if (m.republic) return `Republic dispatch — ${m.qty}x ${m.goodName} to ${m.targetName}`;
     if (m.type === 'deliver') return `Courier — ${m.qty}x ${m.goodName} to ${m.targetName}`;
     if (m.type === 'smuggle') return `Smuggle — ${m.qty}x ${m.goodName} to ${m.targetName}`;
