@@ -109,7 +109,10 @@ export class Hud {
   damageFlash() { this.flashT = 0.25; }
   warpFlash() { this.warpFlashT = 1.0; }
 
-  fade(on) { this.fadeEl.classList.toggle('on', on); }
+  fade(on, fast = false) {
+    this.fadeEl.classList.toggle('fast', fast);
+    this.fadeEl.classList.toggle('on', on);
+  }
 
   update(dt, { ship, playerData, stats, target, mode, camera, pirates, police = [], pods, lockState = 'none', lockTarget = null }) {
     // bars

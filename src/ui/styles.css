@@ -200,6 +200,7 @@ button.amber:hover:not(:disabled) { background: rgba(100, 65, 15, 0.95); box-sha
   transition: opacity 0.8s; pointer-events: none;
 }
 #fade-overlay.on { opacity: 1; }
+#fade-overlay.fast { transition: opacity 0.22s; }
 
 /* ---------- Combat target indicators ---------- */
 #combat-indicators {

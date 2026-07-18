@@ -12,7 +12,7 @@ const FLOOR_W = 116; // x span
 const FLOOR_D = 74;  // z span
 const CEIL_H = 26;
 const BACK_X = -52;  // solid rear wall
-const OPEN_X = 56;   // force-field opening onto space
+export const OPEN_X = 56;   // force-field opening onto space (DockingState flies in through it)
 const PADS = [
   { x: 2, z: 0 },     // centre — the player's ship
   { x: -4, z: -24 },  // visitors

@@ -82,6 +82,8 @@ export const C = {
   // Docking
   DOCK_RANGE: 130,
   DOCK_DURATION: 4.0,          // autodock glide (docking computer)
+  DOCK_ENTER_DURATION: 2.4,    // autopilot run down the docking tunnel
+  DOCK_LANDING_DURATION: 5.0,  // hangar fly-in, hover turn and touchdown
   DOCK_TRACTOR_DURATION: 1.6,  // short tractor pull after a manual capture
   DOCK_CLEARANCE_RANGE: 260,   // clearance expires beyond this distance
   DOCK_MAX_SPEED: 12,          // contact above this bounces you off the hub

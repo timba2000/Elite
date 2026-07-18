@@ -14,13 +14,13 @@ export class StationState {
     this.bay = null; // hangar interior, built lazily on first dock
   }
 
-  enter({ station, respawned }) {
+  enter({ station, respawned, landed }) {
     const g = this.game;
     this.station = station;
     g.ship.group.visible = false;
     g.ship.velocity.set(0, 0, 0);
     g.presence?.sendDock(); // our ship vanishes from other commanders' screens
-    g.sfx.play('clamp');
+    if (!landed) g.sfx.play('clamp'); // the landing cinematic already played the touchdown clunk
     g.input.exitPointerLock();
     g.ui.hud.hide();
     g.encounters.clearAll();
