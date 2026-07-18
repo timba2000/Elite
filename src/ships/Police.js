@@ -18,6 +18,7 @@ export class Police {
   constructor(scene, position, scale = 1.2, type = 'interceptor') {
     this.scene = scene;
     this.type = type;
+    this.faction = 'police';
     if (type === 'enforcer') {
       // riot gunship: slow, heavily armored, hits like a wall
       this.ship = buildHeavyPolice(++policeCounter);

@@ -322,7 +322,13 @@ export class StationUI {
       let status;
       let action = '';
       if (m.type === 'hunt') {
-        status = m.named
+        status = m.vader
+          ? 'Lord Vader hunts YOU — he strikes when Empire attention peaks'
+          : m.capital
+          ? 'Star Destroyers blockade the spacelanes at high Empire attention'
+          : m.empire
+          ? `${m.killsDone}/${m.kills} TIE fighters destroyed · no time limit`
+          : m.named
           ? 'The target hunts YOU — cruise the spacelanes and it will find you'
           : `${m.killsDone}/${m.kills} pirates destroyed · no time limit`;
       } else {
@@ -351,7 +357,13 @@ export class StationUI {
 
     const offerRows = this.offers.map((o) => {
       let detail;
-      if (o.type === 'deliver') {
+      if (o.vader) {
+        detail = "The Republic's final ask — face his TIE Advanced when he comes for you";
+      } else if (o.capital) {
+        detail = 'Destroy an Imperial Star Destroyer · they blockade at high Empire attention';
+      } else if (o.empire) {
+        detail = 'Destroy Imperial fighters anywhere in the system · no time limit';
+      } else if (o.type === 'deliver') {
         detail = `Cargo supplied on accept (${o.qty} units) · <span style="color: #7dff9a; font-weight: bold;">TAKE TO: ${o.targetName.toUpperCase()}</span> · ${Missions.fmtTime(o.timeLeft)} limit · ${o.penalty.toLocaleString()} CR penalty`;
       } else if (o.type === 'smuggle') {
         detail = `Unmarked narcotics supplied · <span style="color: #ff8a7a; font-weight: bold;">SMUGGLE TO: ${o.targetName.toUpperCase()}</span> · dodge scans · ${Missions.fmtTime(o.timeLeft)} limit`;
@@ -362,6 +374,7 @@ export class StationUI {
       } else {
         detail = 'Destroy them anywhere in the system · no time limit';
       }
+      if (o.heat) detail += ` · <span class="dear">EMPIRE ATTENTION +${o.heat}</span>`;
       const locked = Missions.lockedReason(o, p);
       if (locked) detail += ` · <span class="dear">${locked}</span>`;
       return `
@@ -411,6 +424,10 @@ export class StationUI {
   }
 
   missionTitle(m) {
+    if (m.vader) return 'Republic priority — defeat DARTH VADER';
+    if (m.capital) return 'Republic strike — destroy a Star Destroyer';
+    if (m.empire) return `Republic strike — destroy ${m.kills} TIE fighters`;
+    if (m.republic) return `Republic dispatch — ${m.qty}x ${m.goodName} to ${m.targetName}`;
     if (m.type === 'deliver') return `Courier — ${m.qty}x ${m.goodName} to ${m.targetName}`;
     if (m.type === 'smuggle') return `Smuggle — ${m.qty}x ${m.goodName} to ${m.targetName}`;
     if (m.type === 'supply') return `Supply — ${m.qty}x ${m.goodName} wanted`;

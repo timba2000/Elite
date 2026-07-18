@@ -48,7 +48,7 @@ export const Progression = {
   WARLORD_RANK: 4, // DANGEROUS unlocks the warlord encounter
 
   combatScoreFor(type) {
-    return { dreadnought: 4, corsair: 3, marauder: 2, cutthroat: 2 }[type] ?? 1;
+    return { dreadnought: 4, corsair: 3, marauder: 2, cutthroat: 2, interceptor: 2, stardestroyer: 5, vader: 6 }[type] ?? 1;
   },
 
   combatRank(pd) {
@@ -64,7 +64,7 @@ export const Progression = {
   XP: {
     tradeProfit: (profit) => Math.round(profit * 0.5),
     contract: (reward) => Math.round(reward * 0.35),
-    kill: (type) => ({ dreadnought: 120, corsair: 95, marauder: 70, cutthroat: 55 }[type] ?? 40),
+    kill: (type) => ({ dreadnought: 120, corsair: 95, marauder: 70, cutthroat: 55, tie: 35, interceptor: 60, stardestroyer: 300, vader: 200 }[type] ?? 40),
     firstVisit: 60,
     scan: 45, // first surface scan of a body
     closeCall: 150, // survive combat with hull under 25%

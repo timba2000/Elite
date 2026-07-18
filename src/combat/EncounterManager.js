@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { C } from '../constants.js';
 import { Pirate } from '../ships/Pirate.js';
 import { Police } from '../ships/Police.js';
+import { Empire } from '../ships/Empire.js';
 import { buildCargoPod } from '../ships/ShipFactory.js';
 import { COMMODITIES } from '../economy/commodities.js';
 import { Station } from '../world/Station.js';
@@ -20,6 +21,7 @@ export class EncounterManager {
     this.events = events; // { toast(msg, kind), onInterdiction() }
     this.pirates = [];
     this.police = [];
+    this.empire = [];
     this.pods = [];
     this.debris = []; // transient POI scenery (asteroid belts, dead stations)
     this.cooldown = 0;
@@ -27,7 +29,8 @@ export class EncounterManager {
   }
 
   get inCombat() {
-    return this.pirates.some((p) => p.alive) || this.police.some((p) => p.alive);
+    return this.pirates.some((p) => p.alive) || this.police.some((p) => p.alive)
+      || this.empire.some((p) => p.alive);
   }
 
   nearestPirateDist(pos) {
@@ -37,6 +40,10 @@ export class EncounterManager {
       d = Math.min(d, p.position.distanceTo(pos));
     }
     for (const p of this.police) {
+      if (!p.alive) continue;
+      d = Math.min(d, p.position.distanceTo(pos));
+    }
+    for (const p of this.empire) {
       if (!p.alive) continue;
       d = Math.min(d, p.position.distanceTo(pos));
     }
@@ -61,6 +68,14 @@ export class EncounterManager {
         const base = inSupercruise ? C.INTERDICTION_CHANCE : C.INTERDICTION_CHANCE_NORMAL;
         if (Math.random() < base * cargoFactor * namedFactor * this.playerData.getDerivedStats().interdictionMult) {
           this.spawnAmbush(player);
+          this.events.onInterdiction();
+          break;
+        }
+        // the Empire hunts by empireHeat, mostly at supercruise checkpoints
+        const heat = this.playerData.empireHeat || 0;
+        if (heat >= C.EMPIRE.FIRST_CONTACT_HEAT
+            && Math.random() < (heat / 100) * C.EMPIRE.ROLL_MAX * (inSupercruise ? 1 : 0.25)) {
+          this.spawnEmpirePatrol(player);
           this.events.onInterdiction();
           break;
         }
@@ -94,6 +109,16 @@ export class EncounterManager {
       }
     }
     this.police = this.police.filter((p) => p.alive);
+
+    // Empire: never flees, but a patrol the player outruns loses the trail
+    for (const p of this.empire) {
+      p.update(dt, player, laserPool);
+      if (p.alive && p.position.distanceTo(player.position) > C.EMPIRE.DESPAWN_DIST) {
+        p.alive = false;
+        p.dispose();
+      }
+    }
+    this.empire = this.empire.filter((p) => p.alive);
 
     // cargo pods: bob, spin, scoop
     for (const pod of this.pods) {
@@ -408,6 +433,160 @@ export class EncounterManager {
     this.cooldown = C.ENCOUNTER_COOLDOWN;
   }
 
+  // The Imperial hunt: patrol strength ladders up with empireHeat, topping
+  // out in Star Destroyer blockades and the one-off Vader duel.
+  spawnEmpirePatrol(player) {
+    const pd = this.playerData;
+    const heat = pd.empireHeat || 0;
+    const galaxy = pd.galaxy ?? 1;
+    const scale = 1 + (galaxy - 1) * 0.2; // Empire stats are absolute; no net-worth scaling
+    const fwd = player.forward;
+
+    if (!pd.career.empireFirstContact) {
+      pd.career.empireFirstContact = true;
+      this.events.toast('GALNET — IMPERIAL FORCES CONFIRMED IN THE SECTOR. THE EMPIRE IS WATCHING.', 'warn');
+    }
+
+    // Lord Vader comes for proven pilots the Empire truly wants dead
+    if (heat >= C.EMPIRE.VADER_HEAT && !pd.career.vaderDefeated
+        && Progression.combatRank(pd).index >= Progression.WARLORD_RANK
+        && Math.random() < C.EMPIRE.VADER_CHANCE) {
+      this.spawnVader(player);
+      return;
+    }
+
+    const spawnAt = (dist, spread) => {
+      _rand.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(spread);
+      return _spawnPos.copy(player.position).addScaledVector(fwd, dist).add(_rand);
+    };
+
+    const spawned = [];
+    if (heat >= 80 && Math.random() < C.EMPIRE.BLOCKADE_CHANCE) {
+      // blockade: a Star Destroyer with a TIE screen
+      const sd = new Empire(this.scene, spawnAt(900, 200), scale, 'stardestroyer');
+      sd.isWingLeader = true;
+      this.empire.push(sd);
+      for (let i = 0; i < 3; i++) {
+        const tie = new Empire(this.scene, spawnAt(650, 400), scale, 'tie');
+        tie.wingLeader = sd;
+        this.empire.push(tie);
+      }
+      this.events.toast('MASSIVE SIGNATURE — IMPERIAL STAR DESTROYER BLOCKADE', 'warn');
+      this.cooldown = C.ENCOUNTER_COOLDOWN * 2;
+      return;
+    }
+
+    let ties = 0, interceptors = 0;
+    if (heat >= 80) { ties = 2; interceptors = 3; }
+    else if (heat >= 60) { ties = 2 + Math.floor(Math.random() * 2); interceptors = 1 + Math.floor(Math.random() * 2); }
+    else if (heat >= 40) { ties = 3 + Math.floor(Math.random() * 2); }
+    else { ties = 1 + Math.floor(Math.random() * 2); }
+
+    for (let i = 0; i < interceptors; i++) {
+      spawned.push(new Empire(this.scene, spawnAt(600 + Math.random() * 300, 500), scale, 'interceptor'));
+    }
+    for (let i = 0; i < ties; i++) {
+      spawned.push(new Empire(this.scene, spawnAt(600 + Math.random() * 300, 500), scale, 'tie'));
+    }
+    if (spawned.length >= 2) {
+      const leader = spawned[0]; // interceptors spawn first and lead the wing
+      leader.isWingLeader = true;
+      for (const s of spawned) {
+        if (s !== leader) s.wingLeader = leader;
+      }
+    }
+    this.empire.push(...spawned);
+    this.events.toast(spawned.length > 2
+      ? `IMPERIAL PATROL — TIE WING ON SCANNER, ${spawned.length} SHIPS`
+      : 'IMPERIAL PATROL — TIE FIGHTERS ON SCANNER', 'warn');
+    this.cooldown = C.ENCOUNTER_COOLDOWN;
+  }
+
+  // A Star Destroyer's hangar launch: one TIE at the carrier, on its wing.
+  spawnEmpireEscort(sd) {
+    _rand.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(60);
+    _spawnPos.copy(sd.position).add(_rand);
+    const tie = new Empire(this.scene, _spawnPos, 1, 'tie');
+    tie.wingLeader = sd;
+    this.empire.push(tie);
+  }
+
+  // The one-off boss: Vader's TIE Advanced with an interceptor escort.
+  spawnVader(player) {
+    const fwd = player.forward;
+    _rand.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(300);
+    _spawnPos.copy(player.position).addScaledVector(fwd, 750).add(_rand);
+    const boss = new Empire(this.scene, _spawnPos, 1, 'vader');
+    boss.isWingLeader = true;
+    this.empire.push(boss);
+
+    for (let i = 0; i < 2; i++) {
+      _rand.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(350);
+      _spawnPos.copy(player.position).addScaledVector(fwd, 650).add(_rand);
+      const escort = new Empire(this.scene, _spawnPos, 1, 'interceptor');
+      escort.wingLeader = boss;
+      this.empire.push(escort);
+    }
+
+    this.events.toast("PRIORITY SIGNAL — LORD VADER'S TIE ADVANCED ON INTERCEPT", 'warn');
+    this.cooldown = C.ENCOUNTER_COOLDOWN * 2;
+  }
+
+  onEmpireKilled(ship, explosions) {
+    const pd = this.playerData;
+    explosions.spawn(ship.position, ship.type === 'stardestroyer' ? 3.2 : ship.type === 'vader' ? 2.6 : 1.2);
+
+    // the Republic pays bounties on Imperial hulls
+    const gscale = 1 + ((pd.galaxy ?? 1) - 1) * 0.45;
+    const bounty = Math.floor((C.EMPIRE_BOUNTY[ship.type] ?? 250) * gscale);
+    pd.credits += bounty;
+    pd.career.creditsEarned += bounty;
+    pd.career.empireKills = (pd.career.empireKills || 0) + 1;
+    const xp = Progression.XP.kill(ship.type) + (ship.type === 'vader' ? C.VADER_XP_BONUS : 0);
+    Progression.award(pd, xp);
+    this.events.toast(`REPUBLIC BOUNTY +${bounty.toLocaleString()} CR · +${xp} XP`, 'gold');
+
+    const prevRank = Progression.combatRank(pd).index;
+    pd.career.combatScore += Progression.combatScoreFor(ship.type);
+    const rank = Progression.combatRank(pd);
+    if (rank.index > prevRank) {
+      setTimeout(() => this.events.toast(`COMBAT RANK ADVANCED — ${rank.name}`, 'gold'), 900);
+    }
+
+    // killing Imperials makes the Empire angrier — except beating Vader,
+    // which breaks the hunt (he survives the duel, Yavin-style)
+    if (ship.type === 'vader') {
+      pd.career.vaderDefeated = true;
+      pd.empireHeat = Math.max(0, (pd.empireHeat || 0) - 40);
+      setTimeout(() => this.events.toast("VADER'S TIE SPINS OFF INTO THE DARK — THE EMPIRE FALLS BACK", 'gold'), 400);
+    } else {
+      const gain = { tie: 1, interceptor: 2, stardestroyer: 8 }[ship.type] ?? 1;
+      pd.empireHeat = Math.min(100, (pd.empireHeat || 0) + gain);
+      if (ship.type === 'stardestroyer') {
+        setTimeout(() => this.events.toast('STAR DESTROYER DESTROYED — THE EMPIRE WILL NOT FORGET THIS', 'warn'), 400);
+      }
+    }
+
+    const hunts = Missions.onEmpireKill(pd, ship);
+    for (const m of hunts.completed) {
+      this.events.toast(`REPUBLIC CONTRACT COMPLETE — +${m.reward.toLocaleString()} CR · +${m.xp} XP`, 'gold');
+    }
+    for (const m of hunts.progress) {
+      this.events.toast(`REPUBLIC CONTRACT — ${m.killsDone}/${m.kills} TIE FIGHTERS`, '');
+    }
+
+    ship.dispose();
+
+    // military hulls carry no loot; a dead Star Destroyer sheds salvage
+    if (ship.type === 'stardestroyer') {
+      const goods = ['machinery', 'electronics'];
+      for (let i = 0; i < 3; i++) {
+        _rand.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(60);
+        this.dropPod(ship.position.clone().add(_rand), goods[i % goods.length], 1 + Math.floor(Math.random() * 2));
+      }
+    }
+  }
+
   onPirateKilled(pirate, explosions) {
     explosions.spawn(pirate.position, pirate.isWarlord ? 2.6 : 1.4);
     let bounty;
@@ -548,6 +727,8 @@ export class EncounterManager {
     this.pirates = [];
     for (const p of this.police) p.dispose();
     this.police = [];
+    for (const p of this.empire) p.dispose();
+    this.empire = [];
     for (const pod of this.pods) this.scene.remove(pod.mesh);
     this.pods = [];
     for (const d of this.debris) this.scene.remove(d.group);

@@ -149,6 +149,65 @@ export const Missions = {
         requires: { skill: 'gunnery', tier: 3 },
       });
     }
+
+    // Republic cell work — appears once the Empire has taken an interest.
+    // These pay well but raise Empire attention (offer.heat, applied on payout).
+    const heat = pd.empireHeat || 0;
+    if (heat >= 10 || pd.career.empireFirstContact) {
+      if (others.length && Math.random() < 0.6) {
+        const target = pick(others);
+        const good = pick(legal);
+        const qty = 3 + Math.floor(Math.random() * 6);
+        const dist = planetDef.position.distanceTo(target.position);
+        offers.push({
+          id: makeId(), type: 'deliver', republic: true, heat: 6,
+          good: good.id, goodName: good.name, qty,
+          targetId: target.id, targetName: target.name,
+          originName: planetDef.name,
+          reward: Math.round((good.base * qty * 0.9 + dist * 0.05) * 2 * s),
+          penalty: Math.round(good.base * qty * 0.8 * s),
+          timeLeft: Math.round(90 + dist / 70),
+          armed: true,
+        });
+      }
+      if (Math.random() < 0.5) {
+        const kills = 3 + Math.floor(Math.random() * 3);
+        offers.push({
+          id: makeId(), type: 'hunt', empire: true, heat: 4,
+          kills, killsDone: 0,
+          originName: planetDef.name,
+          reward: Math.round(kills * 700 * s),
+          penalty: 0,
+          timeLeft: null,
+          armed: true,
+          requires: { skill: 'gunnery', tier: 1 },
+        });
+      }
+      if (heat >= 60 && Math.random() < 0.4) {
+        offers.push({
+          id: makeId(), type: 'hunt', empire: true, capital: true, heat: 10,
+          kills: 1, killsDone: 0,
+          originName: planetDef.name,
+          reward: Math.round(15000 * s),
+          penalty: 0,
+          timeLeft: null,
+          armed: true,
+          requires: { skill: 'gunnery', tier: 3 },
+        });
+      }
+      if (heat >= C.EMPIRE.VADER_HEAT && !pd.career.vaderDefeated
+          && Progression.combatRank(pd).index >= Progression.WARLORD_RANK) {
+        offers.push({
+          id: makeId(), type: 'hunt', empire: true, vader: true, heat: 0,
+          kills: 1, killsDone: 0,
+          originName: planetDef.name,
+          reward: Math.round(40000 * s),
+          penalty: 0,
+          timeLeft: null,
+          armed: true,
+        });
+      }
+    }
     return offers;
   },
 
@@ -199,6 +258,10 @@ export const Missions = {
     pd.credits += m.reward;
     pd.career.creditsEarned += m.reward;
     pd.career.contractsCompleted++;
+    if (m.republic || m.empire) {
+      pd.career.republicMissionsCompleted = (pd.career.republicMissionsCompleted || 0) + 1;
+      if (m.heat) pd.empireHeat = Math.min(100, (pd.empireHeat || 0) + m.heat);
+    }
     m.xp = Progression.XP.contract(m.reward);
     Progression.award(pd, m.xp);
   },
@@ -240,7 +303,28 @@ export const Missions = {
     const completed = [];
     const progress = [];
     pd.missions = pd.missions.filter((m) => {
-      if (m.type !== 'hunt' || m.named) return true;
+      if (m.type !== 'hunt' || m.named || m.empire) return true;
+      m.killsDone++;
+      if (m.killsDone >= m.kills) {
+        this.payout(m, pd);
+        completed.push(m);
+        return false;
+      }
+      progress.push(m);
+      return true;
+    });
+    return { completed, progress };
+  },
+
+  // Called per Imperial kill: fighter kills advance TIE culls, Star Destroyer
+  // kills complete capital strikes, and a Vader kill settles the endgame ask.
+  onEmpireKill(pd, ship) {
+    const completed = [];
+    const progress = [];
+    const isFighter = ship.type === 'tie' || ship.type === 'interceptor';
+    pd.missions = pd.missions.filter((m) => {
+      if (m.type !== 'hunt' || !m.empire) return true;
+      if (m.vader ? ship.type !== 'vader' : m.capital ? ship.type !== 'stardestroyer' : !isFighter) return true;
       m.killsDone++;
       if (m.killsDone >= m.kills) {
         this.payout(m, pd);
@@ -285,6 +369,9 @@ export const Missions = {
 
   hudLine(m) {
     if (m.type === 'hunt') {
+      if (m.vader) return 'DEFEAT DARTH VADER';
+      if (m.capital) return 'DESTROY A STAR DESTROYER';
+      if (m.empire) return `DESTROY TIES ${m.killsDone}/${m.kills}`;
       return m.named ? `HUNT ${m.named}` : `HUNT PIRATES ${m.killsDone}/${m.kills}`;
     }
     const verb = m.type === 'deliver' ? 'DELIVER' : m.type === 'smuggle' ? 'SMUGGLE' : 'SUPPLY';

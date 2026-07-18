@@ -616,6 +616,227 @@ export function buildHeavyPolice(seed = 1) {
   return { group, nozzles, glowSprites, hardpoints, boundingRadius: 5.4 };
 }
 
+// ---------- The Empire ----------
+// Imperial hulls stay parade-clean (low wear) in cold light greys, with
+// near-black solar panels and the signature green-tinted viewports.
+
+function empireHullMat(seed) {
+  return hullMaterial('#8a8f9a', '#4a4f58', 0.25, 200 + seed, 0.7, 0.45);
+}
+const empirePanelMat = () => new THREE.MeshStandardMaterial({
+  color: 0x14161c, metalness: 0.55, roughness: 0.55,
+});
+const empireGlassMat = () => new THREE.MeshStandardMaterial({
+  color: 0x0a1208, metalness: 0.25, roughness: 0.15,
+  emissive: new THREE.Color(0x2aff55), emissiveIntensity: 0.5,
+});
+
+// Twin-ion engine glow: the pale imperial white-green flare.
+function empireEngineGlow(group, positions, scale = 1.1) {
+  const nozzles = [];
+  const glowSprites = [];
+  for (const [x, y, z] of positions) {
+    const glowMat = new THREE.SpriteMaterial({
+      map: engineGlowTex, blending: THREE.AdditiveBlending, depthWrite: false,
+      transparent: true, color: new THREE.Color(1.6, 2.6, 1.8),
+    });
+    const glow = new THREE.Sprite(glowMat);
+    glow.position.set(x, y, z);
+    glow.scale.setScalar(scale);
+    group.add(glow);
+    glowSprites.push(glow);
+    const nozzle = new THREE.Object3D();
+    nozzle.position.set(x, y, z);
+    group.add(nozzle);
+    nozzles.push(nozzle);
+  }
+  return { nozzles, glowSprites };
+}
+
+// TIE Fighter: ball cockpit between two flat hexagonal solar panels.
+export function buildTieFighter(seed = 1) {
+  const group = new THREE.Group();
+  const hullMat = empireHullMat(seed);
+  const panelMat = empirePanelMat();
+
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(1.1, 18, 14), hullMat);
+  group.add(ball);
+  const viewport = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.16, 8), empireGlassMat());
+  viewport.rotation.x = Math.PI / 2;
+  viewport.position.z = 1.02;
+  group.add(viewport);
+
+  // lateral pylons out to the wing panels
+  const pylonGeo = new THREE.CylinderGeometry(0.14, 0.14, 1.6, 8);
+  pylonGeo.rotateZ(Math.PI / 2);
+  for (let side = -1; side <= 1; side += 2) {
+    const pylon = new THREE.Mesh(pylonGeo, hullMat);
+    pylon.position.set(side * 1.6, 0, 0);
+    group.add(pylon);
+    // hex panel: flat face toward the cockpit
+    const panel = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.2, 0.08, 6), panelMat);
+    panel.rotation.z = Math.PI / 2;
+    panel.position.set(side * 2.4, 0, 0);
+    group.add(panel);
+  }
+
+  const { nozzles, glowSprites } = empireEngineGlow(group, [[0, 0, -1.0]]);
+
+  const hardpoint = new THREE.Object3D();
+  hardpoint.position.set(0, -0.5, 1.0);
+  group.add(hardpoint);
+
+  enableShadows(group);
+  return { group, nozzles, glowSprites, hardpoints: [hardpoint], boundingRadius: 3.2 };
+}
+
+// TIE Interceptor: same ball, dagger wing panels swept to points, wingtip cannon.
+export function buildTieInterceptor(seed = 1) {
+  const group = new THREE.Group();
+  const hullMat = empireHullMat(seed + 1);
+  const panelMat = empirePanelMat();
+
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(1.0, 18, 14), hullMat);
+  group.add(ball);
+  const viewport = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.16, 8), empireGlassMat());
+  viewport.rotation.x = Math.PI / 2;
+  viewport.position.z = 0.94;
+  group.add(viewport);
+
+  const pylonGeo = new THREE.CylinderGeometry(0.13, 0.13, 1.5, 8);
+  pylonGeo.rotateZ(Math.PI / 2);
+  for (let side = -1; side <= 1; side += 2) {
+    const pylon = new THREE.Mesh(pylonGeo, hullMat);
+    pylon.position.set(side * 1.5, 0, 0);
+    group.add(pylon);
+    // two angled dagger blades per side form the notched arrow silhouette
+    for (let v = -1; v <= 1; v += 2) {
+      const blade = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.5, 2.4), panelMat);
+      blade.position.set(side * 2.25, v * 0.75, 0.45);
+      blade.rotation.x = -v * 0.5;
+      group.add(blade);
+    }
+  }
+
+  const { nozzles, glowSprites } = empireEngineGlow(group, [[0, 0, -0.95]], 1.2);
+
+  // interceptor cannon ride the wingtips
+  const hardpoints = [];
+  for (let side = -1; side <= 1; side += 2) {
+    const hp = new THREE.Object3D();
+    hp.position.set(side * 2.25, -1.2, 1.4);
+    group.add(hp);
+    hardpoints.push(hp);
+  }
+
+  enableShadows(group);
+  return { group, nozzles, glowSprites, hardpoints, boundingRadius: 3.4 };
+}
+
+// Vader's TIE Advanced x1: stretched cockpit pod, bent wing panels.
+export function buildVaderTie(seed = 1) {
+  const group = new THREE.Group();
+  const hullMat = hullMaterial('#4a4e57', '#22252c', 0.2, 230 + seed, 0.75, 0.4); // darker than the line fighters
+  const panelMat = empirePanelMat();
+
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(1.05, 18, 14), hullMat);
+  ball.scale.set(1, 0.9, 1.3);
+  group.add(ball);
+  const viewport = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.16, 8), empireGlassMat());
+  viewport.rotation.x = Math.PI / 2;
+  viewport.position.z = 1.3;
+  group.add(viewport);
+
+  const pylonGeo = new THREE.CylinderGeometry(0.16, 0.16, 1.3, 8);
+  pylonGeo.rotateZ(Math.PI / 2);
+  for (let side = -1; side <= 1; side += 2) {
+    const pylon = new THREE.Mesh(pylonGeo, hullMat);
+    pylon.position.set(side * 1.4, 0, 0);
+    group.add(pylon);
+    // bent panels: inner section angles outward-down, outer section vertical
+    const inner = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.6, 2.6), panelMat);
+    inner.position.set(side * 2.2, 0.45, 0);
+    inner.rotation.z = -side * 0.6;
+    group.add(inner);
+    const outer = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.0, 2.6), panelMat);
+    outer.position.set(side * 2.85, -0.75, 0);
+    group.add(outer);
+  }
+
+  const { nozzles, glowSprites } = empireEngineGlow(group, [[0, 0, -1.35]], 1.4);
+
+  // twin chin cannon
+  const hardpoints = [];
+  for (let side = -1; side <= 1; side += 2) {
+    const hp = new THREE.Object3D();
+    hp.position.set(side * 0.35, -0.6, 1.3);
+    group.add(hp);
+    hardpoints.push(hp);
+  }
+
+  const mslHp = new THREE.Object3D();
+  mslHp.position.set(0, -0.7, 0.4);
+  group.add(mslHp);
+  group.userData = { mslHp };
+
+  enableShadows(group);
+  return { group, nozzles, glowSprites, hardpoints, boundingRadius: 3.6 };
+}
+
+// Imperial Star Destroyer: the kilometre wedge, terraced superstructure,
+// bridge tower with twin deflector globes. All primitives, kept cheap.
+export function buildStarDestroyer(seed = 1) {
+  const group = new THREE.Group();
+  const hullMat = empireHullMat(seed + 3);
+  const darkMat = new THREE.MeshStandardMaterial({ color: 0x33363e, metalness: 0.7, roughness: 0.45 });
+
+  // the dagger: a 4-sided cone pointed +Z, flattened vertically
+  const wedgeGeo = new THREE.CylinderGeometry(0.2, 14, 90, 4, 1);
+  wedgeGeo.rotateX(Math.PI / 2);
+  const wedge = new THREE.Mesh(wedgeGeo, hullMat);
+  wedge.scale.y = 0.22;
+  group.add(wedge);
+
+  // terraced superstructure amidships-aft
+  const deck1 = new THREE.Mesh(new THREE.BoxGeometry(12, 1.6, 26), hullMat);
+  deck1.position.set(0, 2.4, -22);
+  group.add(deck1);
+  const deck2 = new THREE.Mesh(new THREE.BoxGeometry(8, 1.4, 16), hullMat);
+  deck2.position.set(0, 3.8, -26);
+  group.add(deck2);
+
+  // bridge tower on a neck, deflector globes on top
+  const neck = new THREE.Mesh(new THREE.BoxGeometry(3.5, 2.4, 3), darkMat);
+  neck.position.set(0, 5.6, -32);
+  group.add(neck);
+  const bridge = new THREE.Mesh(new THREE.BoxGeometry(10, 2.2, 4), hullMat);
+  bridge.position.set(0, 7.6, -32);
+  group.add(bridge);
+  for (let side = -1; side <= 1; side += 2) {
+    const globe = new THREE.Mesh(new THREE.SphereGeometry(1.2, 12, 10), darkMat);
+    globe.position.set(side * 3.4, 9.4, -32);
+    group.add(globe);
+  }
+
+  const { nozzles, glowSprites } = empireEngineGlow(group,
+    [[-6, 0, -46], [0, 0.6, -46], [6, 0, -46]], 4.2);
+
+  // turret batteries spread along the dorsal edges
+  const hardpoints = [];
+  const turretSpots = [
+    [-5, 1.8, 8], [5, 1.8, 8], [-7, 2.2, -8], [7, 2.2, -8], [-8, 2.6, -24], [8, 2.6, -24],
+  ];
+  for (const [x, y, z] of turretSpots) {
+    const hp = new THREE.Object3D();
+    hp.position.set(x, y, z);
+    group.add(hp);
+    hardpoints.push(hp);
+  }
+
+  enableShadows(group);
+  return { group, nozzles, glowSprites, hardpoints, boundingRadius: 48 };
+}
+
 // Glowing cargo pod dropped by destroyed pirates.
 export function buildCargoPod() {
   const mat = new THREE.MeshStandardMaterial({

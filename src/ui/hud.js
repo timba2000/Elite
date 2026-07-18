@@ -31,6 +31,7 @@ export class Hud {
         <div class="level">LVL 1</div>
         <div class="cargo">CARGO 0/20</div>
         <div class="notoriety" style="display:none">NOTORIETY 0</div>
+        <div class="empire-heat" style="display:none">EMPIRE ATTENTION 0</div>
         <div class="loc"></div>
         <div class="missions" style="display:none"></div>
       </div>
@@ -73,6 +74,7 @@ export class Hud {
     this.lastLevel = null;
     this.cargoEl = this.$('.hud-status .cargo');
     this.notorietyEl = this.$('.hud-status .notoriety');
+    this.empireHeatEl = this.$('.hud-status .empire-heat');
     this.locEl = this.$('.hud-status .loc');
     this.missionsEl = this.$('.hud-status .missions');
     this.missionsText = '';
@@ -114,7 +116,7 @@ export class Hud {
     this.fadeEl.classList.toggle('on', on);
   }
 
-  update(dt, { ship, playerData, stats, target, mode, camera, pirates, police = [], pods, lockState = 'none', lockTarget = null }) {
+  update(dt, { ship, playerData, stats, target, mode, camera, pirates, police = [], empire = [], pods, lockState = 'none', lockTarget = null }) {
     // bars
     this.bars.hull.style.transform = `scaleX(${Math.max(0, playerData.hull / stats.hullMax)})`;
     this.bars.shield.style.transform = `scaleX(${stats.shieldMax > 0 ? ship.shield / stats.shieldMax : 0})`;
@@ -173,6 +175,15 @@ export class Hud {
       this.notorietyEl.style.display = 'none';
     }
 
+    const empireHeat = playerData.empireHeat || 0;
+    if (empireHeat >= 10) {
+      this.empireHeatEl.style.display = 'block';
+      this.empireHeatEl.textContent = `EMPIRE ATTENTION ${Math.round(empireHeat)}`;
+      this.empireHeatEl.className = 'empire-heat ' + (empireHeat > 60 ? 'warn' : 'gold');
+    } else {
+      this.empireHeatEl.style.display = 'none';
+    }
+
     // active contracts (up to 3 lines)
     const missions = playerData.missions || [];
     const mText = missions.slice(0, 3).map((m) => `▸ ${Missions.hudLine(m)}`).join('\n');
@@ -198,8 +209,8 @@ export class Hud {
       this.tdist.textContent = '';
     }
 
-    this.drawRadar(ship, target, pirates, police, pods);
-    this.updateCombatIndicators(ship, camera, pirates, police, lockState, lockTarget);
+    this.drawRadar(ship, target, pirates, police, empire, pods);
+    this.updateCombatIndicators(ship, camera, pirates, police, empire, lockState, lockTarget);
 
     // damage flash decay
     if (this.flashT > 0) {
@@ -285,7 +296,7 @@ export class Hud {
     ctx.shadowBlur = 0;
   }
 
-  drawRadar(ship, target, pirates = [], police = [], pods = []) {
+  drawRadar(ship, target, pirates = [], police = [], empire = [], pods = []) {
     const ctx = this.rctx;
     const S = 128, cx = S / 2, cy = S / 2, R = 58;
     ctx.clearRect(0, 0, S, S);
@@ -327,6 +338,7 @@ export class Hud {
     }
     for (const p of pirates) blip(p.position, '#ff5040', 3);
     for (const p of police) blip(p.position, '#00aaff', 3);
+    for (const p of empire) blip(p.position, '#d8e0ff', p.type === 'stardestroyer' ? 4.5 : 3);
     for (const pod of pods) blip(pod.mesh.position, '#ffd27a', 2);
 
     // player marker
@@ -336,8 +348,8 @@ export class Hud {
     ctx.closePath(); ctx.fill();
   }
 
-  updateCombatIndicators(ship, camera, pirates = [], police = [], lockState = 'none', lockTarget = null) {
-    const hostiles = [...pirates, ...police];
+  updateCombatIndicators(ship, camera, pirates = [], police = [], empire = [], lockState = 'none', lockTarget = null) {
+    const hostiles = [...pirates, ...police, ...empire];
     // Build or reuse indicator DOM elements
     while (this.combatEl.children.length < hostiles.length) {
       const el = document.createElement('div');
@@ -359,17 +371,17 @@ export class Hud {
       const el = this.combatEl.children[i];
       const bracket = el.querySelector('.cm-bracket');
       const label = el.querySelector('.cm-label');
-      const isPolice = i >= pirates.length;
       // missile lock paints the target: amber while locking, red when locked
       const isLockTarget = lockTarget && h === lockTarget;
       const hardLock = isLockTarget && lockState === 'locked';
-      let color = isPolice ? '#00aaff' : '#44ff66';
+      let color = h.faction === 'police' ? '#00aaff' : h.faction === 'empire' ? '#d8e0ff' : '#44ff66';
       if (hardLock) color = '#ff3030';
       else if (isLockTarget && lockState === 'locking') color = '#ffd27a';
 
       const dist = h.position.distanceTo(ship.position);
       const meters = dist * 10;
-      const distText = meters >= 1000 ? `${(meters / 1000).toFixed(1)}KM` : `${Math.round(meters)}M`;
+      let distText = meters >= 1000 ? `${(meters / 1000).toFixed(1)}KM` : `${Math.round(meters)}M`;
+      if (h.empireName) distText = `${h.empireName} · ${distText}`;
 
       _ndc.copy(h.position).project(camera);
       const onScreen = _ndc.z < 1 && Math.abs(_ndc.x) < 0.92 && Math.abs(_ndc.y) < 0.88;

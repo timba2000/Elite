@@ -13,6 +13,7 @@ export class PlayerData {
     this.lastStationId = 'earth-station';
     this.gameTime = 0;
     this.notoriety = 0;
+    this.empireHeat = 0; // 0-100: how hard the Empire hunts you
     this.inSpace = false;
     this.spacePos = null;
     this.spaceRot = null;
@@ -29,7 +30,7 @@ export class PlayerData {
     this.level = 1;
     this.skillPoints = 0;
     this.skills = { piloting: 0, gunnery: 0, trade: 0 };
-    this.career = { creditsEarned: 0, piratesKilled: 0, contractsCompleted: 0, distanceFlown: 0, scanEarnings: 0, combatScore: 0, warlordDefeated: false };
+    this.career = { creditsEarned: 0, piratesKilled: 0, contractsCompleted: 0, distanceFlown: 0, scanEarnings: 0, combatScore: 0, warlordDefeated: false, empireKills: 0, vaderDefeated: false, republicMissionsCompleted: 0, empireFirstContact: false };
     this.fines = 0; // outstanding police fines, settled at next docking
     this.visitedStations = [];
     this.shipId = 'trader';
@@ -172,6 +173,7 @@ export class PlayerData {
       lastStationId: this.lastStationId,
       gameTime: this.gameTime,
       notoriety: this.notoriety,
+      empireHeat: this.empireHeat,
       inSpace: this.inSpace,
       spacePos: this.spacePos,
       spaceRot: this.spaceRot,
@@ -212,6 +214,7 @@ export class PlayerData {
     p.lastStationId = data.lastStationId ?? p.lastStationId;
     p.gameTime = data.gameTime ?? 0;
     p.notoriety = data.notoriety ?? 0;
+    p.empireHeat = data.empireHeat ?? 0;
     p.inSpace = data.inSpace ?? false;
     p.spacePos = data.spacePos ?? null;
     p.spaceRot = data.spaceRot ?? null;

@@ -89,6 +89,7 @@ export class FlightState {
     this.stationSecurityCooldown = 0;
     this.bodyScan = null;
     this.jumpDest = -1;
+    this.lastHeatTier = null; // seeded on the first update tick
     g.ui.hud.show();
     g.ui.hud.navTargets = g.world.getNavTargets();
     g.ui.stationUI.hide();
@@ -197,6 +198,24 @@ export class FlightState {
     g.market.update(dt * timeScale);
     if (g.playerData.notoriety > 0) {
       g.playerData.notoriety = Math.max(0, g.playerData.notoriety - dt * timeScale * 0.015);
+    }
+    // Empire attention: a progression-driven floor the Empire never drops
+    // below (they know who you are), plus slow decay of earned heat above it
+    {
+      const pd = g.playerData;
+      const heatFloor = Math.min(60, ((pd.galaxy ?? 1) - 1) * 12
+        + Progression.combatRank(pd).index * 6 + pd.netWorthFactor() * 15);
+      pd.empireHeat = Math.max(heatFloor, (pd.empireHeat || 0) - dt * timeScale * C.EMPIRE.HEAT_DECAY);
+      const tier = Math.floor(pd.empireHeat / 20);
+      if (this.lastHeatTier != null && tier > this.lastHeatTier) {
+        const lines = [null,
+          'GALNET — IMPERIAL PROBE DROIDS SIGHTED IN THE SECTOR',
+          'GALNET — THE EMPIRE POSTS A BOUNTY ON A REPUBLIC COLLABORATOR',
+          'GALNET — IMPERIAL INTERCEPTOR SQUADRONS DEPLOYED TO THE SECTOR',
+          'GALNET — AN IMPERIAL STAR DESTROYER HAS ENTERED THE SECTOR'];
+        if (lines[tier]) g.ui.hud.toast(lines[tier], 'warn');
+      }
+      this.lastHeatTier = tier;
     }
     if (this.stationSecurityCooldown > 0) {
       this.stationSecurityCooldown = Math.max(0, this.stationSecurityCooldown - dt);
@@ -499,12 +518,15 @@ export class FlightState {
       ...g.encounters.police.map((p) => ({
         entity: p, position: p.position, radius: p.boundingRadius, side: 'police',
       })),
+      ...g.encounters.empire.map((p) => ({
+        entity: p, position: p.position, radius: p.boundingRadius, side: 'empire',
+      })),
     ];
     g.laserPool.update(dt, targets, (t, bolt, hitPos) => this.handleHit(t, bolt, hitPos));
 
     // ---------- ship-to-ship collisions ----------
     if (this.mode === 'manual') {
-      for (const p of g.encounters.pirates.concat(g.encounters.police)) {
+      for (const p of g.encounters.pirates.concat(g.encounters.police, g.encounters.empire)) {
         if (!p.alive) continue;
         const minDist = (ship.boundingRadius + p.boundingRadius) * 0.95;
         const d = ship.position.distanceTo(p.position);
@@ -533,8 +555,10 @@ export class FlightState {
           p.velocity.addScaledVector(N, -bounceSpeed);
 
           if (pKilled) {
-            if (p.strobeTimer !== undefined) {
+            if (p.faction === 'police') {
               g.encounters.onPoliceKilled(p, g.explosions);
+            } else if (p.faction === 'empire') {
+              g.encounters.onEmpireKilled(p, g.explosions);
             } else {
               g.encounters.onPirateKilled(p, g.explosions);
             }
@@ -552,7 +576,7 @@ export class FlightState {
     if (this.mode === 'manual' && g.playerData.upgrades.missiles > 0) {
       if (ship.missilesAmmo > 0) {
         // Search for active NPC ships in crosshair sights
-        const hostiles = g.encounters.pirates.concat(g.encounters.police).filter((p) => p.alive);
+        const hostiles = g.encounters.pirates.concat(g.encounters.police, g.encounters.empire).filter((p) => p.alive);
         let bestHostile = null;
         let minNdcDist = Infinity;
 
@@ -659,7 +683,8 @@ export class FlightState {
     g.ui.hud.update(dt, {
       ship, playerData: g.playerData, stats: ship.stats,
       target: this.target, mode: this.mode, camera: g.camera,
-      pirates: g.encounters.pirates, police: g.encounters.police, pods: g.encounters.pods,
+      pirates: g.encounters.pirates, police: g.encounters.police,
+      empire: g.encounters.empire, pods: g.encounters.pods,
       lockState, lockTarget: this.lockTarget,
     });
   }
@@ -698,7 +723,7 @@ export class FlightState {
 
   handleHit(t, bolt, hitPos) {
     const g = this.game;
-    if (t.side === 'pirate' || t.side === 'police') {
+    if (t.side === 'pirate' || t.side === 'police' || t.side === 'empire') {
       let dmg = bolt.damage;
       const critChance = g.ship.stats.critChance;
       const crit = critChance > 0 && Math.random() < critChance;
@@ -711,6 +736,8 @@ export class FlightState {
       if (killed) {
         if (t.side === 'police') {
           g.encounters.onPoliceKilled(t.entity, g.explosions);
+        } else if (t.side === 'empire') {
+          g.encounters.onEmpireKilled(t.entity, g.explosions);
         } else {
           g.encounters.onPirateKilled(t.entity, g.explosions);
         }
@@ -812,7 +839,7 @@ export class FlightState {
     }
 
     // 2. Break any seeker locks still training on the player
-    for (const p of g.encounters.pirates) {
+    for (const p of g.encounters.pirates.concat(g.encounters.empire)) {
       if (p.missileLock > 0) {
         p.missileLock = 0;
         p.missileTimer = Math.max(p.missileTimer, 5);
@@ -855,10 +882,12 @@ export class FlightState {
     g.sfx.play('hitHull');
 
     const killed = t.takeDamage(missile.damage);
-    if (!killed && t.strobeTimer !== undefined) g.encounters.onPoliceHit(t);
+    if (!killed && t.faction === 'police') g.encounters.onPoliceHit(t);
     if (killed) {
-      if (t.strobeTimer !== undefined) {
+      if (t.faction === 'police') {
         g.encounters.onPoliceKilled(t, g.explosions);
+      } else if (t.faction === 'empire') {
+        g.encounters.onEmpireKilled(t, g.explosions);
       } else {
         g.encounters.onPirateKilled(t, g.explosions);
       }

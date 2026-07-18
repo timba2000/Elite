@@ -210,3 +210,10 @@ class Game {
 }
 
 window.game = new Game();
+
+// dev console helpers for forcing Empire encounters
+window.empireDebug = {
+  heat(n) { window.game.playerData.empireHeat = n; },
+  patrol() { window.game.encounters.spawnEmpirePatrol(window.game.ship); },
+  vader() { window.game.encounters.spawnVader(window.game.ship); },
+};

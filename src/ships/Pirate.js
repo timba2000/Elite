@@ -17,6 +17,7 @@ export class Pirate {
   constructor(scene, position, scale = 1, type = 'raider') {
     this.scene = scene;
     this.type = type;
+    this.faction = 'pirate';
 
     if (this.type === 'dreadnought') {
       this.ship = buildHeavyPirate(++pirateCounter);

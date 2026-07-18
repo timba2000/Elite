@@ -252,4 +252,30 @@ export const C = {
     MISSILE_MIN_DIST: 180,  // seeker needs standoff range to arm
     MISSILE_MAX_DIST: 650,
   },
+
+  // The Empire — hunts the player harder as empireHeat (0-100) climbs.
+  // Stats are absolute (not multiplied by net worth like pirates); patrols
+  // only scale gently with galaxy.
+  EMPIRE: {
+    TIE:           { SPEED: 60, TURN: 1.7, HULL: 34, SHIELD: 0, DAMAGE: 5, FIRE_INTERVAL: 0.42, JITTER_MULT: 1.0 },
+    INTERCEPTOR:   { SPEED: 72, TURN: 2.0, HULL: 46, SHIELD: 0, DAMAGE: 7, FIRE_INTERVAL: 0.34, JITTER_MULT: 0.55 },
+    STARDESTROYER: {
+      SPEED: 12, TURN: 0.15, HULL: 900, SHIELD: 300, DAMAGE: 9, FIRE_INTERVAL: 0.9,
+      STANDOFF: 380,          // holds this range off the player, never closes
+      FIRE_RANGE: 520,        // turret batteries out-range fighter lasers
+      REINFORCE_INTERVAL: 22, // seconds between TIE launches
+      MAX_ESCORT: 4,          // live TIEs it will keep in space
+    },
+    VADER:         { SPEED: 68, TURN: 2.1, HULL: 260, SHIELD: 160, DAMAGE: 10, FIRE_INTERVAL: 0.3, JITTER_MULT: 0.35 },
+    AIM_CONE: 0.16, ATTACK_DIST: 260, BREAK_DIST: 55,
+    HEAT_DECAY: 0.003,        // per second, earned heat only (notoriety is 0.015)
+    ROLL_MAX: 0.03,           // encounter chance/s in supercruise at heat 100
+    FIRST_CONTACT_HEAT: 20,   // no Empire encounters below this heat
+    VADER_HEAT: 80,           // + DANGEROUS rank + !career.vaderDefeated
+    VADER_CHANCE: 0.25,       // eligible patrol becomes the Vader event
+    BLOCKADE_CHANCE: 0.35,    // 80+ heat patrol becomes a Star Destroyer blockade
+    DESPAWN_DIST: 5500,       // outrun patrols lose the trail beyond this
+  },
+  EMPIRE_BOUNTY: { tie: 250, interceptor: 520, stardestroyer: 6500, vader: 20000 }, // Republic pays, × galaxy scale
+  VADER_XP_BONUS: 500,
 };
