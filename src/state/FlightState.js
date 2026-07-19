@@ -595,6 +595,41 @@ export class FlightState {
       }
     }
 
+    // ---------- station traffic collisions ----------
+    // NPC ships using the docking lane are solid: blundering into one on
+    // approach bounces both ships and dents the hull. A short cooldown keeps
+    // a scripted ship from grinding damage every contact frame.
+    this.trafficDmgT = Math.max(0, (this.trafficDmgT ?? 0) - dt);
+    if (this.mode === 'manual' && g.world.traffic) {
+      for (let ti = g.world.traffic.ships.length - 1; ti >= 0; ti--) {
+        const t = g.world.traffic.ships[ti];
+        const minDist = (ship.boundingRadius + t.boundingRadius) * 0.95;
+        const d = ship.position.distanceTo(t.group.position);
+        if (d >= minDist) continue;
+        const N = ship.position.clone().sub(t.group.position).normalize();
+        ship.group.position.addScaledVector(N, minDist - d);
+        const impactSpeed = -ship.velocity.clone().sub(t.velocity).dot(N);
+        ship.velocity.addScaledVector(N, Math.max(8, impactSpeed * 0.4));
+        if (this.trafficDmgT > 0) continue;
+        this.trafficDmgT = 0.5;
+        const dmg = Math.max(3, impactSpeed * 1.5);
+        g.ui.hud.damageFlash();
+        g.sfx.play(ship.shield > 0 ? 'hitShield' : 'hitHull');
+        g.ui.hud.toast('COLLISION — STATION TRAFFIC IN THE LANE!', 'warn');
+        this.shakeT = Math.max(this.shakeT, 0.4);
+        t.hull -= dmg;
+        if (t.hull <= 0) {
+          g.explosions.spawn(t.group.position, 1.4);
+          g.world.traffic.remove(t);
+        }
+        const { destroyed } = ship.takeDamage(dmg);
+        if (destroyed) {
+          this.die();
+          break;
+        }
+      }
+    }
+
     // ---------- missiles ----------
     if (this.mode === 'manual' && g.playerData.upgrades.missiles > 0) {
       if (ship.missilesAmmo > 0) {

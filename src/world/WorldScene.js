@@ -5,6 +5,7 @@ import { Nebula } from './Nebula.js';
 import { Sun } from './Sun.js';
 import { Planet } from './Planet.js';
 import { Station } from './Station.js';
+import { StationTraffic } from './StationTraffic.js';
 import { Graphics } from '../fx/Graphics.js';
 
 // Builds and owns everything in the star system.
@@ -43,6 +44,7 @@ export class WorldScene {
     this.suns = [];
     this.planets = [];
     this.stations = [];
+    this.traffic = new StationTraffic(scene);
     this.rebuild();
   }
 
@@ -78,6 +80,7 @@ export class WorldScene {
     if (this.stations) {
       for (const s of this.stations) this.scene.remove(s.group);
     }
+    this.traffic?.clear();
 
     this.suns = [];
     if (SYSTEM.suns && SYSTEM.suns.length > 0) {
@@ -133,6 +136,7 @@ export class WorldScene {
     this.starfield.update(cameraPos, warpFactor);
     const sunPos = this.suns[0]?.group.position || new THREE.Vector3(0, 0, 0);
     for (const p of this.planets) p.update(dt, sunPos);
+    this.traffic.update(dt, this.stations, cameraPos); // sets door requests
     for (const s of this.stations) s.update(dt);
 
     // keep the shadow box centred on the action, lit from the sun's bearing

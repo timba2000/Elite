@@ -205,6 +205,7 @@ export class Station {
     this.time = 0;
     this.radius = 45; // approach/collision radius in world units
     this.dockingActive = false;
+    this.trafficDoorOpen = false; // NPC traffic requesting the doors this frame
   }
 
   // World-space aperture centre and outward normal for the manual approach.
@@ -247,7 +248,7 @@ export class Station {
     }
 
     // Animate sliding doors; the bay light swells as they open
-    const targetOpen = this.dockingActive ? 1.0 : 0.0;
+    const targetOpen = (this.dockingActive || this.trafficDoorOpen) ? 1.0 : 0.0;
     this.doorOpenFactor = THREE.MathUtils.lerp(this.doorOpenFactor, targetOpen, 3.5 * dt);
     this.leftDoor.position.x = -1.3 - (2.7 * this.doorOpenFactor);
     this.rightDoor.position.x = 1.3 + (2.7 * this.doorOpenFactor);
